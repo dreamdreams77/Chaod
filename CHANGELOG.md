@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.0 — depth, arcade look and fixes
+- Visuals: layered parallax and haze in Retro Rampage, a deeper Neon Panic horizon, wall faces and flashlight spill in Nightmare Mall, a lit hub, a deeper Boss Beatdown arena, gradient menus, sprite outlines and soft panel shadows.
+- Arcade CRT is now drawn by the page at display resolution (even scanlines at any size); whole-number scaling keeps pixels uniform; screen shake is a smooth decaying wobble.
+- Touch controls sit in their own gutter (below the screen in portrait, beside it in landscape) so they never cover the game.
+- Fixes: chaos events cut short by death or phase changes now run their end hooks; pausing freezes the song clock; Chaos OFF is respected by the CHAOTIC modifier; FATAL EXCEPTION cannot start after a run ends; no dizzy lock or frozen blocks in Bricklord's bullet-hell phase; skill-check confirm no longer fires a boost; mall LOCKED popup throttled; key auto-repeat cannot become a rebind; events sharing a flag no longer stack.
+- Repo: restored the `src/` layout and rebuilt the render and level-generation sources.
+
 ## 1.0.0 — first playable release
 - Hub world (Lobby of Lost Saves) with cast, shop, virtual pet, Mutation Lab, Chaos Shrine, trophy case and the Cartridge Core.
 - Five worlds: Retro Rampage (platformer → shmup), Neon Panic (racer → horror), Nightmare Mall (survival horror + pet), Boss Beatdown (fighter → bullet hell, vs Bricklord Max), Glitch Rhythm (rhythm + bullet hell, vs DJ Static).
