@@ -11,7 +11,7 @@ import { drawByte, drawCass, drawCoreIcon, drawKevin, drawManual, drawPolygon, d
 import { INTRO, KEVIN_LINES, MODE_INFO, POLYGON_INTRO, REX_LINES, manualLines, isModeUnlocked, ENDING, CAST, BOSSES } from '../data/story.ts';
 import { MODE_IDS, ModeId, ChaosCategory, xpForLevel } from '../core/save.ts';
 import { SHOP, ACHIEVEMENTS, unlockAchievement } from '../data/progression.ts';
-import { QUESTS, MINIS } from '../data/quests.ts';
+import { QUESTS, MINIS, MiniId } from '../data/quests.ts';
 import { startMini } from './arcade.ts';
 import { MUTATIONS, GENRES, describeUnlock, isUnlockSatisfied } from '../fusion/registry.ts';
 
@@ -487,6 +487,29 @@ export class HubScene implements Scene {
     return p.questsDone.length * 100000 + Object.values(p.questProgress).reduce((a, b) => a + b, 0);
   }
 
+  /** The world a world-quest should start: the fastest one for speed runs, else the first you have not cleared. */
+  private questWorld(id: string): ModeId {
+    const p = this.game.profile;
+    if (id === 'speed_demon') return 'rampage';
+    const open = MODE_IDS.filter((m) => isModeUnlocked(m, p.cleared));
+    return open.find((m) => p.cleared[m].clears === 0 && m !== 'beatdown' && m !== 'rhythm') ?? open.find((m) => p.cleared[m].clears === 0) ?? 'rampage';
+  }
+
+  /** PLAY NOW starts the game for this quest right away; world quests also offer a world list. */
+  private questActions(id: string, play: 'worlds' | 'arcade' | MiniId, ok: boolean): MenuItem[] {
+    const verb = ok ? 'PLAY AGAIN' : 'PLAY NOW';
+    if (play === 'worlds') {
+      const m = this.questWorld(id);
+      return [
+        { label: `${verb}: ${MODE_INFO[m].title}`, sub: MODE_INFO[m].blurb, onSelect: () => { this.menu = null; this.game.startMode(m); } },
+        { label: 'CHOOSE ANOTHER WORLD', sub: 'Pick any unlocked world.', onSelect: () => this.worldPicker() },
+      ];
+    }
+    if (play === 'arcade') return [{ label: verb, sub: 'Open the mini-game arcade.', onSelect: () => this.arcadeMenu() }];
+    const title = MINIS.find((x) => x.id === play)?.title ?? 'the game';
+    return [{ label: `${verb}: ${title}`, sub: `Start ${title}.`, onSelect: () => { this.menu = null; startMini(this.game, play); } }];
+  }
+
   private questMenu(keep?: number): void {
     const p = this.game.profile;
     this.game.questSeenSig = this.questSig();
@@ -505,11 +528,7 @@ export class HubScene implements Scene {
           onSelect: () => this.card(q.title, q.desc, (at) => this.questMenu(at), [
             ['STATUS', ok ? 'COMPLETE' : `${prog} / ${q.goal}`],
             ['REWARD', `${q.bits} BITS + ${q.xp} XP`],
-          ], [{
-            label: ok ? 'PLAY AGAIN' : 'PLAY NOW',
-            sub: q.play === 'worlds' ? 'Pick a world to play.' : q.play === 'arcade' ? 'Open the mini-game arcade.' : `Start ${MINIS.find((m) => m.id === q.play)?.title ?? 'the game'}.`,
-            onSelect: () => (q.play === 'worlds' ? this.worldPicker() : q.play === 'arcade' ? this.arcadeMenu() : (this.menu = null, startMini(this.game, q.play))),
-          }]),
+          ], this.questActions(q.id, q.play, ok)),
         };
       }),
       { label: 'BACK', onSelect: () => (this.menu = null) },

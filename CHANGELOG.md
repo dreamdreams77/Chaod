@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.6.3 — world quests start a world
+- PLAY NOW on a world quest (BIT HOARDER, GAME CLEARER, UNTOUCHABLE, CHAOS TOURIST, SPEED DEMON, DISK DIVER) starts a world straight away (RETRO RAMPAGE for speed runs, otherwise your first uncleared world), with CHOOSE ANOTHER WORLD below it. It used to open another list first.
+
 ## 1.6.2 — quests you can play
 - Every quest page now has a PLAY NOW button (the cursor starts on it): world quests open the world list, arcade quests start their mini-game directly (ARCADE ACE starts CART CATCH, BRICK BOSS starts BYTE BREAKOUT, and so on). Before, the page only had BACK to select.
 
