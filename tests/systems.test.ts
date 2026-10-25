@@ -195,7 +195,7 @@ const run = (over: Partial<RunResult> = {}): RunResult => ({
 test('applyRun is pure and rewards clears', () => {
   const p = defaultProfile();
   const snapshot = JSON.stringify(p);
-  const { profile, summary } = applyRun(p, run({ floppies: ['rampage-0'] }));
+  const { profile, summary } = applyRun(p, run({ floppies: ['rampage-0'] }), '2026-03-02', '2026-03-03'); // fixed dates, outside any lobby season
   assert.equal(JSON.stringify(p), snapshot, 'input profile untouched');
   assert.equal(summary.bits, 100);
   const questBits = QUESTS.filter((q) => summary.quests.includes(q.id)).reduce((n, q) => n + q.bits, 0);
@@ -706,4 +706,119 @@ test('weekly and decor saves are validated, and ASSIST MODE defaults off and sur
   assert.equal(migrateSettings({}).assist, false);
   assert.equal(migrateSettings({ assist: 'yes' }).assist, false);
   assert.equal(migrateSettings({ assist: true }).assist, true);
+});
+
+// ---- perks, errands, seasons, curses, share cards ------------------------------------------
+
+import { PERKS, offerPerks, perkTotals } from '../src/data/perks.ts';
+import { advanceErrand, errandFor, errandView } from '../src/data/errands.ts';
+import { SEASONS, seasonFor } from '../src/data/season.ts';
+import { buildCard } from '../src/core/share.ts';
+import { Rng } from '../src/core/rng.ts';
+
+test('perks: three different offers, none held, only for worlds they suit, totals add up', () => {
+  const rng = new Rng(7);
+  for (let i = 0; i < 200; i++) {
+    const offers = offerPerks(rng, 'rampage', ['vitality']);
+    assert.equal(offers.length, 3);
+    assert.equal(new Set(offers.map((o) => o.id)).size, 3);
+    assert.ok(offers.every((o) => o.id !== 'vitality' && (!o.modes || o.modes.includes('rampage'))));
+  }
+  const seen = new Set<string>();
+  for (let i = 0; i < 300; i++) for (const o of offerPerks(rng, 'penalty', [])) seen.add(o.id);
+  assert.ok(seen.has('crackshot') && !seen.has('architect') && !seen.has('bombbag'));
+  assert.deepEqual(offerPerks(rng, 'rampage', PERKS.map((p) => p.id)), [], 'nothing left to offer');
+  const t = perkTotals(['vitality', 'magnet', 'glass', 'nope']);
+  assert.equal(t.hp, 0);
+  assert.ok(Math.abs(t.bits - 0.85) < 1e-9);
+  assert.equal(t.defs.length, 3, 'unknown ids are ignored');
+  assert.ok(perkTotals(['storm']).chaos);
+  assert.equal(new Set(PERKS.map((p) => p.id)).size, PERKS.length);
+});
+
+test('errands: one a day, the same for everyone, paid once, fresh the next day', () => {
+  for (let i = 0; i < 40; i++) {
+    const day = `2026-11-${String(1 + (i % 28)).padStart(2, '0')}`;
+    assert.equal(errandFor(day).id, errandFor(day).id);
+  }
+  const kinds = new Set(Array.from({ length: 80 }, (_, i) => errandFor(`2026-12-${String(1 + (i % 28)).padStart(2, '0')}-${i}`).giver));
+  assert.equal(kinds.size, 4, 'all four givers turn up');
+  assert.ok(ERRANDS.every((e) => e.ask.length >= 1 && e.thanks.length >= 1 && e.goal > 0));
+  const p = defaultProfile();
+  const day = '2026-11-05';
+  const e = errandFor(day);
+  const ev = { kind: 'run' as const, r: { mode: 'rampage' as ModeId, cleared: true, score: 1, time: 10, bits: 0, xp: 0, floppies: [], damageTaken: 0, flags: [], chaosSeen: new Array(30).fill('x'), bitMultiplier: 1, endless: { rounds: 5 } }, newFloppies: 2, paidBits: 900, newStars: 2 };
+  const mini = { kind: 'mini' as const, game: 'catch' as const, score: 500 };
+  let done = false;
+  const before = p.bits;
+  for (let i = 0; i < 80 && !done; i++) done = !!advanceErrand(p, i % 2 ? ev : { ...ev, r: { ...ev.r, endless: undefined, time: 200, damageTaken: 1 } }, day) || !!advanceErrand(p, mini, day);
+  assert.ok(p.errand.done, `finished ${e.id}`);
+  assert.equal(p.bits - before, e.bits);
+  assert.equal(advanceErrand(p, ev, day), null, 'paid once');
+  assert.equal(errandView(p, '2026-11-06').progress, 0);
+  advanceErrand(p, ev, '2026-11-06');
+  assert.equal(p.errand.key, '2026-11-06');
+});
+
+test('lobby seasons cover the right dates and nothing else', () => {
+  const on = (s: string) => seasonFor(new Date(`${s}T12:00:00Z`))?.id ?? null;
+  assert.equal(on('2026-10-17'), null);
+  assert.equal(on('2026-10-18'), 'halloween');
+  assert.equal(on('2026-11-02'), 'halloween');
+  assert.equal(on('2026-11-03'), null);
+  assert.equal(on('2026-12-25'), 'winter');
+  assert.equal(on('2027-01-03'), 'winter');
+  assert.equal(on('2027-01-04'), null);
+  assert.equal(on('2027-02-14'), 'love');
+  assert.equal(on('2027-04-01'), 'bloom');
+  assert.equal(on('2026-07-04'), 'summer');
+  assert.equal(on('2026-09-15'), null);
+  assert.equal(SEASONS.length, 5);
+});
+
+test('curses: arrive switched off after the ending, pay +30% each, and are checked in the base class', () => {
+  const p = defaultProfile();
+  p.endingSeen = true;
+  const base = applyRun(p, { mode: 'rampage', cleared: true, score: 1, time: 100, bits: 10, xp: 10, floppies: [], damageTaken: 0, flags: [], chaosSeen: [], bitMultiplier: 1 }, '2026-03-02', '2026-03-03');
+  for (const id of ['curse_greed', 'curse_haste', 'curse_static', 'curse_frail']) {
+    assert.ok(base.profile.mutationsUnlocked.includes(id), `${id} unlocks after the ending`);
+    assert.ok(base.profile.mutationsDisabled.includes(id), `${id} starts switched off`);
+  }
+  const fresh = defaultProfile();
+  assert.ok(!new FusionEngine('rampage', fresh).has('curse_greed'));
+  const on = defaultProfile();
+  on.endingSeen = true;
+  on.mutationsUnlocked.push('curse_greed', 'curse_haste');
+  const f = new FusionEngine('neon', on);
+  assert.ok(f.has('curse_greed') && f.has('curse_haste'));
+  const plainP = defaultProfile();
+  plainP.endingSeen = true;
+  assert.ok(Math.abs(f.rewardMultiplier() - new FusionEngine('neon', plainP).rewardMultiplier() - 0.6) < 1e-9, 'each curse adds 30%');
+});
+
+test('share cards say what happened and link worlds, not the final boss', () => {
+  const r = { mode: 'neon' as ModeId, cleared: true, score: 1234, time: 88.4, bits: 0, xp: 0, floppies: [], damageTaken: 2, flags: [], chaosSeen: ['a', 'b'], bitMultiplier: 1 };
+  const p = defaultProfile();
+  p.stars.neon = ['clean', 'fast'];
+  const c = buildCard(r, 4321, p, 'https://x.test/play');
+  assert.equal(c.headline, 'WORLD CLEARED');
+  assert.equal(c.link, 'https://x.test/play?seed=004321&mode=neon');
+  assert.ok(c.text.includes('1234') && c.text.includes(c.link));
+  assert.ok(c.rows.some(([k, v]) => k === 'MASTERY' && v === '★★☆'));
+  const e = buildCard({ ...r, cleared: false, endless: { rounds: 1 } }, 5, p, 'https://x.test/play');
+  assert.equal(e.headline, 'ENDLESS: 1 ROUND');
+  const hs = buildCard({ ...r, mode: 'highscore' as ModeId, boss: 'highscore' }, 5, p, 'https://x.test/play');
+  assert.equal(hs.link, '', 'the final boss has no seed link');
+  assert.equal(hs.headline, 'BOSS DEFEATED');
+});
+
+test('old saves skip the lobby tour; new ones get it; loadouts and errand state are validated', () => {
+  assert.equal(migrateProfile({ introDone: true }).tutorial.done, true);
+  assert.equal(migrateProfile({ runsStarted: 3 }).tutorial.done, true);
+  assert.equal(migrateProfile({}).tutorial.done, false);
+  assert.deepEqual(migrateProfile({ tutorial: { step: 99, done: false } }).tutorial, { step: 9, done: false });
+  const p = migrateProfile({ loadouts: [{ name: 'MY BUILD IS TOO LONG', on: ['a', 3, 'b'] }, 'x', { on: 5 }], errand: { key: '2026-11-05', progress: 'many', done: 1, asked: true }, seasonSeen: 9 });
+  assert.deepEqual(p.loadouts, [{ name: 'MY BUILD IS ', on: ['a', 'b'] }, null, null]);
+  assert.deepEqual(p.errand, { key: '2026-11-05', progress: 0, done: false, asked: true, thanked: false });
+  assert.equal(p.seasonSeen, '');
 });

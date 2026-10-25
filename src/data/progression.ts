@@ -10,6 +10,7 @@ import { applyDailyResult } from './daily.ts';
 import { awardStars } from './mastery.ts';
 import { advanceWeekly, weekKey } from './weekly.ts';
 import { advanceErrand } from './errands.ts';
+import { SEASON_BONUS, seasonFor } from './season.ts';
 import { dateKey } from './daily.ts';
 
 export interface ShopItem {
@@ -176,7 +177,7 @@ export function applyRun(profile: Profile, r: RunResult, today: string = weekKey
   p.level = levelForXp(p.xp); // stars and the daily bonus add XP
   const runEvent = { kind: 'run' as const, r, newFloppies, paidBits: bits, newStars: newStars.length };
   const quests = advanceQuests(p, runEvent).map((q) => q.id);
-  const weekly = advanceWeekly(p, runEvent, today);
+  const weekly = advanceWeekly(p, runEvent, today, seasonPay(day));
   const errand = advanceErrand(p, runEvent, day)?.title ?? null;
   p.level = levelForXp(p.xp);
   if (p.level >= 5) unlockAchievement(p, 'level5', achievements);
@@ -190,6 +191,11 @@ export function applyRun(profile: Profile, r: RunResult, today: string = weekKey
     if (MUTATION_BY_ID.get(m)?.cursed) p.mutationsDisabled.push(m);
   }
   return { profile: p, summary: { bits, xp, levelBefore, levelAfter: p.level, newFloppies, achievements, mutations: muts, firstClear, dailyBonus, dailyStreak, newStars, quests, weekly, errand } };
+}
+
+/** Weekly goals pay extra while the lobby is dressed for a season. */
+function seasonPay(day: string): number {
+  return seasonFor(new Date(`${day}T12:00:00Z`)) ? SEASON_BONUS : 1;
 }
 
 export function structuredCloneSafe<T>(v: T): T {
@@ -236,7 +242,7 @@ export function applyMini(profile: Profile, game: MiniId, rawScore: number, toda
   p.mini[game] = { best: Math.max(rec.best, score), plays: rec.plays + 1 };
   const miniEvent = { kind: 'mini' as const, game, score };
   const quests = advanceQuests(p, miniEvent);
-  const weekly = advanceWeekly(p, miniEvent, today);
+  const weekly = advanceWeekly(p, miniEvent, today, seasonPay(day));
   const errand = advanceErrand(p, miniEvent, day)?.title ?? null;
   p.level = levelForXp(p.xp);
   const achievements: string[] = [];

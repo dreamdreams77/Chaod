@@ -20,9 +20,9 @@ function fakeGame(): Game {
     profile: defaultProfile(),
     settings,
     input: new Input(DEFAULT_BINDINGS),
-    audio: { musicTime: () => 0, bpm: 120, sfx: noop, play: noop, shiftTo: noop },
+    audio: { musicTime: () => 0, bpm: 120, sfx: noop, play: noop, shiftTo: noop, duck: noop },
     fx: { freeze: noop, shake: noop, flash: noop },
-    toast: noop, genreShift: noop, startFatal: noop, drawKevinCameo: noop, music: noop,
+    toast: noop, announceAchievements: noop, genreShift: noop, startFatal: noop, drawKevinCameo: noop, music: noop,
   } as unknown as Game;
 }
 
@@ -499,3 +499,164 @@ test('ASSIST MODE adds a heart and slows the world a little, without touching re
   assert.ok(a.diffMult < plain.diffMult);
   assert.equal(a.damageMult, plain.damageMult);
 });
+
+// ---- THE HIGH SCORE, the gauntlet, perks and the secret dash -------------------------------
+
+import { HighScoreMode } from '../src/modes/highscore.ts';
+import { DashScene } from '../src/scenes/arcade.ts';
+import { GAUNTLET_LEGS } from '../src/data/story.ts';
+
+function bossGame() {
+  const { game, started } = spyGame();
+  game.settings.chaos = 'off';
+  const g = game as unknown as Record<string, unknown>;
+  g.genreShift = () => {};
+  g.music = () => {};
+  // The defeat scene resolves straight away with "set it free".
+  g.say = (_lines: unknown, done?: (effects: string[]) => void) => done?.([]);
+  return { game, started };
+}
+
+function readyBoss(game: Game, opts: ConstructorParameters<typeof HighScoreMode>[1] = {}): HighScoreMode {
+  const m = new HighScoreMode(game, opts);
+  m.phase = 'fight';
+  return m;
+}
+
+test('THE HIGH SCORE: three phases at two thirds and one third, bombs clear the screen, guard and open change the damage', () => {
+  const { game } = bossGame();
+  const m = readyBoss(game);
+  assert.equal(m.bossPhase, 0);
+  assert.equal(m.shotDamage, 1);
+  m.damageBoss(m.bMax * 0.35);
+  assert.equal(m.bossPhase, 1, 'phase 2 below two thirds');
+  assert.equal(m.phase, 'shift');
+  assert.equal(m.shotDamage, 0.35, 'guarded');
+  m.phase = 'fight';
+  m.slam = 'open';
+  assert.equal(m.shotDamage, 2.5, 'open takes it hard');
+  m.damageBoss(m.bMax * 0.33);
+  assert.equal(m.bossPhase, 2, 'phase 3 below one third');
+  m.phase = 'fight';
+  m.bullets.push({ x: 100, y: 100, vx: 0, vy: 0, hue: 0, grazed: false }, { x: 200, y: 120, vx: 0, vy: 0, hue: 1, grazed: false });
+  const bombs = m.bombs;
+  const hp = m.bHp;
+  m.bomb();
+  assert.equal(m.bombs, bombs - 1);
+  assert.equal(m.bullets.length, 0);
+  assert.ok(m.bHp < hp, 'a bomb hurts it');
+  assert.ok(m.iframes > 1);
+});
+
+test('THE HIGH SCORE: grazing charges bombs, a hit costs a heart and sweeps nearby bullets, the last heart loses', () => {
+  const { game } = bossGame();
+  const m = readyBoss(game);
+  m.iframes = 0;
+  for (let i = 0; i < 46; i++) m.bullets.push({ x: m.px + 8, y: m.py - 6, vx: 0, vy: 0, hue: 0, grazed: false });
+  m.bombs = 1;
+  m.update(1 / 60);
+  assert.equal(m.graze, 46);
+  assert.equal(m.bombs, 2, '45 grazes earn a bomb');
+  const hp = m.hp;
+  m.bullets.push({ x: m.px, y: m.py - 6, vx: 0, vy: 0, hue: 0, grazed: false }, { x: m.px + 20, y: m.py, vx: 0, vy: 0, hue: 0, grazed: true });
+  m.update(1 / 60);
+  assert.equal(m.hp, hp - 1);
+  assert.equal(m.bullets.filter((b) => Math.hypot(b.x - m.px, b.y - m.py) < 34).length, 0, 'the sweep clears the area');
+  m.iframes = 0;
+  m.hp = 1;
+  m.bullets.push({ x: m.px, y: m.py - 6, vx: 0, vy: 0, hue: 0, grazed: false });
+  m.update(1 / 60);
+  assert.equal(m.phase, 'lost');
+});
+
+test('THE HIGH SCORE: beating it pays out once, records the Manual choice and unlocks its trophies', () => {
+  const { game, started } = bossGame();
+  game.profile.endingSeen = true;
+  const m = readyBoss(game);
+  m.damageBoss(m.bMax * 2);
+  assert.equal(m.phase, 'dying');
+  for (let i = 0; i < 300; i++) m.update(1 / 60);
+  assert.equal(started.length, 0, 'a normal win goes to results');
+  assert.equal(game.profile.bossChoices.highscore, 'mercy');
+  assert.ok(game.profile.bossesDefeated.includes('highscore'));
+  assert.equal(game.profile.cleared.highscore.clears, 1);
+  assert.ok(game.profile.achievements.includes('boss_highscore'));
+  assert.ok(game.profile.achievements.includes('perfect_score'), 'no damage taken');
+});
+
+test('the BOSS GAUNTLET chains four bosses, carries health and the tally, and pays double at the end', () => {
+  const { game, started } = bossGame();
+  const legs = GAUNTLET_LEGS;
+  const b = new BeatdownMode(game, { rematch: true, rush: { leg: 1, legs } });
+  b.hp = 3;
+  b.runBits = 20;
+  b.time = 30;
+  b.finish(true, 100, { boss: 'bricklord' });
+  let [mode, o] = started[0] as [string, { rush: { leg: number; legs: ModeId[]; carryHp: number; bits: number; score: number } }];
+  assert.equal(mode, 'rhythm');
+  assert.equal(o.rush.leg, 2);
+  assert.equal(o.rush.carryHp, 3);
+  const r = new RhythmMode(game, { rematch: true, rush: o.rush });
+  r.runBits = 15;
+  r.time = 40;
+  r.finish(true, 200, { boss: 'static' });
+  [mode, o] = started[1] as typeof started[0] & [string, typeof o];
+  assert.equal(mode, 'penalty');
+  assert.equal(o.rush.leg, 3);
+  assert.equal(o.rush.bits, 35, 'bits add up across legs');
+  assert.equal(o.rush.score, 300);
+  const k = new PenaltyMode(game, { rematch: true, rush: o.rush });
+  assert.ok(k.overtime);
+  assert.equal(k.goalsNeeded, 4);
+  k.runBits = 10;
+  k.finish(true, 150);
+  [mode, o] = started[2] as typeof started[0] & [string, typeof o];
+  assert.equal(mode, 'highscore');
+  assert.equal(o.rush.leg, 4);
+  const h = new HighScoreMode(game, { rematch: true, rush: o.rush });
+  assert.equal(h.hp, 3, 'health carried the whole way');
+  h.runBits = 5;
+  h.finish(true, 500, { boss: 'highscore' });
+  assert.equal(started.length, 3, 'the last leg goes to results');
+  assert.ok(game.profile.achievements.includes('gauntlet'));
+  assert.ok(game.profile.cleared.highscore.bestScore >= 500 + 300 + 150);
+});
+
+test('run perks change the run: hearts, speed, bits and xp, and unknown perks are ignored', () => {
+  const plain = new RampageMode(spyGame().game);
+  const { game } = spyGame();
+  const perked = new RampageMode(game, { perks: ['vitality', 'gentle', 'slowmo', 'bogus'] });
+  assert.equal(perked.stats.maxHp, plain.stats.maxHp + 1);
+  assert.ok(perked.diffMult < plain.diffMult);
+  assert.ok(perked.speedMult < plain.speedMult);
+  assert.ok(perked.hasPerk('gentle') && !perked.hasPerk('bogus'));
+  const glass = new RampageMode(spyGame().game, { perks: ['glass', 'twin', 'glass'] });
+  assert.ok(glass.stats.maxHp >= 2, 'never below two hearts');
+  const rich = new RampageMode(game, { perks: ['jackpot'] });
+  rich.runBits = 10;
+  rich.finish(false, 5);
+  assert.ok(game.profile.bits > 0);
+});
+
+test('DEMO DASH: hurdles cost lives, bones score, three hits end the run and pay out', () => {
+  const { game } = spyGame();
+  const d = new DashScene(game) as unknown as { update(dt: number): void; lives: number; bones: number; things: Array<{ x: number; kind: string; y: number; hit: boolean }>; over: boolean; score: number };
+  d.things.push({ x: 90, kind: 'hurdle', y: H_GROUND(), hit: false });
+  d.update(1 / 60);
+  assert.equal(d.lives, 2);
+  d.things.push({ x: 92, kind: 'bone', y: H_GROUND() - 10, hit: false });
+  d.update(1 / 60);
+  assert.equal(d.bones, 1);
+  for (let i = 0; i < 2; i++) {
+    (d as unknown as { hurtT: number }).hurtT = 0;
+    d.things.push({ x: 90, kind: 'rock', y: H_GROUND(), hit: false });
+    d.update(1 / 60);
+  }
+  assert.equal(d.lives, 0);
+  assert.ok(d.over, 'the run ends');
+  assert.ok(game.profile.mini.dash.plays === 1);
+  assert.ok(game.profile.achievements.includes('secret_dash'));
+});
+function H_GROUND(): number {
+  return 270 - 56;
+}

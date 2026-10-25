@@ -19,6 +19,7 @@ import { DECOR, DECOR_SLOTS, buyOrWearDecor } from '../data/decor.ts';
 import { Giver, errandFor, errandView } from '../data/errands.ts';
 import { SWEEP_BITS, weekKey, weeklyFor, weeklyView } from '../data/weekly.ts';
 import { dateKey, dailyFor, currentStreak, challengeUrl, DAILY_BONUS } from '../data/daily.ts';
+import { Season, seasonFor } from '../data/season.ts';
 import { MODIFIERS } from '../data/progression.ts';
 import { Rng, formatSeed } from '../core/rng.ts';
 import { startMini } from './arcade.ts';
@@ -91,7 +92,15 @@ export class HubScene implements Scene {
 
   enter(): void {
     const p = this.game.profile;
-    this.game.music(p.endingSeen ? 'ending' : 'hub');
+    this.game.music(this.season?.track ?? (p.endingSeen ? 'ending' : 'hub'));
+    if (this.season) {
+      const seen = `${this.season.id}-${new Date().getUTCFullYear()}`;
+      if (p.seasonSeen !== seen) {
+        p.seasonSeen = seen;
+        this.save();
+        this.game.toast(this.season.name, this.season.greeting, this.season.color);
+      }
+    }
     this.game.audio.unlock();
     this.syncPetTrophies();
     if (secretCabinetOpen(p) && !p.lore.includes('secret_cab')) {
@@ -129,6 +138,9 @@ export class HubScene implements Scene {
     this.walkTo = { x: clamp(x, 14, W - 14), y: clamp(y, CAB_Y + 40, H - 12), thing: target };
     return true;
   }
+
+  /** The lobby's season today, if any. */
+  private readonly season: Season | null = seasonFor(new Date());
 
   private walkTo: { x: number; y: number; thing: Thing | null } | null = null;
 
@@ -329,7 +341,7 @@ export class HubScene implements Scene {
     const th = this.things.find((x) => x.id === step.target);
     if (th) {
       const bob = Math.round(Math.sin(this.t * 6) * 3);
-      drawText(ctx, '\u25BC', th.x, th.y - 62 + bob, '#7dff6b', { align: 'center', scale: 2 });
+      drawText(ctx, '\u25BC', th.x, th.y - 48 + bob, '#7dff6b', { align: 'center', scale: 2 });
     }
     frame(ctx, 8, H - 40, W - 16, 24, '#0b0716ee', '#7dff6b');
     drawText(ctx, `TOUR ${tu.step + 1}/${TOUR.length}`, 14, H - 36, '#7dff6b');
@@ -1057,6 +1069,7 @@ export class HubScene implements Scene {
     drawText(ctx, `DISKS ${p.floppies.length}/${TOTAL_FLOPPIES}`, 160, H - 10, '#3fe0ff');
     drawText(ctx, `SHARDS ${shards}/2`, 248, H - 10, '#ff6f3f');
     drawText(ctx, this.game.input.label('Z INTERACT • ESC MENU'), W - 6, H - 10, '#9a9ab8', { align: 'right' });
+    this.drawSeason(ctx);
     this.drawTour(ctx);
     if (this.menu) {
       rect(ctx, 0, 0, W, H, '#0006');
@@ -1177,6 +1190,70 @@ export class HubScene implements Scene {
     const stars = starCount(this.game.profile, m);
     if (on) for (let i = 0; i < 3; i++) rect(ctx, x + 8 + i * 6, y + 49, 4, 4, i < stars ? '#ffcf3f' : '#3a3050');
     drawText(ctx, info.title.split(' ')[0], x + 16, y + 56, on ? info.color : '#555', { align: 'center' });
+  }
+
+  /** Seasonal dress-up: a colour wash plus a few drifting things, all cheap rectangles. */
+  private drawSeason(ctx: CanvasRenderingContext2D): void {
+    const s = this.season;
+    if (!s) return;
+    const t = this.t;
+    ctx.fillStyle = `rgba(${s.tint},0.06)`;
+    ctx.fillRect(0, 0, W, H - 12);
+    if (s.id === 'halloween') {
+      for (let i = 0; i < 3; i++) {
+        const x = ((t * 26 + i * 170) % (W + 60)) - 30;
+        const y = 36 + i * 10 + Math.sin(t * 3 + i * 2) * 12;
+        const flap = Math.floor(t * 8 + i) % 2;
+        rect(ctx, x - 1, y, 3, 3, '#15101f');
+        rect(ctx, x - 7, y - 2 + flap * 3, 6, 2, '#15101f');
+        rect(ctx, x + 2, y - 2 + flap * 3, 6, 2, '#15101f');
+      }
+      for (const [px, py] of [[62, 246], [416, 248]]) {
+        rect(ctx, px - 8, py - 12, 16, 12, '#ff7a1a');
+        rect(ctx, px - 5, py - 14, 10, 3, '#ff9f3f');
+        rect(ctx, px - 1, py - 17, 3, 4, '#3a7a2a');
+        rect(ctx, px - 5, py - 9, 3, 3, '#3a1a05');
+        rect(ctx, px + 2, py - 9, 3, 3, '#3a1a05');
+        rect(ctx, px - 4, py - 4, 8, 2, '#3a1a05');
+        glow(ctx, px, py - 7, 16, '255,160,40', 0.25 + Math.sin(t * 2.4 + px) * 0.05);
+      }
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+      ctx.beginPath();
+      for (let k = 1; k <= 3; k++) { ctx.moveTo(0, k * 9); ctx.lineTo(k * 11, 0); ctx.moveTo(W, k * 9); ctx.lineTo(W - k * 11, 0); }
+      ctx.stroke();
+    } else if (s.id === 'winter') {
+      for (let i = 0; i < 42; i++) {
+        const x = (i * 47 + Math.sin(t * 0.8 + i) * 8 + W) % W;
+        const y = (t * (16 + (i % 4) * 5) + i * 29) % (H - 14);
+        rect(ctx, x, y, i % 3 === 0 ? 2 : 1, i % 3 === 0 ? 2 : 1, 'rgba(255,255,255,0.75)');
+      }
+    } else if (s.id === 'love') {
+      for (let i = 0; i < 12; i++) {
+        const x = (i * 53 + Math.sin(t * 1.4 + i) * 10 + W) % W;
+        const y = H - 14 - ((t * 18 + i * 37) % (H - 20));
+        ctx.globalAlpha = 0.6;
+        rect(ctx, x - 2, y - 1, 2, 2, '#ff7aa8');
+        rect(ctx, x + 1, y - 1, 2, 2, '#ff7aa8');
+        rect(ctx, x - 2, y + 1, 5, 2, '#ff7aa8');
+        rect(ctx, x - 1, y + 3, 3, 1, '#ff7aa8');
+        ctx.globalAlpha = 1;
+      }
+    } else if (s.id === 'bloom') {
+      for (let i = 0; i < 26; i++) {
+        const x = ((t * 14 + i * 41) % (W + 20)) - 10;
+        const y = (t * 10 + i * 23 + Math.sin(t + i) * 6) % (H - 14);
+        rect(ctx, x, y, 3, 2, i % 2 ? '#ffb3d9' : '#fff0f6');
+      }
+    } else if (s.id === 'summer') {
+      glow(ctx, W - 40, 8, 90, '255,226,63', 0.18);
+      for (let i = 0; i < 14; i++) {
+        const x = (i * 71 + Math.sin(t * 0.6 + i) * 18 + W) % W;
+        const y = 100 + ((i * 53) % 140) + Math.sin(t * 0.9 + i * 1.7) * 8;
+        ctx.globalAlpha = 0.25 + Math.max(0, Math.sin(t * 1.1 + i * 2.3)) * 0.6;
+        rect(ctx, x, y, 2, 2, '#fff7a8');
+        ctx.globalAlpha = 1;
+      }
+    }
   }
 
   /** The hidden sixth cabinet: it only exists once a world is fully mastered. */

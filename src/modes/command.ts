@@ -157,7 +157,7 @@ export class CommandMode extends ModeBase {
   }
 
   enter(): void {
-    this.game.music('hub');
+    this.game.music('command');
     if (!this.game.profile.lore.includes('command_intro')) {
       this.game.profile.lore.push('command_intro');
       this.game.say([

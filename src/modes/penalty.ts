@@ -252,7 +252,7 @@ export class PenaltyMode extends ModeBase {
     b.vx = (dx / d) * sp;
     b.vy = (dy / d) * sp;
     b.state = 'flying';
-    this.game.audio.sfx('shoot');
+    this.game.audio.sfx('kick');
     // The keeper reads the shot, a little late and a little wrong.
     const k = this.keeper;
     k.state = 'dive';
@@ -491,7 +491,8 @@ export class PenaltyMode extends ModeBase {
     this.keeper.holdT = 2;
     this.bullets = [];
     this.addBits(12 + (corner ? 5 : 0), x, GOAL.line + 14);
-    this.game.audio.sfx('levelup');
+    this.game.audio.sfx('whistle');
+    this.game.audio.sfx('cheer');
     this.game.fx.shake(4);
     this.particles.burst(x, GOAL.line - 4, ['#fff', '#ffcf3f', '#ff9f3f'], 26, 110);
     this.say(this.goals >= this.goalsNeeded ? 'FINAL WHISTLE!' : corner ? 'TOP CORNER!' : 'GOAL!', '#7dff6b');

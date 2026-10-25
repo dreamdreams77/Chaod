@@ -186,6 +186,7 @@ export abstract class ModeBase implements Scene {
     }
     this.director.update(dt, this.directorContext());
     const tele = this.director.telegraphing();
+    this.game.audio.duck(!!tele);
     if (tele && Math.floor(tele.timer * 4) !== Math.floor((tele.timer + dt) * 4)) this.game.audio.sfx('warn');
     for (const ev of this.director.started) {
       this.chaosSeen.add(ev.def.id);

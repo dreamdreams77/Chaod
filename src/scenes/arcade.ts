@@ -41,7 +41,7 @@ abstract class MiniBase implements Scene {
   constructor(protected game: Game) {}
 
   enter(): void {
-    this.game.music('hub');
+    this.game.music('arcade');
   }
 
   /** Ends the game exactly once: pays out, saves and announces finished quests. */

@@ -210,7 +210,7 @@ export class HighScoreMode extends ModeBase {
     this.bombFlash = 0.5;
     this.iframes = Math.max(this.iframes, 1.2);
     this.bullets.length = 0;
-    this.game.audio.sfx('explode');
+    this.game.audio.sfx('bomb');
     this.game.fx.flash('#ffffff', 0.3);
     this.particles.burst(this.px, this.py, ['#fff', '#ffcf3f', '#3fe0ff'], 30, 150);
     this.damageBoss(25);
@@ -257,8 +257,8 @@ export class HighScoreMode extends ModeBase {
     this.beams.length = 0;
     this.slam = 'guard';
     this.slamT = 0;
-    this.emitT = 2.5;
-    this.ringT = 3;
+    this.emitT = 1.2;
+    this.ringT = 2.4;
     this.iframes = Math.max(this.iframes, 2.2);
     this.game.audio.sfx('chaos');
     this.game.fx.shake(6);
@@ -330,7 +330,7 @@ export class HighScoreMode extends ModeBase {
       this.beams.push({ kind: 'row', pos: r.range(ZONE_TOP + 20, ARENA.bottom - 10) });
       this.game.audio.sfx('warn');
     } else if (next === 'strike') {
-      this.game.audio.sfx('explode');
+      this.game.audio.sfx('slam');
       this.game.fx.shake(4);
     } else if (next === 'open') {
       this.beams.length = 0;
@@ -382,14 +382,15 @@ export class HighScoreMode extends ModeBase {
     const wind = this.director.flag('crosswind') ? Math.sin(this.time * 1.3) * 30 : 0;
     const slow = this.director.flag('mud') ? 0.85 : 1;
     let keep = 0;
+    let struck: Bullet | null = null;
     for (const b of this.bullets) {
       b.vx += wind * dt;
       b.x += b.vx * dt * slow;
       b.y += b.vy * dt * slow;
       if (b.x < -10 || b.x > W + 10 || b.y < 6 || b.y > H + 10) continue;
       const d = Math.hypot(b.x - this.px, b.y - (this.py - 6));
-      if (this.iframes <= 0 && d < HIT_R + 2) {
-        this.hurt(b);
+      if (this.iframes <= 0 && !struck && d < HIT_R + 2) {
+        struck = b;
         continue;
       }
       if (!b.grazed && d < GRAZE_R && this.iframes <= 0) {
@@ -402,11 +403,13 @@ export class HighScoreMode extends ModeBase {
           this.bombs++;
           this.popups.add(this.px, this.py - 22, '+BOMB', '#3fe0ff');
           this.game.audio.sfx('powerup');
-        } else if (this.graze % 6 === 0) this.game.audio.sfx('perfect');
+        } else this.game.audio.sfx('graze');
       }
       this.bullets[keep++] = b;
     }
     this.bullets.length = keep;
+    // Hurt after the pass: it sweeps the bullet list, which must not happen mid-iteration.
+    if (struck) this.hurt(struck);
   }
 
   private hurt(from: Bullet | null): void {

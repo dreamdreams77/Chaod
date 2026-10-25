@@ -11,7 +11,8 @@ import { Rng } from '../core/rng.ts';
 
 export type SfxName =
   | 'jump' | 'land' | 'hit' | 'hurt' | 'coin' | 'floppy' | 'shoot' | 'explode' | 'select' | 'confirm' | 'back'
-  | 'boost' | 'powerup' | 'warn' | 'chaos' | 'levelup' | 'block' | 'perfect' | 'miss' | 'bark' | 'door' | 'heartbeat' | 'transition' | 'unlock' | 'step';
+  | 'boost' | 'powerup' | 'warn' | 'chaos' | 'levelup' | 'block' | 'perfect' | 'miss' | 'bark' | 'door' | 'heartbeat' | 'transition' | 'unlock' | 'step'
+  | 'kick' | 'cheer' | 'whistle' | 'graze' | 'bomb' | 'perk' | 'card' | 'slam';
 
 export type TrackId = 'title' | 'hub' | 'rampage' | 'shmup' | 'neon' | 'neon_night' | 'mall' | 'beatdown' | 'beatdown_bh' | 'rhythm' | 'penalty' | 'hs1' | 'hs2' | 'hs3' | 'command' | 'arcade' | 'halloween' | 'winter' | 'ending' | 'none';
 
@@ -131,6 +132,14 @@ const SFX: Record<SfxName, { type: OscillatorType | 'noise'; f0: number; f1: num
   transition: { type: 'sawtooth', f0: 1600, f1: 40, dur: 0.7, vol: 0.25 },
   unlock: { type: 'square', f0: 784, f1: 784, dur: 0.08, vol: 0.25, extra: [[988, 0.08], [1175, 0.2]] },
   step: { type: 'noise', f0: 400, f1: 300, dur: 0.03, vol: 0.06 },
+  kick: { type: 'noise', f0: 520, f1: 140, dur: 0.09, vol: 0.4, extra: [[110, 0.05]] },
+  cheer: { type: 'noise', f0: 700, f1: 1700, dur: 0.55, vol: 0.2, extra: [[1500, 0.25]] },
+  whistle: { type: 'sine', f0: 2300, f1: 2300, dur: 0.1, vol: 0.22, extra: [[0, 0.04], [2700, 0.16]] },
+  graze: { type: 'sine', f0: 1500, f1: 2300, dur: 0.035, vol: 0.09 },
+  bomb: { type: 'noise', f0: 380, f1: 40, dur: 0.7, vol: 0.5, extra: [[70, 0.25]] },
+  perk: { type: 'triangle', f0: 587, f1: 587, dur: 0.07, vol: 0.3, extra: [[740, 0.07], [880, 0.07], [1175, 0.18]] },
+  card: { type: 'square', f0: 523, f1: 523, dur: 0.05, vol: 0.18, extra: [[784, 0.05], [1046, 0.12]] },
+  slam: { type: 'sawtooth', f0: 110, f1: 38, dur: 0.32, vol: 0.45, extra: [[60, 0.12]] },
 };
 
 const midi = (n: number) => 440 * Math.pow(2, (n - 69) / 12);
@@ -155,6 +164,14 @@ export class AudioEngine {
   private lastCues = new Map<string, number>();
   enabled = true;
   volumes = { master: 0.8, music: 0.6, sfx: 0.8, muted: false, musicOn: true };
+  /** Chaos warnings and big moments briefly pull the music down so the cue is heard. */
+  private ducked = false;
+  duck(on: boolean): void {
+    if (this.ducked === on) return;
+    this.ducked = on;
+    this.applyVolumes();
+  }
+
   /** Detune applied to the current song in semitones (used by chaos/boss variations). */
   transpose = 0;
 
@@ -203,7 +220,7 @@ export class AudioEngine {
     if (!this.ctx || !this.master || !this.musicBus || !this.sfxBus) return;
     const t = this.ctx.currentTime;
     this.master.gain.setTargetAtTime(this.volumes.muted ? 0 : this.volumes.master, t, 0.02);
-    this.musicBus.gain.setTargetAtTime(this.volumes.musicOn ? this.volumes.music * 0.35 : 0, t, 0.02);
+    this.musicBus.gain.setTargetAtTime(this.volumes.musicOn ? this.volumes.music * 0.35 * (this.ducked ? 0.45 : 1) : 0, t, this.ducked ? 0.08 : 0.25);
     this.sfxBus.gain.setTargetAtTime(this.volumes.sfx * 0.6, t, 0.02);
   }
 

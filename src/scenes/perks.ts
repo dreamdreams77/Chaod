@@ -38,7 +38,7 @@ export class PerkScene implements Scene {
   private choose(i: number): void {
     if (this.done || this.t < 0.35) return;
     this.done = true;
-    this.game.audio.sfx(i < this.offers.length ? 'powerup' : 'back');
+    this.game.audio.sfx(i < this.offers.length ? 'perk' : 'back');
     this.pick(i < this.offers.length ? this.offers[i].id : null);
   }
 

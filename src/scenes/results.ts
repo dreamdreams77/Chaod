@@ -8,6 +8,7 @@ import { drawText } from '../render/font.ts';
 import { xpForLevel } from '../core/save.ts';
 import { QUEST_BY_ID } from '../data/quests.ts';
 import { STARS, STAR_BITS } from '../data/mastery.ts';
+import { buildCard, shareCard } from '../core/share.ts';
 import { WEEKLY_BY_ID } from '../data/weekly.ts';
 
 export function showResults(game: Game, result: RunResult, seed: number): void {
@@ -35,10 +36,24 @@ class ResultsScene implements Scene {
   tap(x: number, y: number): boolean {
     if (this.t < 0.5) return true;
     if (y >= 226) {
-      this.sel = x < W / 2 + 20 ? 0 : 1;
+      this.sel = x < 195 ? 0 : x < 285 ? 1 : 2;
       this.game.input.pulse('confirm');
     }
     return true;
+  }
+
+  private sharing = false;
+  private share(): void {
+    if (this.sharing) return;
+    this.sharing = true;
+    this.game.audio.sfx('card');
+    const card = buildCard(this.r, this.seed, this.game.profile, `${location.origin}${location.pathname}`);
+    void shareCard(card, this.game.profile.level).then((res) => {
+      this.sharing = false;
+      if (res === 'shared') this.game.toast('SHARED', 'NICE RUN!', '#3fe0ff');
+      else if (res === 'saved') this.game.toast('CARD SAVED', card.link ? 'LINK COPIED TOO' : 'PICTURE DOWNLOADED', '#3fe0ff');
+      else this.game.toast('SHARE FAILED', 'YOUR BROWSER SAID NO', '#ff6f3f');
+    });
   }
 
   update(dt: number): void {
@@ -59,8 +74,11 @@ class ResultsScene implements Scene {
     }
     if (this.t < 0.5) return;
     const inp = g.input;
-    if (inp.pressed('left') || inp.pressed('right') || inp.pressed('up') || inp.pressed('down')) {
-      this.sel = 1 - this.sel;
+    if (inp.pressed('left') || inp.pressed('up')) {
+      this.sel = (this.sel + 2) % 3;
+      g.audio.sfx('select');
+    } else if (inp.pressed('right') || inp.pressed('down')) {
+      this.sel = (this.sel + 1) % 3;
       g.audio.sfx('select');
     }
     if (inp.pressed('back') || inp.pressed('attack')) {
@@ -69,7 +87,8 @@ class ResultsScene implements Scene {
     } else if (inp.pressed('confirm')) {
       g.audio.sfx('confirm');
       if (this.sel === 0) g.toHub();
-      else g.restart();
+      else if (this.sel === 1) g.restart();
+      else this.share();
     }
   }
 
@@ -118,10 +137,10 @@ class ResultsScene implements Scene {
       const names = this.s.achievements.map((a) => ACHIEVEMENTS.find((x) => x.id === a)?.name ?? a).join(', ');
       drawText(ctx, `★ ${names}`.slice(0, 60), W / 2, 214, '#ffcf3f', { align: 'center' });
     }
-    const opts = ['BACK TO LOBBY', 'RETRY (NEW SEED)'];
+    const opts = ['LOBBY', 'RETRY', 'SHARE CARD'];
     opts.forEach((o, i) => {
       const sel = i === this.sel;
-      drawText(ctx, (sel ? '▶ ' : '  ') + o, W / 2 - 110 + i * 130, 236, sel ? '#ffcf3f' : '#888');
+      drawText(ctx, (sel ? '▶ ' : '  ') + o, W / 2 - 130 + i * 90, 236, sel ? '#ffcf3f' : '#888');
     });
   }
 }

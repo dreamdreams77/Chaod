@@ -92,7 +92,7 @@ export function weeklyView(p: Pick<Profile, 'weekly'>, today: string = weekKey()
 }
 
 /** Advances this week's goals on `p` (mutating it) and pays rewards. Returns the ids finished by this event ('sweep' for the bonus). */
-export function advanceWeekly(p: Profile, ev: QuestEvent, today: string = weekKey()): string[] {
+export function advanceWeekly(p: Profile, ev: QuestEvent, today: string = weekKey(), payMult = 1): string[] {
   if (p.weekly.key !== today) p.weekly = { key: today, progress: {}, done: [], swept: false };
   const w = p.weekly;
   const finished: string[] = [];
@@ -105,8 +105,8 @@ export function advanceWeekly(p: Profile, ev: QuestEvent, today: string = weekKe
     w.progress[g.id] = next;
     if (next >= g.goal) {
       w.done.push(g.id);
-      p.bits += g.bits;
-      p.xp += g.xp;
+      p.bits += Math.round(g.bits * payMult);
+      p.xp += Math.round(g.xp * payMult);
       finished.push(g.id);
     }
   }

@@ -149,6 +149,7 @@ export class Game {
 
   // ---- scene flow ------------------------------------------------------------
   goto(next: Scene, banner?: Transition['banner']): void {
+    this.audio.duck(false);
     // A request during the first half of a wipe replaces the pending destination.
     if (this.transition) {
       if (this.transition.next) {
