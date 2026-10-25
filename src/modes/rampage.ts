@@ -880,6 +880,16 @@ export class RampageMode extends ModeBase {
     const bands = [pal.bg0, '#4a6fe0', '#5a85ea', pal.bg1, '#8ab8ff', pal.bg2];
     bands.forEach((c, i) => rect(ctx, 0, i * 30, W, 30, c));
     rect(ctx, 0, 180, W, H - 180, pal.bg2);
+    // Sun and distant mountains (slowest parallax layer).
+    rect(ctx, 372, 26, 28, 28, '#fff3b0');
+    rect(ctx, 376, 22, 20, 36, '#fff3b0');
+    rect(ctx, 368, 30, 36, 20, '#fff3b0');
+    for (let x = 0; x < W; x += 4) {
+      const wx = x + camX * 0.08;
+      const peak = 62 + Math.abs(Math.sin(wx * 0.011)) * 46 + Math.sin(wx * 0.047) * 4;
+      rect(ctx, x, 190 - peak, 4, peak + 80, '#93b4f4');
+      if (peak > 96) rect(ctx, x, 190 - peak, 4, 4, '#ffffff');
+    }
     // Far hills
     for (let x = 0; x < W; x += 4) {
       const wx = x + camX * 0.2;
@@ -890,6 +900,13 @@ export class RampageMode extends ModeBase {
       const wx = x + camX * 0.45;
       const hgt = 28 + Math.sin(wx * 0.02 + 1) * 14;
       rect(ctx, x, 222 - hgt, 4, hgt + 50, '#5ab06a');
+      rect(ctx, x, 222 - hgt, 4, 2, '#7fd08a');
+      // Pine silhouettes riding the near hills.
+      if (Math.floor(wx / 4) % 11 === 0) {
+        rect(ctx, x, 222 - hgt - 6, 4, 6, '#2f7a45');
+        rect(ctx, x - 2, 222 - hgt - 2, 8, 3, '#2f7a45');
+        rect(ctx, x + 1, 222 - hgt - 10, 2, 4, '#2f7a45');
+      }
     }
     // Clouds
     for (let i = 0; i < 6; i++) {
@@ -913,6 +930,9 @@ export class RampageMode extends ModeBase {
         rect(ctx, sx, sy, TILE, TILE, (tx + ty) % 2 ? '#a0603a' : '#b06a40');
         rect(ctx, sx + 3, sy + 9, 2, 2, '#7a4428');
         rect(ctx, sx + 11, sy + 4, 2, 2, '#7a4428');
+        // Depth shading: dirt darkens toward the bottom, and open sides catch light.
+        rect(ctx, sx, sy + TILE - 3, TILE, 3, 'rgba(0,0,0,0.14)');
+        if (this.tileAt(tx - 1, ty) !== '#' && this.tileAt(tx - 1, ty) !== '?') rect(ctx, sx, sy, 1, TILE, 'rgba(255,255,255,0.18)');
         if (top) {
           let grass = '#4fe07a';
           if (noteFloor) {

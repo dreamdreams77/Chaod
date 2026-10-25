@@ -204,6 +204,8 @@ export abstract class ModeBase implements Scene {
   }
 
   drawSeed(ctx: CanvasRenderingContext2D): void {
+    // The control hint strip occupies the same row; show the seed once it fades.
+    if (this.game.settings.hints && this.hintT <= 7) return;
     drawText(ctx, `SEED ${formatSeed(this.seed)}`, W - 6, H - 10, '#ffffff55', { align: 'right', shadow: null });
   }
 
