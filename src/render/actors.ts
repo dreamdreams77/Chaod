@@ -155,8 +155,10 @@ export interface ByteForm {
   back?: string;
 }
 
+const PLAIN_BYTE: ByteForm = { stage: 0 };
+
 /** BYTE, the virtual pet; colour tracks bond level, size and shape track its form (stage 0-3). */
-export function drawByte(ctx: CanvasRenderingContext2D, x: number, y: number, t: number, bond: number, mood: 'happy' | 'sad' | 'alert' = 'happy', form: ByteForm = { stage: 0 }): void {
+export function drawByte(ctx: CanvasRenderingContext2D, x: number, y: number, t: number, bond: number, mood: 'happy' | 'sad' | 'alert' = 'happy', form: ByteForm = PLAIN_BYTE): void {
   const st = Math.max(0, Math.min(3, form.stage));
   const hop = Math.abs(Math.sin(t * 6)) * 3;
   const body = bond >= 4 ? '#7dff6b' : bond >= 2 ? '#3fe0ff' : '#9a9ab8';

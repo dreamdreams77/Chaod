@@ -156,7 +156,7 @@ export function migrateProfile(raw: unknown): Profile {
   const bond = num(pt.bond, base.pet.bond);
   const petXp = num(pt.xp, 0);
   // Saves from before BYTE could grow: assume the care that got the bond where it is.
-  p.pet = { bond, hunger: num(pt.hunger, base.pet.hunger), fedToday: num(pt.fedToday, 0), trainedToday: num(pt.trainedToday, 0), xp: petXp, care: num(pt.care, Math.max(0, bond - 1) * 3 + petXp), outfit: cleanOutfit(pt.outfit) };
+  p.pet = { bond, hunger: num(pt.hunger, base.pet.hunger), fedToday: num(pt.fedToday, 0), trainedToday: num(pt.trainedToday, 0), xp: petXp, care: num(pt.care, Math.max(0, bond - 1) * 3 + Math.min(petXp, 2)), outfit: cleanOutfit(pt.outfit) };
   p.bossChoices = {};
   if (r.bossChoices && typeof r.bossChoices === 'object' && !Array.isArray(r.bossChoices)) {
     for (const [k, v] of Object.entries(r.bossChoices)) if (v === 'mercy' || v === 'purge') p.bossChoices[k] = v;

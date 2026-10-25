@@ -108,7 +108,16 @@ export function buyOrWearPet(p: Pick<Profile, 'bits' | 'pet'>, id: string): PetB
   return 'worn';
 }
 
-/** What the sprite needs to draw BYTE. */
+const SCRATCH_FORM = { stage: 0, head: '', face: '', back: '' };
+
+/**
+ * What the sprite needs to draw BYTE. Returns one shared object (refilled on every call) so the
+ * per-frame draw calls do not allocate; use it straight away and do not keep it.
+ */
 export function petForm(pet: Pick<Profile['pet'], 'care' | 'outfit'>): { stage: number; head: string; face: string; back: string } {
-  return { stage: petStage(pet.care), head: pet.outfit.head, face: pet.outfit.face, back: pet.outfit.back };
+  SCRATCH_FORM.stage = petStage(pet.care);
+  SCRATCH_FORM.head = pet.outfit.head;
+  SCRATCH_FORM.face = pet.outfit.face;
+  SCRATCH_FORM.back = pet.outfit.back;
+  return SCRATCH_FORM;
 }

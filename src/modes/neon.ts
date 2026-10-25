@@ -63,7 +63,7 @@ export class NeonMode extends ModeBase {
 
   constructor(game: Game, opts: ModeOpts = {}) {
     super(game, 'neon', opts);
-    this.track = generateNeon(this.seed, game.settings.difficulty === 'hard' ? 1 : game.settings.difficulty === 'easy' ? 0 : 0.5);
+    this.track = generateNeon(this.seed, Math.min(1, (game.settings.difficulty === 'hard' ? 1 : game.settings.difficulty === 'easy' ? 0 : 0.5) + 0.4 * (this.tier - 1)));
     this.hp = this.stats.maxHp;
     this.applyCarry();
     this.finishZ = (this.track.length - 80) * SEG_LEN;
@@ -295,7 +295,7 @@ export class NeonMode extends ModeBase {
   private updateRex(dt: number): void {
     // Rubber-banded rival that stays beatable but never trivial.
     const gap = this.rexZ - this.pos;
-    const d = { easy: 0.84, normal: 0.9, hard: 0.95 }[this.game.settings.difficulty];
+    const d = Math.min(0.98, { easy: 0.84, normal: 0.9, hard: 0.95 }[this.game.settings.difficulty] * (1 + 0.06 * (this.tier - 1)));
     const band = clamp(1 - gap / 40000, 0.85, 1.12);
     this.rexZ += MAX_SPEED * d * band * dt;
     this.rexX = Math.sin(this.time * 0.4) * 0.5;
@@ -315,7 +315,7 @@ export class NeonMode extends ModeBase {
     const hesitating = this.speed < MAX_SPEED * 0.6;
     if (hesitating) this.fear = Math.min(1, this.fear + dt * 0.08);
     else this.fear = Math.max(0, this.fear - dt * 0.02);
-    const base = this.fusion.param('lurker_pursuit', 'lurkerBase', 0.92) * { easy: 0.92, normal: 1, hard: 1.05 }[this.game.settings.difficulty];
+    const base = this.fusion.param('lurker_pursuit', 'lurkerBase', 0.92) * { easy: 0.92, normal: 1, hard: 1.05 }[this.game.settings.difficulty] * (1 + 0.1 * (this.tier - 1));
     this.lurkerZ += MAX_SPEED * (base + this.fear * 0.35) * dt;
     const dist = this.pos - this.lurkerZ;
     if (dist < 4000) {

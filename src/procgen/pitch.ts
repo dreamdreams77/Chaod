@@ -40,7 +40,7 @@ export function generatePitch(seed: number): PitchPlan {
     const first = rng.pick(pool);
     const second = rng.pick(PATTERNS.filter((p) => p !== first && (n > 0 || OPENERS.includes(p))));
     // From the third goal on the keeper chains a third pattern before pausing.
-    const set = n >= 2 ? [first, second, rng.pick(PATTERNS.filter((p) => p !== second))] : [first, second];
+    const set = n >= 2 ? [first, second, rng.pick(PATTERNS.filter((p) => p !== second && p !== first))] : [first, second];
     rounds.push(set);
     last = set[set.length - 1];
   }
@@ -67,6 +67,8 @@ export function validatePitch(p: PitchPlan): { ok: boolean; reason?: string } {
       if (!PATTERNS.includes(r[i])) return { ok: false, reason: `unknown pattern ${r[i]}` };
       if (i > 0 && r[i] === r[i - 1]) return { ok: false, reason: 'a pattern repeats back to back' };
     }
+    // The keeper cycles through the set, so the last pattern runs straight into the first.
+    if (r.length > 1 && r[r.length - 1] === r[0]) return { ok: false, reason: 'a pattern repeats back to back' };
   }
   if (p.rounds[0].some((x) => !OPENERS.includes(x))) return { ok: false, reason: 'the opening patterns must be gentle' };
   const k = p.keeper;

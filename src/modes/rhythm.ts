@@ -144,7 +144,7 @@ export class RhythmMode extends ModeBase {
     const beat = this.beatNow();
     // Generate chart blocks ahead of time
     while (this.nextBlock < beat + 12) {
-      const block = generateBlock(this.chartRng, this.nextBlock, this.phase, { easy: 0, normal: 1, hard: 2 }[this.game.settings.difficulty], this.lastBlock);
+      const block = generateBlock(this.chartRng, this.nextBlock, this.phase, Math.min(2, { easy: 0, normal: 1, hard: 2 }[this.game.settings.difficulty] + Math.floor((this.tier - 1) * 2)), this.lastBlock);
       this.lastBlock = block;
       this.notes.push(...block);
       this.nextBlock += BLOCK_BEATS;

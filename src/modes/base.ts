@@ -17,6 +17,31 @@ import { petBitBonus, petStage } from '../data/pet.ts';
 
 const BUMP: Record<ChaosIntensity, ChaosIntensity> = { off: 'off', low: 'normal', normal: 'high', high: 'high' };
 
+/** What a chained run (BOSS RUSH, ENDLESS RUN) hands to its next leg: health and the running tally. */
+export interface Carry {
+  carryHp?: number;
+  bits?: number;
+  xp?: number;
+  time?: number;
+  damage?: number;
+  score?: number;
+  chaos?: string[];
+  floppies?: string[];
+  flags?: string[];
+}
+
+/** Adds an earlier leg's tally to a result. */
+function mergeCarry(r: RunResult, c: Carry): void {
+  r.bits += c.bits ?? 0;
+  r.xp += c.xp ?? 0;
+  r.time += c.time ?? 0;
+  r.damageTaken += c.damage ?? 0;
+  r.score += c.score ?? 0;
+  r.chaosSeen = [...new Set([...(c.chaos ?? []), ...r.chaosSeen])];
+  r.floppies = [...new Set([...(c.floppies ?? []), ...r.floppies])];
+  r.flags = [...new Set([...(c.flags ?? []), ...r.flags])];
+}
+
 /** How a run was started. Every mode takes these; most flags are handled here in the base. */
 export interface ModeOpts {
   rematch?: boolean;
@@ -28,8 +53,9 @@ export interface ModeOpts {
   nightmare?: boolean;
   /** BOSS RUSH: Bricklord (leg 1) straight into DJ Static (leg 2) with health carried over. */
   /** ENDLESS RUN: the same world again and again, a little harder each round, until you fall. */
-  endless?: { round: number; seed?: number; carryHp?: number; bits?: number; xp?: number; time?: number; damage?: number; score?: number; chaos?: string[]; floppies?: string[]; flags?: string[] };
-  rush?: { leg: 1 | 2; carryHp?: number; bits?: number; xp?: number; time?: number; damage?: number; score?: number; chaos?: string[]; floppies?: string[]; flags?: string[] };
+  endless?: Carry & { round: number; seed?: number };
+  /** BOSS RUSH: Bricklord (leg 1) straight into DJ Static (leg 2) with health carried over. */
+  rush?: Carry & { leg: 1 | 2 };
 }
 
 export abstract class ModeBase implements Scene {
@@ -88,6 +114,13 @@ export abstract class ModeBase implements Scene {
     const st = playerStats(p);
     if (this.modifier?.id === 'glass' || this.modifier?.id === 'nightmare') st.maxHp = Math.max(2, st.maxHp - 1);
     this.stats = st;
+    // A chained run carries disks, flags and chaos events forward, so nothing is found (or paid for) twice.
+    const carry = opts.endless ?? opts.rush;
+    if (carry) {
+      this.foundFloppies = [...(carry.floppies ?? [])];
+      this.runFlags = new Set(carry.flags);
+      this.chaosSeen = new Set(carry.chaos);
+    }
   }
 
   /** 0 outside ENDLESS RUN, otherwise the 1-based round. */
@@ -180,9 +213,10 @@ export abstract class ModeBase implements Scene {
 
   collectFloppy(index: number): void {
     const id = `${this.mode}-${index}`;
-    if (!this.foundFloppies.includes(id)) this.foundFloppies.push(id);
+    const alreadyHad = this.foundFloppies.includes(id);
+    if (!alreadyHad) this.foundFloppies.push(id);
     this.game.audio.sfx('floppy');
-    const owned = this.game.profile.floppies.includes(id);
+    const owned = alreadyHad || this.game.profile.floppies.includes(id);
     this.game.toast('FLOPPY DISK!', owned ? 'ALREADY BACKED UP (+10)' : `${MODE_INFO[this.mode].title} ${index + 1}/3`, '#3fe0ff');
     this.addBits(owned ? 10 : 25);
     this.runXp += owned ? 0 : 15;
@@ -211,11 +245,11 @@ export abstract class ModeBase implements Scene {
         round: end.round + 1,
         seed: (this.seed + 104729 * end.round) % 1000000,
         carryHp: Math.min(this.stats.maxHp, this.hp + 1),
-        bits: this.runBits,
-        xp: this.runXp + 30,
-        time: this.time,
-        damage: this.damageTaken,
-        score: score + (end.score ?? 0) + 100 * end.round,
+        bits: (end.bits ?? 0) + this.runBits,
+        xp: (end.xp ?? 0) + this.runXp + 30,
+        time: (end.time ?? 0) + this.time,
+        damage: (end.damage ?? 0) + this.damageTaken,
+        score: (end.score ?? 0) + score + 100 * end.round,
         chaos: [...this.chaosSeen],
         floppies: [...this.foundFloppies],
         flags: [...this.runFlags],
@@ -241,27 +275,13 @@ export abstract class ModeBase implements Scene {
       ...extra,
     };
     if (end) {
-      result.bits += end.bits ?? 0;
-      result.xp += end.xp ?? 0;
-      result.time += end.time ?? 0;
-      result.damageTaken += end.damage ?? 0;
-      result.score += end.score ?? 0;
-      result.chaosSeen = [...new Set([...(end.chaos ?? []), ...result.chaosSeen])];
-      result.floppies = [...new Set([...(end.floppies ?? []), ...result.floppies])];
-      result.flags = [...new Set([...(end.flags ?? []), ...result.flags])];
+      mergeCarry(result, end);
       result.endless = { rounds: end.round - 1 };
       result.boss = undefined;
       result.rematch = false;
     }
     if (rush?.leg === 2) {
-      result.bits += rush.bits ?? 0;
-      result.xp += rush.xp ?? 0;
-      result.time += rush.time ?? 0;
-      result.damageTaken += rush.damage ?? 0;
-      result.score += rush.score ?? 0;
-      result.chaosSeen = [...new Set([...(rush.chaos ?? []), ...result.chaosSeen])];
-      result.floppies = [...new Set([...(rush.floppies ?? []), ...result.floppies])];
-      result.flags = [...new Set([...(rush.flags ?? []), ...result.flags])];
+      mergeCarry(result, rush);
       result.bitMultiplier += 0.5;
       if (cleared) result.flags = [...result.flags, 'boss_rush'];
     }

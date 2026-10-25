@@ -18,6 +18,9 @@ import type { ModeOpts } from './modes/base.ts';
 import type { Action } from './core/input.ts';
 import type { ChaosDirector } from './chaos/director.ts';
 
+const PAUSE_ITEMS = ['RESUME', 'RESTART', 'SETTINGS', 'MUSIC', 'QUIT TO LOBBY'] as const;
+const PAUSE_WITH_BANK = ['RESUME', 'RESTART', 'SETTINGS', 'MUSIC', 'BANK & END RUN', 'QUIT TO LOBBY'] as const;
+
 export interface Scene {
   id: string;
   update(dt: number): void;
@@ -42,6 +45,9 @@ export interface Scene {
   gesture?: GestureMode;
   /** Help text shown on touchscreens instead of the keyboard hint. */
   gestureHint?: string;
+  /** ENDLESS RUN: whether the pause menu may offer BANK & END RUN, and the cash-out itself. */
+  canBank?(): boolean;
+  bank?(): void;
   /** Rhythm lanes: the action for the lane nearest a screen x. */
   laneAt?(x: number): Action | null;
 }
@@ -338,17 +344,13 @@ export class Game {
     if (!this.scene.pausable) this.input.pulse('confirm');
   }
 
-  /** An ENDLESS RUN with a round banked can be cashed out from the pause menu. */
-  private get canBank(): boolean {
-    const s = this.scene as Scene & { canBank?: () => boolean };
-    return !!s.canBank?.();
-  }
   /** Row height of the pause list; it tightens a little when the extra BANK row is there. */
   private get pauseStep(): number {
     return this.pauseItems.length > 5 ? 14 : 16;
   }
-  get pauseItems(): string[] {
-    return ['RESUME', 'RESTART', 'SETTINGS', 'MUSIC', ...(this.canBank ? ['BANK & END RUN'] : []), 'QUIT TO LOBBY'];
+  /** An ENDLESS RUN with a round banked can be cashed out from the pause menu. */
+  get pauseItems(): readonly string[] {
+    return this.scene.canBank?.() ? PAUSE_WITH_BANK : PAUSE_ITEMS;
   }
   private updatePause(): void {
     const inp = this.input;
@@ -364,7 +366,7 @@ export class Game {
       else if (item === 'BANK & END RUN') {
         this.paused = false;
         this.audio.muffle(false);
-        (this.scene as Scene & { bank?: () => void }).bank?.();
+        this.scene.bank?.();
       }
       else if (item === 'QUIT TO LOBBY') this.toHub();
       else if (item === 'SETTINGS') {

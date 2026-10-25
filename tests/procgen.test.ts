@@ -150,6 +150,7 @@ test('penalty matches: every seed makes a valid, reproducible plan with gentle o
     const v = validatePitch(p);
     assert.ok(v.ok, `seed ${seed}: ${v.reason}`);
     assert.equal(p.rounds.length, GOALS_TO_WIN);
+    for (const r of p.rounds) assert.notEqual(r[r.length - 1], r[0], `seed ${seed}: the set wraps onto itself`);
   }
   assert.deepEqual(generatePitch(1234), generatePitch(1234));
   const kinds = new Set<string>();

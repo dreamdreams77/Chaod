@@ -413,3 +413,78 @@ test('PENALTY STORM unlocks after four cleared worlds and every procedural match
   p.cleared.beatdown.clears = 1;
   assert.equal(isModeUnlocked('penalty', p.cleared), true);
 });
+
+// ---- review fixes: chained runs and PENALTY STORM edge cases ----------------------------------
+
+test('ENDLESS RUN adds every round to the tally, and a disk found in an earlier round is not paid for again', () => {
+  const { game, started } = spyGame();
+  game.profile.cleared.rampage.clears = 1;
+  let m = new RampageMode(game, { endless: { round: 1 } });
+  m.runBits = 100;
+  m.time = 50;
+  m.damageTaken = 3;
+  m.collectFloppy(0);
+  m.runFlags.add('kevin');
+  m.finish(true, 100);
+  for (let round = 2; round <= 3; round++) {
+    const [, o] = started[started.length - 1] as [string, { endless: NonNullable<ConstructorParameters<typeof RampageMode>[1]>['endless'] }];
+    m = new RampageMode(game, { endless: o.endless });
+    assert.deepEqual(m.foundFloppies, ['rampage-0'], 'disks carry forward');
+    assert.ok(m.runFlags.has('kevin'), 'flags carry forward');
+    const bitsBefore = m.runBits;
+    m.collectFloppy(0);
+    const paid = m.runBits - bitsBefore;
+    assert.ok(paid === 10 || paid === 20, `the same disk again pays only the backed-up bonus (BIT STORM may double it), got ${paid}`);
+    m.runBits = 40;
+    m.time = 30;
+    m.finish(true, 50);
+  }
+  const [, last] = started[started.length - 1] as [string, { endless: { bits: number; time: number; damage: number; score: number } }];
+  assert.ok(last.endless.bits >= 100 + 40 + 40, `all rounds count toward the haul (${last.endless.bits})`);
+  assert.equal(last.endless.time, 50 + 30 + 30);
+  assert.equal(last.endless.damage, 3);
+  assert.ok(last.endless.score > 200);
+  const r4 = new RampageMode(game, { endless: { ...last.endless, round: 4 } } as never);
+  r4.runBits = 5;
+  r4.finish(false, 10);
+  assert.ok(game.profile.floppies.includes('rampage-0'), 'the disk from round one is paid out at the end');
+});
+
+test('PENALTY STORM: a shot in the air when the last heart goes never counts', () => {
+  const g = penaltyGame();
+  const m = readyPenalty(g, 100); // keeper far from the shot: it would be a goal
+  runFrames(m, 1);
+  m.px = 300;
+  m.aimX = 1;
+  m.kick();
+  m.hp = 1;
+  m.bullets.push({ x: m.px, y: m.py - 7, vx: 0, vy: 0, age: 0, hue: 0 });
+  runFrames(m, 240);
+  assert.equal(m.phase, 'lost');
+  assert.equal(m.goals, 0);
+  assert.ok(!g.profile.cleared.penalty.clears, 'no win handed out');
+});
+
+test('PENALTY STORM: the volleys are the same for a seed whatever the player does', () => {
+  const volleys = (shoot: boolean): string => {
+    const g = penaltyGame();
+    const m = new PenaltyMode(g, { seed: 424242 });
+    m.phase = 'play';
+    for (let i = 0; i < 600; i++) {
+      if (shoot && i % 50 === 25) { m.ball.state = 'carried'; m.kick(); }
+      m.update(1 / 60);
+      m.iframes = 99; // stay alive
+    }
+    return m.bullets.slice(0, 6).map((b) => b.vy.toFixed(1)).join(',');
+  };
+  assert.equal(volleys(false).split(',').length, volleys(true).split(',').length);
+  // the same stream: the first emitted rain column positions are identical with and without kicks
+  const first = (shoot: boolean): number => {
+    const m = new PenaltyMode(penaltyGame(), { seed: 99 });
+    m.phase = 'play';
+    if (shoot) { m.ball.state = 'carried'; m.kick(); }
+    for (let i = 0; i < 400 && m.bullets.length === 0; i++) { m.update(1 / 60); m.iframes = 99; }
+    return Math.round(m.bullets[0]?.x ?? -1);
+  };
+  assert.equal(first(true), first(false));
+});

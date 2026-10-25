@@ -14,6 +14,7 @@ import { FIELD, GOAL, GOALS_TO_WIN, PatternId, PitchPlan, Pickup, generatePitch 
 import { H, W, PAL, glow, rect, bar, hearts, clamp, approach } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { drawCass } from '../render/actors.ts';
+import type { Rng } from '../core/rng.ts';
 
 export interface Bullet {
   x: number;
@@ -83,11 +84,14 @@ export class PenaltyMode extends ModeBase {
   private patClock = 0;
   private introT = 2.2;
   endT = 0;
+  /** Volley randomness has its own stream, so a seed gives every player the same patterns whatever they do. */
+  private readonly volleyRng: Rng;
   private banner: { text: string; color: string; t: number } | null = null;
 
   constructor(game: Game, opts: ModeOpts = {}) {
     super(game, 'penalty', opts);
     this.plan = generatePitch(this.seed);
+    this.volleyRng = this.rng.fork(0x70c);
     this.hp = this.stats.maxHp;
     this.applyCarry();
     this.pickups = this.plan.pickups[0].map((p) => ({ ...p }));
@@ -153,9 +157,10 @@ export class PenaltyMode extends ModeBase {
 
     if (this.phase === 'won' || this.phase === 'lost') {
       this.endT += dt;
-      this.updateBall(dt);
+      // After the whistle nothing else counts: a shot still in the air must not turn a loss into a win.
+      if (this.phase === 'won') this.updateBall(dt);
       if (this.phase === 'won' && this.endT > 2.4) {
-        const score = this.goals * 400 + this.hp * 300 + this.saves * 0 + Math.max(0, 3000 - Math.floor(this.time * 10)) + this.corners * 150 + this.runBits * 10;
+        const score = this.goals * 400 + this.hp * 300 + Math.max(0, 3000 - Math.floor(this.time * 10)) + this.corners * 150 + this.runBits * 10;
         this.finish(true, score);
       } else if (this.phase === 'lost' && this.endT > 1.8) this.finish(false, this.goals * 250 + this.runBits * 5);
       return;
@@ -182,7 +187,7 @@ export class PenaltyMode extends ModeBase {
     this.updateKeeper(dt);
     this.updateBall(dt);
     this.updatePickups();
-    if (this.hp <= 0 && (this.phase as Phase) !== 'lost') {
+    if (this.hp <= 0 && (this.phase as Phase) !== 'won') {
       this.phase = 'lost';
       this.endT = 0;
       this.bullets = [];
@@ -279,9 +284,9 @@ export class PenaltyMode extends ModeBase {
         break;
       }
       case 'rain': {
-        add(this.rng.range(FIELD.left, FIELD.right), FIELD.top, Math.PI / 2, 92 + 7 * lvl, 2);
+        add(this.volleyRng.range(FIELD.left, FIELD.right), FIELD.top, Math.PI / 2, 92 + 7 * lvl, 2);
         // Half the drops are aimed at the player's column.
-        add(clamp(this.px + this.rng.range(-24, 24), FIELD.left, FIELD.right), FIELD.top, Math.PI / 2, 100 + 7 * lvl, 2);
+        add(clamp(this.px + this.volleyRng.range(-24, 24), FIELD.left, FIELD.right), FIELD.top, Math.PI / 2, 100 + 7 * lvl, 2);
         this.emitT = 0.2 - 0.008 * lvl;
         break;
       }
@@ -295,13 +300,13 @@ export class PenaltyMode extends ModeBase {
       }
       case 'ring': {
         const n = 20 + lvl * 2 + hard * 3;
-        const off = this.rng.range(0, Math.PI * 2);
+        const off = this.volleyRng.range(0, Math.PI * 2);
         for (let i = 0; i < n; i++) add(kx, ky, off + (i / n) * Math.PI * 2, 68 + 6 * lvl, 0);
         this.emitT = 1.15 - 0.04 * lvl;
         break;
       }
       case 'sweep': {
-        const gap = this.rng.range(70, 410);
+        const gap = this.volleyRng.range(70, 410);
         const half = 26 - Math.min(lvl, 4) * 1.5;
         for (let x = FIELD.left; x <= FIELD.right; x += 12) if (Math.abs(x - gap) > half) add(x, FIELD.top + 4, Math.PI / 2, 62 + 5 * lvl, 2);
         this.emitT = 1.5 - 0.05 * lvl;
@@ -324,7 +329,10 @@ export class PenaltyMode extends ModeBase {
         this.particles.burst(b.x, b.y, [HUES[b.hue], '#fff'], 4, 40);
       }
     }
-    this.bullets = this.bullets.filter((b) => b.age >= 0 && b.x > -10 && b.x < W + 10 && b.y > FIELD.top - 14 && b.y < H + 10);
+    // Drop spent and off-screen bullets in place (this runs every frame with hundreds of bullets).
+    let keep = 0;
+    for (const b of this.bullets) if (b.age >= 0 && b.x > -10 && b.x < W + 10 && b.y > FIELD.top - 14 && b.y < H + 10) this.bullets[keep++] = b;
+    this.bullets.length = keep;
     if (this.iframes > 0) return;
     for (const b of this.bullets) {
       if (Math.hypot(b.x - this.px, b.y - (this.py - 7)) < BULLET_R + PLAYER_R) {
@@ -420,6 +428,13 @@ export class PenaltyMode extends ModeBase {
 
   private resolveShot(): void {
     const b = this.ball;
+    if (this.hp <= 0) {
+      // The player went down while the ball was in the air: it never counts.
+      b.state = 'loose';
+      b.vx = b.vy = 0;
+      b.y = GOAL.line + 6;
+      return;
+    }
     const k = this.keeper;
     b.y = GOAL.line;
     if (Math.abs(b.x - k.x) <= this.keeperWidth / 2 + 3) {
@@ -517,7 +532,7 @@ export class PenaltyMode extends ModeBase {
         this.game.audio.sfx('powerup');
       }
     }
-    this.pickups = this.pickups.filter((p) => p.x > -900);
+    if (this.pickups.some((p) => p.x < -900)) this.pickups = this.pickups.filter((p) => p.x > -900);
   }
 
   // ---- drawing ---------------------------------------------------------------------
@@ -529,13 +544,12 @@ export class PenaltyMode extends ModeBase {
     this.drawGoal(ctx);
     for (const p of this.pickups) this.drawPickup(ctx, p);
     this.drawAim(ctx);
-    // Everything that stands on the grass, back to front.
-    const things: Array<{ y: number; fn: () => void }> = [
-      { y: KEEPER_Y, fn: () => this.drawKeeper(ctx) },
-      { y: this.py, fn: () => this.drawPlayer(ctx) },
-    ];
-    if (this.ball.state !== 'net') things.push({ y: this.ball.y + 4, fn: () => this.drawBall(ctx) });
-    things.sort((a, b) => a.y - b.y).forEach((t) => t.fn());
+    // Back to front: the keeper is always furthest away; the ball sorts against the player.
+    this.drawKeeper(ctx);
+    const ballBehind = this.ball.y + 4 < this.py;
+    if (this.ball.state !== 'net' && ballBehind) this.drawBall(ctx);
+    this.drawPlayer(ctx);
+    if (this.ball.state !== 'net' && !ballBehind) this.drawBall(ctx);
     for (const b of this.bullets) this.drawBullet(ctx, b);
     this.particles.draw(ctx);
     this.popups.draw(ctx);

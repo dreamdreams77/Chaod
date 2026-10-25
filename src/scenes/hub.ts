@@ -81,6 +81,7 @@ export class HubScene implements Scene {
     const p = this.game.profile;
     this.game.music(p.endingSeen ? 'ending' : 'hub');
     this.game.audio.unlock();
+    this.syncPetTrophies();
     // Care loop: pets get hungry between adventures.
     if (!p.introDone) {
       p.introDone = true;
@@ -289,7 +290,7 @@ export class HubScene implements Scene {
     const floppies = [0, 1, 2].map((i) => (p.floppies.includes(`${mode}-${i}`) ? '■' : '□')).join(' ');
     if (rec.clears) {
       const e = p.endless[mode];
-      items.push({ label: 'ENDLESS RUN', value: () => (e ? `BEST ROUND ${e.rounds + 1}` : 'NEW'), sub: 'Round after round on fresh seeds, a bit tougher each time. Heal 1 heart between rounds; pause to bank your haul. Pays more the further you get.', color: '#ff6f3f', onSelect: () => { this.menu = null; this.game.startMode(mode, { endless: { round: 1 } }); } });
+      items.push({ label: 'ENDLESS RUN', value: () => (e ? `BEST ${e.rounds} ROUND${e.rounds === 1 ? '' : 'S'}` : 'NEW'), sub: 'Round after round on fresh seeds, a bit tougher each time. Heal 1 heart between rounds; pause to bank your haul. Pays more the further you get.', color: '#ff6f3f', onSelect: () => { this.menu = null; this.game.startMode(mode, { endless: { round: 1 } }); } });
     }
     if (p.endingSeen) items.push({ label: 'NIGHTMARE MODE', sub: 'One less heart, double damage, chaos cranked, bits pay double. For those who rebooted the Core.', color: '#ff3f6b', onSelect: () => { this.menu = null; this.game.startMode(mode, { nightmare: true }); } });
     items.push({ label: `BEST ${rec.bestScore}  CLEARS ${rec.clears}`, value: () => `DISKS ${floppies}`, disabled: true });
@@ -326,16 +327,15 @@ export class HubScene implements Scene {
     this.say('core', 'CARTRIDGE CORE', lines);
   }
 
-  private petMenu(): void {
+  private petMenu(keepIndex?: number): void {
     const pet = this.game.profile.pet;
-    const keep = this.menu?.index;
-    const care = pet.xp;
+    const keep = keepIndex ?? this.menu?.index;
     const stage = petStage(pet.care);
     const next = PET_STAGES[stage + 1];
     const items: MenuItem[] = [
       { label: 'FEED', value: () => (pet.hunger > 0 ? `HUNGRY ${'●'.repeat(pet.hunger)}` : 'FULL'), sub: 'BYTE gets hungry after each adventure. Feeding builds bond.', onSelect: () => this.feed() },
       { label: 'PLAY FETCH (TRAIN)', value: () => (pet.trainedToday ? 'TIRED' : 'READY'), sub: 'Press Z when the ball is in the green zone. Builds bond.', disabled: pet.trainedToday > 0, onSelect: () => { this.menu = null; this.train = { cursor: 0, dir: 1, zone: 0.35 + Math.random() * 0.3, done: false, result: '', t: 0 }; } },
-      { label: `BOND ${pet.bond}/5`, value: () => `CARE ${care}/3`, disabled: true, sub: 'Bond powers GOOD BOY PROTOCOL: a longer bark stun in NIGHTMARE MALL. Bond 3+ sniffs keys.' },
+      { label: `BOND ${pet.bond}/5`, value: () => (pet.bond >= 5 ? 'MAX' : `CARE ${pet.xp}/3`), disabled: true, sub: 'Bond powers GOOD BOY PROTOCOL: a longer bark stun in NIGHTMARE MALL. Bond 3+ sniffs keys.' },
       { label: `FORM: ${PET_STAGES[stage].name}`, value: () => (next ? `CARE ${pet.care}/${next.at}` : 'FULLY GROWN'), disabled: true, sub: `${PET_STAGES[stage].perk}${next ? ` Next form at ${next.at} care.` : ''}` },
       { label: 'DRESS UP', value: () => `${pet.outfit.owned.length}/${PET_ITEMS.length} ITEMS`, sub: 'Hats, shades, scarves and wings for BYTE. Bought with bits, worn everywhere BYTE shows up.', onSelect: () => this.petDressMenu() },
       { label: 'BACK', onSelect: () => (this.menu = null) },
@@ -382,10 +382,29 @@ export class HubScene implements Scene {
       ...PET_ITEMS.filter((i) => i.slot === 'face').map(row),
       { label: '\u2014 BACK \u2014', disabled: true },
       ...PET_ITEMS.filter((i) => i.slot === 'back').map(row),
-      { label: 'BACK', onSelect: () => this.petMenu() },
+      { label: 'BACK', onSelect: () => this.leaveDressUp() },
     ];
-    this.menu = new ListMenu(`DRESS UP BYTE \u2014 ${p.bits} BITS`, items, () => this.petMenu(), { x: 60, y: 20, w: 360, rows: 13, accent: '#9dff3f' });
+    this.menu = new ListMenu(`DRESS UP BYTE \u2014 ${p.bits} BITS`, items, () => this.leaveDressUp(), { x: 60, y: 20, w: 360, rows: 13, accent: '#9dff3f' });
     this.menu.index = keep ?? 1;
+  }
+
+  /** Back to BYTE's menu with the cursor on DRESS UP (the dress menu's own cursor must not leak across). */
+  private leaveDressUp(): void {
+    this.menu = null;
+    this.petMenu(4);
+  }
+
+  /** Trophies for forms a save already has (older saves arrive grown without ever "evolving"). */
+  private syncPetTrophies(): void {
+    const p = this.game.profile;
+    const stage = petStage(p.pet.care);
+    const got: string[] = [];
+    if (stage >= 1) unlockAchievement(p, 'pet_evolve', got);
+    if (stage >= 3) unlockAchievement(p, 'pet_giga', got);
+    if (got.length) {
+      this.game.announceAchievements(got);
+      this.save();
+    }
   }
 
   private addCare(n: number): void {
@@ -400,6 +419,7 @@ export class HubScene implements Scene {
       this.game.toast('BOND UP!', `BYTE BOND ${pet.bond}/5`, '#9dff3f');
       this.game.audio.sfx('levelup');
     }
+    if (pet.bond >= 5) pet.xp = 0; // past max bond the counter has nothing left to fill
     const got: string[] = [];
     if (pet.bond >= 5) unlockAchievement(p, 'pet_max', got);
     const stageAfter = petStage(pet.care);
@@ -489,7 +509,7 @@ export class HubScene implements Scene {
     const items: MenuItem[] = [{ label: 'WARDROBE', sub: 'Outfits and hats for Cass. Purely for style.', onSelect: () => this.wardrobeMenu() }];
     items.push(...SHOP.map((s) => {
       const owned = !s.repeatable && p.abilities.includes(s.id);
-      const blocked = (s.requires && !p.abilities.includes(s.requires)) || false;
+      const blocked = !!(s.requires && !p.abilities.includes(s.requires));
       return {
         label: s.name,
         value: () => (owned ? 'OWNED' : `${s.cost} BITS`),

@@ -251,3 +251,8 @@ test('migration rejects malformed nested save fields', () => {
   assert.equal(s.fixedSeed, null);
   assert.equal(migrateSettings({ fixedSeed: 123456 }).fixedSeed, 123456);
 });
+
+test('a veteran pet save does not jump to the final form on migration', () => {
+  const p = migrateProfile({ pet: { bond: 5, hunger: 0, xp: 70 } });
+  assert.equal(p.pet.care, 14);
+});
