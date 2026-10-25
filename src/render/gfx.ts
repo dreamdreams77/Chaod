@@ -155,6 +155,7 @@ export class ScreenFx {
   flashColor = '#fff';
   hitstop = 0;
   shakeScale = 1;
+  private shakeT = 0;
   reducedFlash = false;
 
   shake(amount: number): void {
@@ -168,12 +169,15 @@ export class ScreenFx {
     this.hitstop = Math.max(this.hitstop, seconds);
   }
   update(dt: number): void {
-    this.shakeAmt = Math.max(0, this.shakeAmt - dt * 30);
+    this.shakeAmt = Math.max(0, this.shakeAmt - dt * 40);
     this.flashA = Math.max(0, this.flashA - dt * (this.reducedFlash ? 1 : 3));
   }
   offset(): [number, number] {
     if (this.shakeAmt <= 0.01) return [0, 0];
-    return [Math.round((Math.random() * 2 - 1) * this.shakeAmt), Math.round((Math.random() * 2 - 1) * this.shakeAmt)];
+    // Damped oscillation instead of per-frame random jumps: reads as impact, not jitter.
+    const a = Math.min(this.shakeAmt, 8) * 0.55;
+    this.shakeT += 1;
+    return [Math.round(Math.sin(this.shakeT * 1.9) * a), Math.round(Math.cos(this.shakeT * 2.3) * a * 0.6)];
   }
   drawFlash(ctx: CanvasRenderingContext2D): void {
     if (this.flashA <= 0.01) return;
@@ -191,7 +195,11 @@ export class ScreenFx {
 
 let crtLayer: HTMLCanvasElement | null = null;
 
-/** Scanlines + vignette, pre-rendered once and blended at `strength`. */
+/**
+ * In-canvas CRT touch: a soft corner vignette and a faint phosphor warmth.
+ * Scanlines are drawn by the page at display resolution (see #crt in index.html),
+ * so they stay even at every window size.
+ */
 export function drawCRT(ctx: CanvasRenderingContext2D, strength: number): void {
   if (strength <= 0) return;
   if (!crtLayer) {
@@ -199,15 +207,13 @@ export function drawCRT(ctx: CanvasRenderingContext2D, strength: number): void {
     crtLayer.width = W;
     crtLayer.height = H;
     const g = crtLayer.getContext('2d')!;
-    g.fillStyle = 'rgba(0,0,0,0.35)';
-    for (let y = 0; y < H; y += 2) g.fillRect(0, y, W, 1);
-    const v = g.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.85);
+    const v = g.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.95);
     v.addColorStop(0, 'rgba(0,0,0,0)');
-    v.addColorStop(1, 'rgba(0,0,0,0.55)');
+    v.addColorStop(1, 'rgba(0,0,0,0.5)');
     g.fillStyle = v;
     g.fillRect(0, 0, W, H);
   }
-  ctx.globalAlpha = strength;
+  ctx.globalAlpha = Math.min(1, strength * 1.6);
   ctx.drawImage(crtLayer, 0, 0);
   ctx.globalAlpha = 1;
 }

@@ -65,26 +65,36 @@ function boot(): void {
   game.scene = game.titleFactory();
   game.scene.enter?.();
 
-  setupTouch(document.getElementById('touch')!, input);
+  setupTouch(document.getElementById('touch')!, input, () => resize());
 
   // Audio can only start after a user gesture.
   const unlock = () => audio.unlock();
   window.addEventListener('keydown', unlock);
   window.addEventListener('pointerdown', unlock);
 
-  // Integer-ish scaling that fills the window while keeping pixels crisp.
+  // Fit the screen inside the page. On touch devices the pad gets its own gutter
+  // (below the screen in portrait, beside it in landscape) so nothing overlaps the game.
+  const PAD = 196;
+  const screen = document.getElementById('screen')!;
   const resize = () => {
-    // Fit inside the page's padding (side gutters, safe-area insets) without scrollbars.
-    const bs = getComputedStyle(document.body);
-    const rs = getComputedStyle(document.documentElement);
-    const availW = document.body.clientWidth - parseFloat(bs.paddingLeft) - parseFloat(bs.paddingRight);
-    const availH = window.innerHeight - parseFloat(rs.paddingTop || '0') - parseFloat(rs.paddingBottom || '0');
-    const sx = availW / W;
-    const sy = availH / H;
-    let s = Math.min(sx, sy);
-    if (s >= 2) s = Math.floor(s);
+    const body = document.body;
+    const portrait = window.innerHeight > window.innerWidth;
+    const touch = input.usingTouch;
+    body.style.paddingBottom = touch && portrait ? `calc(${PAD}px + env(safe-area-inset-bottom, 0px))` : '';
+    body.style.paddingLeft = touch && !portrait ? `max(${PAD}px, env(safe-area-inset-left, 0px))` : '';
+    body.style.paddingRight = touch && !portrait ? `max(${PAD}px, env(safe-area-inset-right, 0px))` : '';
+    const bs = getComputedStyle(body);
+    const availW = body.clientWidth - parseFloat(bs.paddingLeft) - parseFloat(bs.paddingRight);
+    const availH = window.innerHeight - parseFloat(bs.paddingTop) - parseFloat(bs.paddingBottom);
+    let s = Math.min(availW / W, availH / H);
+    // Whole-number scales keep every game pixel the same size (no shimmer);
+    // below 2x there is no room to be picky, so scale smoothly instead.
+    const crisp = s >= 2;
+    if (crisp) s = Math.floor(s);
     canvas.style.width = `${Math.floor(W * s)}px`;
     canvas.style.height = `${Math.floor(H * s)}px`;
+    canvas.style.imageRendering = crisp ? 'pixelated' : 'auto';
+    screen.style.setProperty('--s', String(s));
   };
   window.addEventListener('resize', resize);
   resize();

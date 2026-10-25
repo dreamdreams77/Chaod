@@ -339,6 +339,8 @@ export class Game {
   }
 
   // ---- drawing -----------------------------------------------------------------
+  private crtShown = true;
+
   render(): void {
     const g = this.lctx;
     g.save();
@@ -374,6 +376,10 @@ export class Game {
       for (let i = 0; i < 30; i++) rect(ctx, (i * 97 + this.time * 3000) % W, (i * 53 + this.time * 1700) % H, 1, 1 + (i % 3), '#0004');
     }
     if (this.settings.crt) drawCRT(ctx, this.scene.crt ?? 0.4);
+    if (this.crtShown !== this.settings.crt) {
+      this.crtShown = this.settings.crt;
+      document.documentElement.classList.toggle('crt-off', !this.settings.crt);
+    }
     this.fx.drawFlash(ctx);
     this.drawShiftBanner(ctx);
     if (this.dialog) this.drawDialog(ctx);

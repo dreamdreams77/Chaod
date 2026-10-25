@@ -179,21 +179,31 @@ function isGameKey(code: string): boolean {
 }
 
 /** Builds a minimal on-screen gamepad for touch devices. */
-export function setupTouch(root: HTMLElement, input: Input): void {
-  const layout: Array<[Action, string, string]> = [
-    ['left', '◀', 'left:12px;bottom:70px'],
-    ['right', '▶', 'left:132px;bottom:70px'],
-    ['up', '▲', 'left:72px;bottom:130px'],
-    ['down', '▼', 'left:72px;bottom:12px'],
-    ['jump', 'A', 'right:12px;bottom:40px'],
-    ['attack', 'B', 'right:76px;bottom:90px'],
-    ['special', 'C', 'right:140px;bottom:40px'],
-    ['pause', 'II', 'right:12px;top:12px'],
+export function setupTouch(root: HTMLElement, input: Input, onEnable: () => void = () => {}): void {
+  // [action, label, zone, left, top, extra class]; coordinates are inside a 176x176 zone.
+  const layout: Array<[Action, string, 'dpad' | 'acts', number, number, string]> = [
+    ['up', '▲', 'dpad', 60, 0, ''],
+    ['left', '◀', 'dpad', 0, 60, ''],
+    ['right', '▶', 'dpad', 120, 60, ''],
+    ['down', '▼', 'dpad', 60, 120, ''],
+    ['jump', 'A', 'acts', 120, 70, ''],
+    ['attack', 'B', 'acts', 62, 100, ''],
+    ['special', 'C', 'acts', 4, 120, ''],
+    ['pause', 'II', 'acts', 130, 0, 'small'],
   ];
-  for (const [action, label, pos] of layout) {
+  const zones = {
+    dpad: document.createElement('div'),
+    acts: document.createElement('div'),
+  };
+  zones.dpad.className = 'zone dpad';
+  zones.acts.className = 'zone acts';
+  root.append(zones.dpad, zones.acts);
+  for (const [action, label, zone, left, top, extra] of layout) {
     const b = document.createElement('button');
     b.textContent = label;
-    b.setAttribute('style', pos);
+    if (extra) b.className = extra;
+    b.setAttribute('style', `left:${left}px;top:${top}px`);
+    b.setAttribute('aria-label', action);
     const on = (e: Event) => {
       e.preventDefault();
       b.classList.add('active');
@@ -212,11 +222,12 @@ export function setupTouch(root: HTMLElement, input: Input): void {
     b.addEventListener('pointerup', off);
     b.addEventListener('pointercancel', off);
     b.addEventListener('pointerleave', off);
-    root.appendChild(b);
+    zones[zone].appendChild(b);
   }
   const enable = () => {
     input.usingTouch = true;
     root.classList.add('on');
+    onEnable();
   };
   window.addEventListener('touchstart', enable, { once: true, passive: true });
 }
