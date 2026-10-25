@@ -65,6 +65,7 @@ export class NeonMode extends ModeBase {
     super(game, 'neon', opts);
     this.track = generateNeon(this.seed, game.settings.difficulty === 'hard' ? 1 : game.settings.difficulty === 'easy' ? 0 : 0.5);
     this.hp = this.stats.maxHp;
+    this.applyCarry();
     this.finishZ = (this.track.length - 80) * SEG_LEN;
     if (game.profile.abilities.includes('nitro')) this.boost = 1;
     else this.boost = 0.5;

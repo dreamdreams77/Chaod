@@ -151,6 +151,7 @@ export class CommandMode extends ModeBase {
     super(game, 'command', opts);
     this.map = generateCommand(this.seed);
     this.hp = this.stats.maxHp;
+    this.applyCarry();
   }
 
   enter(): void {

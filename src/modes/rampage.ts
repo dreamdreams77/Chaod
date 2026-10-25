@@ -80,6 +80,7 @@ export class RampageMode extends ModeBase {
     });
     this.tiles = this.level.tiles.map((r) => r.slice());
     this.hp = this.stats.maxHp;
+    this.applyCarry();
     this.energy = this.stats.energy;
     let floppyIndex = 0;
     for (const s of this.level.spawns) {

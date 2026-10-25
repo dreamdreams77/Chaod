@@ -53,6 +53,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'level5', name: 'LEVELED UP', desc: 'Reach level 5.' },
   { id: 'flawless_core', name: 'PERFECT DEFENSE', desc: 'Clear CORE COMMAND without a single leak.' },
   { id: 'boss_rush', name: 'RUSH HOUR', desc: 'Beat BRICKLORD MAX and DJ STATIC back to back in BOSS RUSH.' },
+  { id: 'endless5', name: 'NO END IN SIGHT', desc: 'Survive 5 rounds of an ENDLESS RUN.' },
   { id: 'nightmare', name: 'SLEEPLESS', desc: 'Clear a world in NIGHTMARE mode.' },
   { id: 'ending', name: 'REBOOT', desc: 'Restore the Cartridge Core.' },
   { id: 'secret', name: 'GOOD BOY', desc: 'Find the secret character.' },
@@ -75,6 +76,8 @@ export interface RunResult {
   /** Set on daily challenge runs (with the UTC date) and on runs started from a shared link. */
   challenge?: 'daily' | 'shared';
   dailyKey?: string;
+  /** Set on a finished ENDLESS RUN: rounds cleared before falling (or banking). */
+  endless?: { rounds: number };
 }
 
 export interface RunSummary {
@@ -107,8 +110,10 @@ export function applyRun(profile: Profile, r: RunResult): { profile: Profile; su
   const achievements: string[] = [];
   const levelBefore = p.level;
   // Failed runs still pay out partially: failure should be entertaining, not a wipe.
-  const bits = Math.round(r.bits * r.bitMultiplier * (r.cleared ? 1 : 0.5));
-  const xp = Math.round(r.xp * (r.cleared ? 1 : 0.5));
+  // An ENDLESS RUN never "clears"; it pays more of its haul the further it got (full pay from round 5).
+  const pay = r.cleared ? 1 : r.endless ? Math.min(1, 0.5 + 0.1 * r.endless.rounds) : 0.5;
+  const bits = Math.round(r.bits * r.bitMultiplier * pay);
+  const xp = Math.round(r.xp * pay);
   p.bits += bits;
   p.xp += xp;
   p.level = levelForXp(p.xp);
@@ -118,6 +123,11 @@ export function applyRun(profile: Profile, r: RunResult): { profile: Profile; su
       p.floppies.push(f);
       newFloppies++;
     }
+  }
+  if (r.endless) {
+    const e = p.endless[r.mode] ?? { rounds: 0, score: 0 };
+    p.endless[r.mode] = { rounds: Math.max(e.rounds, r.endless.rounds), score: Math.max(e.score, r.score) };
+    if (r.endless.rounds >= 5) unlockAchievement(p, 'endless5', achievements);
   }
   const rec = p.cleared[r.mode];
   const firstClear = r.cleared && rec.clears === 0;

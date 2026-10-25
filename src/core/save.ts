@@ -46,6 +46,8 @@ export interface Profile {
   wardrobe: Wardrobe;
   /** Mastery stars earned per world (see data/mastery.ts). */
   stars: Partial<Record<ModeId, string[]>>;
+  /** ENDLESS RUN personal bests per world: rounds survived and best total score. */
+  endless: Partial<Record<ModeId, { rounds: number; score: number }>>;
   /** Daily challenge record (see data/daily.ts). */
   daily: { key: string; best: number; cleared: boolean; streak: number; lastClear: string };
 }
@@ -80,7 +82,7 @@ export function defaultProfile(): Profile {
     level: 1,
     bits: 0,
     floppies: [],
-    cleared: { rampage: rec(), neon: rec(), mall: rec(), beatdown: rec(), rhythm: rec(), command: rec() },
+    cleared: Object.fromEntries(MODE_IDS.map((m) => [m, rec()])) as Record<ModeId, ModeRecord>,
     bossesDefeated: [],
     bossChoices: {},
     abilities: [],
@@ -103,6 +105,7 @@ export function defaultProfile(): Profile {
     mini: {},
     wardrobe: defaultWardrobe(),
     stars: {},
+    endless: {},
     daily: { key: '', best: 0, cleared: false, streak: 0, lastClear: '' },
   };
 }
@@ -161,6 +164,13 @@ export function migrateProfile(raw: unknown): Profile {
     for (const m of MODE_IDS) {
       const v = (r.stars as Record<string, unknown>)[m];
       if (Array.isArray(v)) p.stars[m] = v.filter((x): x is string => x === 'clean' || x === 'fast' || x === 'collector').filter((x, i, a) => a.indexOf(x) === i);
+    }
+  }
+  p.endless = {};
+  if (r.endless && typeof r.endless === 'object' && !Array.isArray(r.endless)) {
+    for (const m of MODE_IDS) {
+      const e = (r.endless as Record<string, { rounds?: unknown; score?: unknown } | null>)[m];
+      if (e && Number.isFinite(e.rounds) && Number.isFinite(e.score)) p.endless[m] = { rounds: Math.max(0, Math.floor(e.rounds as number)), score: Math.max(0, e.score as number) };
     }
   }
   const dr = (r.daily ?? {}) as Partial<Profile['daily']>;

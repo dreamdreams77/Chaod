@@ -68,6 +68,7 @@ export class MallMode extends ModeBase {
     this.mx = this.map.monsterStart.x * T + 8;
     this.my = this.map.monsterStart.y * T + 8;
     this.hp = this.stats.maxHp;
+    this.applyCarry();
     this.petOn = this.fusion.has('pet_companion');
     this.petX = this.px - 12;
     this.petY = this.py;

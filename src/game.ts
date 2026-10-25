@@ -323,7 +323,7 @@ export class Game {
       return;
     }
     if (this.paused) {
-      const row = Math.floor((y - 100) / 16);
+      const row = Math.floor((y - 100) / this.pauseStep);
       if (x >= W / 2 - 80 && x <= W / 2 + 80 && row >= 0 && row < this.pauseItems.length) {
         if (row === this.pauseIndex) this.input.pulse('confirm');
         else {
@@ -338,7 +338,18 @@ export class Game {
     if (!this.scene.pausable) this.input.pulse('confirm');
   }
 
-  readonly pauseItems = ['RESUME', 'RESTART', 'SETTINGS', 'MUSIC', 'QUIT TO LOBBY'];
+  /** An ENDLESS RUN with a round banked can be cashed out from the pause menu. */
+  private get canBank(): boolean {
+    const s = this.scene as Scene & { canBank?: () => boolean };
+    return !!s.canBank?.();
+  }
+  /** Row height of the pause list; it tightens a little when the extra BANK row is there. */
+  private get pauseStep(): number {
+    return this.pauseItems.length > 5 ? 14 : 16;
+  }
+  get pauseItems(): string[] {
+    return ['RESUME', 'RESTART', 'SETTINGS', 'MUSIC', ...(this.canBank ? ['BANK & END RUN'] : []), 'QUIT TO LOBBY'];
+  }
   private updatePause(): void {
     const inp = this.input;
     if (inp.pressed('up')) { this.pauseIndex = (this.pauseIndex + this.pauseItems.length - 1) % this.pauseItems.length; this.audio.sfx('select'); }
@@ -350,6 +361,11 @@ export class Game {
       if (item === 'RESUME') { this.paused = false; this.audio.muffle(false); }
       else if (item === 'RESTART') this.restart();
       else if (item === 'MUSIC') { this.settings.musicOn = !this.settings.musicOn; this.saveSettings(); }
+      else if (item === 'BANK & END RUN') {
+        this.paused = false;
+        this.audio.muffle(false);
+        (this.scene as Scene & { bank?: () => void }).bank?.();
+      }
       else if (item === 'QUIT TO LOBBY') this.toHub();
       else if (item === 'SETTINGS') {
         const current = this.scene;
@@ -513,7 +529,7 @@ export class Game {
     this.pauseItems.forEach((it, i) => {
       const sel = i === this.pauseIndex;
       const label = it === 'MUSIC' ? `MUSIC: ${this.settings.musicOn ? 'ON' : 'OFF'}` : it;
-      drawText(ctx, (sel ? '▶ ' : '  ') + label, W / 2 - 60, 104 + i * 16, sel ? '#ffcf3f' : '#ccc');
+      drawText(ctx, (sel ? '▶ ' : '  ') + label, W / 2 - 60, 102 + i * this.pauseStep, sel ? '#ffcf3f' : '#ccc');
     });
     drawText(ctx, 'ESC/P TO RESUME • M MUSIC', W / 2, 190, '#888', { align: 'center' });
   }

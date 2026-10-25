@@ -78,15 +78,17 @@ export class BeatdownMode extends ModeBase {
   constructor(game: Game, opts: ModeOpts = {}) {
     super(game, 'beatdown', opts);
     this.hp = this.stats.maxHp;
+    this.applyCarry();
     this.energy = this.stats.energy;
     this.rematchMult = opts.rematch ? 1.25 : 1;
-    this.bMaxHp = Math.round(140 * { easy: 0.75, normal: 1, hard: 1.3 }[game.settings.difficulty] * this.rematchMult);
+    this.bMaxHp = Math.round(140 * { easy: 0.75, normal: 1, hard: 1.3 }[game.settings.difficulty] * this.rematchMult * (1 + 0.5 * (this.tier - 1)));
     this.bHp = this.bMaxHp;
     for (let r = 0; r < MAX_STACK; r++) this.grid.push(new Array(COLS).fill(null));
   }
 
   enter(): void {
     this.game.music('beatdown');
+    if (this.endlessRound > 1) return;
     this.game.say([
       { who: 'brick', name: 'BRICKLORD MAX', text: this.opts.rematch ? 'You again! This time I brought EXTRA rows.' : 'ANOTHER challenger? Fine. I am the FINAL LEVEL. I am ALWAYS the final level.' },
       { who: 'manual', name: 'THE MANUAL', text: 'X attacks (chain 3 for a combo). C fires a CART WAVE. Hold DOWN to block. When he slams, his core glows — punish it!' },
@@ -583,6 +585,13 @@ export class BeatdownMode extends ModeBase {
 
   // ---- defeat sequence ----------------------------------------------------------------------
   private defeatDialog(): void {
+    if (this.endlessRound) {
+      // ENDLESS RUN: no mercy-or-purge scene or shard here, just the next round.
+      const score = Math.floor(this.runBits * 10 + this.hp * 500 + this.lines * 800 + Math.max(0, 6000 - this.time * 30));
+      this.addBits(80);
+      this.finish(true, score);
+      return;
+    }
     this.game.say(BOSS_DEFEAT.bricklord, (effects) => {
       const p = this.game.profile;
       if (effects.includes('purge')) {

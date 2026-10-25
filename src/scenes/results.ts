@@ -77,9 +77,13 @@ class ResultsScene implements Scene {
     for (let i = 0; i < 24; i++) rect(ctx, (i * 41 + this.t * 20) % W, (i * 23) % H, 2, 2, '#ffffff22');
     const info = MODE_INFO[this.r.mode];
     drawText(ctx, info.title, W / 2, 18, info.color, { align: 'center', scale: 2 });
-    const head = this.r.cleared ? (this.r.boss ? 'BOSS DEFEATED!' : 'WORLD CLEARED!') : 'GAME OVER... SORT OF';
-    drawText(ctx, head, W / 2, 42, this.r.cleared ? '#7dff6b' : '#ff6f3f', { align: 'center', scale: 2 });
-    if (!this.r.cleared) drawText(ctx, 'You keep half your bits and XP. Failure is just a genre.', W / 2, 62, '#ccc', { align: 'center' });
+    const endless = this.r.endless;
+    const head = endless ? `ENDLESS: ${endless.rounds} ROUND${endless.rounds === 1 ? '' : 'S'}` : this.r.cleared ? (this.r.boss ? 'BOSS DEFEATED!' : 'WORLD CLEARED!') : 'GAME OVER... SORT OF';
+    drawText(ctx, head, W / 2, 42, this.r.cleared || endless ? '#7dff6b' : '#ff6f3f', { align: 'center', scale: 2 });
+    if (endless) {
+      const best = this.game.profile.endless[this.r.mode];
+      drawText(ctx, `BEST: ${best?.rounds ?? 0} ROUNDS.  ${endless.rounds >= 5 ? 'FULL PAYOUT!' : 'GO FIVE ROUNDS FOR THE FULL PAYOUT.'}`, W / 2, 62, '#ccc', { align: 'center' });
+    } else if (!this.r.cleared) drawText(ctx, 'You keep half your bits and XP. Failure is just a genre.', W / 2, 62, '#ccc', { align: 'center' });
 
     frame(ctx, 60, 76, W - 120, 132, '#1d1233ee', '#3fe0ff');
     const rows: Array<[string, string, string]> = [

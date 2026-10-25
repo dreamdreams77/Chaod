@@ -286,6 +286,10 @@ export class HubScene implements Scene {
     ];
     if (isBoss && p.bossesDefeated.includes(bossId)) items.push({ label: 'BOSS REMATCH (HARDER)', sub: 'Tougher boss, faster patterns, a rematch trophy.', onSelect: () => { this.menu = null; this.game.startMode(mode, { rematch: true }); } });
     const floppies = [0, 1, 2].map((i) => (p.floppies.includes(`${mode}-${i}`) ? '■' : '□')).join(' ');
+    if (rec.clears) {
+      const e = p.endless[mode];
+      items.push({ label: 'ENDLESS RUN', value: () => (e ? `BEST ROUND ${e.rounds + 1}` : 'NEW'), sub: 'Round after round on fresh seeds, a bit tougher each time. Heal 1 heart between rounds; pause to bank your haul. Pays more the further you get.', color: '#ff6f3f', onSelect: () => { this.menu = null; this.game.startMode(mode, { endless: { round: 1 } }); } });
+    }
     if (p.endingSeen) items.push({ label: 'NIGHTMARE MODE', sub: 'One less heart, double damage, chaos cranked, bits pay double. For those who rebooted the Core.', color: '#ff3f6b', onSelect: () => { this.menu = null; this.game.startMode(mode, { nightmare: true }); } });
     items.push({ label: `BEST ${rec.bestScore}  CLEARS ${rec.clears}`, value: () => `DISKS ${floppies}`, disabled: true });
     const have = new Set(p.stars[mode] ?? []);

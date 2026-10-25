@@ -68,9 +68,9 @@ export class RhythmMode extends ModeBase {
   constructor(game: Game, opts: ModeOpts = {}) {
     super(game, 'rhythm', opts);
     this.hp = this.stats.maxHp;
-    // BOSS RUSH leg 2 inherits whatever health the player had left (never less than one heart).
-    if (opts.rush?.carryHp !== undefined) this.hp = Math.max(1, Math.min(this.stats.maxHp, opts.rush.carryHp));
-    this.bMaxHp = Math.round(110 * { easy: 0.8, normal: 1, hard: 1.25 }[game.settings.difficulty] * (opts.rematch ? 1.25 : 1));
+    // BOSS RUSH leg 2 and ENDLESS RUN rounds inherit whatever health the player had left (never less than one heart).
+    this.applyCarry();
+    this.bMaxHp = Math.round(110 * { easy: 0.8, normal: 1, hard: 1.25 }[game.settings.difficulty] * (opts.rematch ? 1.25 : 1) * (1 + 0.5 * (this.tier - 1)));
     this.bHp = this.bMaxHp;
     this.chartRng = this.rng.fork(0xbeef);
     // The GAME SPEED accessibility setting slows the song itself, so timing windows stay fair.
@@ -79,6 +79,13 @@ export class RhythmMode extends ModeBase {
   }
 
   enter(): void {
+    if (this.endlessRound > 1) {
+      // ENDLESS RUN: straight back into the song, no chat.
+      this.intro = false;
+      this.game.audio.play('rhythm', this.tempo, true);
+      this.beatBase = 0;
+      return;
+    }
     this.game.say(
       [
         { who: 'static', name: 'DJ STATIC', text: this.opts.rematch ? 'ENCORE! I remixed the remix. Try to keep up.' : 'LIVE FROM THE GLITCH: it\'s DJ STATIC! You want my shard? Then keep the BEAT!' },
@@ -327,6 +334,11 @@ export class RhythmMode extends ModeBase {
   }
 
   private defeatDialog(): void {
+    if (this.endlessRound) {
+      this.addBits(80 + Math.floor(this.maxCombo / 2));
+      this.finish(true, this.score() + this.hp * 500);
+      return;
+    }
     this.game.audio.play('ending');
     this.game.say(BOSS_DEFEAT.static, (effects) => {
       const p = this.game.profile;

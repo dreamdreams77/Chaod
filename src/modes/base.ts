@@ -26,6 +26,8 @@ export interface ModeOpts {
   /** NIGHTMARE mode (unlocked by the ending): harder, but bits pay double. */
   nightmare?: boolean;
   /** BOSS RUSH: Bricklord (leg 1) straight into DJ Static (leg 2) with health carried over. */
+  /** ENDLESS RUN: the same world again and again, a little harder each round, until you fall. */
+  endless?: { round: number; seed?: number; carryHp?: number; bits?: number; xp?: number; time?: number; damage?: number; score?: number; chaos?: string[]; floppies?: string[]; flags?: string[] };
   rush?: { leg: 1 | 2; carryHp?: number; bits?: number; xp?: number; time?: number; damage?: number; score?: number; chaos?: string[]; floppies?: string[]; flags?: string[] };
 }
 
@@ -61,16 +63,17 @@ export abstract class ModeBase implements Scene {
   }
 
   constructor(readonly game: Game, readonly mode: ModeId, readonly opts: ModeOpts = {}) {
-    this.seed = opts.seed ?? game.newSeed();
+    this.seed = opts.seed ?? opts.endless?.seed ?? game.newSeed();
     this.rng = new Rng(this.seed);
     const p = game.profile;
     this.fusion = new FusionEngine(mode, p);
     // Replays of cleared worlds roll a seeded challenge modifier for variety.
     const replay = p.cleared[mode].clears > 0;
     // Shared and daily runs always roll their modifier from the seed, so everyone plays the same run.
-    this.modifier = opts.nightmare ? NIGHTMARE : (replay || opts.seed !== undefined) && !opts.rematch ? this.rng.fork(77).pick(MODIFIERS) : null;
+    this.modifier = opts.nightmare ? NIGHTMARE : (replay || opts.seed !== undefined || opts.endless) && !opts.rematch ? this.rng.fork(77).pick(MODIFIERS) : null;
     let intensity = game.settings.chaos;
     if (this.modifier?.id === 'chaotic') intensity = BUMP[intensity];
+    if (this.endlessRound >= 3) intensity = BUMP[intensity];
     if (this.modifier?.id === 'nightmare' && intensity !== 'off') intensity = 'high';
     if (this.modifier?.id === 'calm') intensity = 'off';
     this.director = new ChaosDirector({
@@ -86,11 +89,24 @@ export abstract class ModeBase implements Scene {
     this.stats = st;
   }
 
+  /** 0 outside ENDLESS RUN, otherwise the 1-based round. */
+  get endlessRound(): number {
+    return this.opts.endless?.round ?? 0;
+  }
+  /** How much tougher ENDLESS RUN has made things (1 = round one). Capped so late rounds stay survivable. */
+  get tier(): number {
+    return this.endlessRound ? Math.min(2, 1 + 0.12 * (this.endlessRound - 1)) : 1;
+  }
   get diffMult(): number {
-    return { easy: 0.6, normal: 1, hard: 1.4 }[this.game.settings.difficulty];
+    return { easy: 0.6, normal: 1, hard: 1.4 }[this.game.settings.difficulty] * this.tier;
   }
   get damageMult(): number {
-    return this.modifier?.id === 'glass' || this.modifier?.id === 'nightmare' ? 2 : 1;
+    return this.modifier?.id === 'glass' || this.modifier?.id === 'nightmare' || this.endlessRound >= 5 ? 2 : 1;
+  }
+  /** Modes call this right after setting their starting health: BOSS RUSH and ENDLESS RUN hand health over. */
+  protected applyCarry(): void {
+    const c = this.opts.rush?.carryHp ?? this.opts.endless?.carryHp;
+    if (c !== undefined) this.hp = Math.max(1, Math.min(this.stats.maxHp, c));
   }
   get speedMult(): number {
     return this.modifier?.id === 'turbo' ? 1.15 : 1;
@@ -104,7 +120,12 @@ export abstract class ModeBase implements Scene {
   abstract update(dt: number): void;
   abstract draw(ctx: CanvasRenderingContext2D): void;
 
+  private roundAnnounced = false;
   tickShared(dt: number): void {
+    if (this.endlessRound && !this.roundAnnounced && !this.game.inDialog) {
+      this.roundAnnounced = true;
+      this.game.toast(`ENDLESS ROUND ${this.endlessRound}`, this.endlessRound === 1 ? 'HOW FAR CAN YOU GET?' : this.endlessRound >= 5 ? 'DOUBLE DAMAGE. GOOD LUCK.' : 'A LITTLE TOUGHER. +1 HEART.', '#ff6f3f');
+    }
     this.time += dt;
     this.hintT += dt;
     this.particles.update(dt);
@@ -181,6 +202,26 @@ export abstract class ModeBase implements Scene {
       );
       return;
     }
+    const end = this.opts.endless;
+    if (end && cleared) {
+      // ENDLESS RUN: bank this round, patch up a little and go again on a fresh seed.
+      this.addBits(20 * end.round);
+      const next = {
+        round: end.round + 1,
+        seed: (this.seed + 104729 * end.round) % 1000000,
+        carryHp: Math.min(this.stats.maxHp, this.hp + 1),
+        bits: this.runBits,
+        xp: this.runXp + 30,
+        time: this.time,
+        damage: this.damageTaken,
+        score: score + (end.score ?? 0) + 100 * end.round,
+        chaos: [...this.chaosSeen],
+        floppies: [...this.foundFloppies],
+        flags: [...this.runFlags],
+      };
+      this.game.startMode(this.mode, { endless: next }, { mode: this.mode, opts: { endless: { round: 1 } } });
+      return;
+    }
     const result: RunResult = {
       mode: this.mode,
       cleared,
@@ -198,6 +239,19 @@ export abstract class ModeBase implements Scene {
       dailyKey: this.opts.daily,
       ...extra,
     };
+    if (end) {
+      result.bits += end.bits ?? 0;
+      result.xp += end.xp ?? 0;
+      result.time += end.time ?? 0;
+      result.damageTaken += end.damage ?? 0;
+      result.score += end.score ?? 0;
+      result.chaosSeen = [...new Set([...(end.chaos ?? []), ...result.chaosSeen])];
+      result.floppies = [...new Set([...(end.floppies ?? []), ...result.floppies])];
+      result.flags = [...new Set([...(end.flags ?? []), ...result.flags])];
+      result.endless = { rounds: end.round - 1 };
+      result.boss = undefined;
+      result.rematch = false;
+    }
     if (rush?.leg === 2) {
       result.bits += rush.bits ?? 0;
       result.xp += rush.xp ?? 0;
@@ -211,6 +265,14 @@ export abstract class ModeBase implements Scene {
       if (cleared) result.flags = [...result.flags, 'boss_rush'];
     }
     showResults(this.game, result, this.seed);
+  }
+
+  /** Pause-menu "end run": cashes out an ENDLESS RUN early (only once at least one round is banked). */
+  canBank(): boolean {
+    return !this.ended && this.endlessRound > 1;
+  }
+  bank(): void {
+    if (this.canBank()) this.finish(false, 0);
   }
 
   // ---- HUD helpers -----------------------------------------------------------
@@ -238,6 +300,7 @@ export abstract class ModeBase implements Scene {
   drawRunInfo(ctx: CanvasRenderingContext2D, x: number, y: number): void {
     drawText(ctx, `BITS ${this.runBits}`, x, y, '#ffcf3f');
     drawText(ctx, `DISKS ${this.foundFloppies.length}/3`, x, y + 9, '#3fe0ff');
+    if (this.endlessRound) drawText(ctx, `ENDLESS ROUND ${this.endlessRound}`, x, y + 27, '#ff6f3f');
     if (this.modifier) drawText(ctx, `MOD: ${this.modifier.name}`, x, y + 18, '#b07aff');
   }
 

@@ -5,6 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RampageMode } from '../src/modes/rampage.ts';
+import { NeonMode } from '../src/modes/neon.ts';
 import { MAX_JUMP_DX, MAX_JUMP_RISE, TILE, ROWS } from '../src/procgen/rampage.ts';
 import { defaultProfile, defaultSettings } from '../src/core/save.ts';
 import { Input, DEFAULT_BINDINGS } from '../src/core/input.ts';
@@ -133,6 +134,55 @@ test('BOSS RUSH hands health and the running tally from Bricklord to DJ Static a
   lost.finish(false, 10, { boss: 'bricklord' });
   assert.equal(started.length, 1, 'a loss in leg 1 ends the rush with normal results');
   assert.ok(!g2.profile.achievements.includes('boss_rush'));
+});
+
+test('ENDLESS RUN chains rounds with a growing tally, scales difficulty, and pays out when you fall', () => {
+  const { game, started } = spyGame();
+  game.profile.cleared.rampage.clears = 1;
+  const r1 = new RampageMode(game, { endless: { round: 1 } });
+  assert.equal(r1.tier, 1);
+  assert.equal(r1.damageMult, r1.modifier?.id === 'glass' ? 2 : 1);
+  r1.hp = 1;
+  r1.runBits = 50;
+  r1.time = 60;
+  r1.finish(true, 400);
+  assert.equal(started.length, 1, 'a cleared round starts the next, no results yet');
+  const [mode, o] = started[0] as [string, { endless: { round: number; carryHp: number; bits: number; score: number; seed: number } }];
+  assert.equal(mode, 'rampage');
+  assert.equal(o.endless.round, 2);
+  assert.equal(o.endless.carryHp, 2, 'one heart is patched up between rounds');
+  assert.equal(o.endless.bits, 70, 'the round bonus is banked');
+  assert.equal(o.endless.score, 500);
+  assert.notEqual(o.endless.seed, r1.seed, 'each round is a fresh seed');
+
+  const r5 = new RampageMode(game, { endless: { ...o.endless, round: 5 } });
+  assert.equal(r5.hp, 2, 'health carries');
+  assert.ok(r5.tier > 1.4 && r5.tier <= 2);
+  assert.equal(r5.damageMult, 2, 'from round 5 damage doubles');
+  assert.ok(r5.diffMult > new RampageMode(game).diffMult);
+
+  const bitsBefore = game.profile.bits;
+  r5.runBits = 10;
+  r5.finish(false, 50);
+  assert.equal(started.length, 1, 'a fall ends the run with results');
+  assert.equal(game.profile.endless.rampage?.rounds, 4);
+  assert.equal(game.profile.cleared.rampage.clears, 1, 'endless never counts as a clear');
+  assert.ok(game.profile.bits > bitsBefore);
+  assert.ok(game.profile.questProgress.endless_runner >= 1, 'NO FINISH LINE: survive 3 rounds');
+  assert.ok(!game.profile.achievements.includes('endless5'));
+});
+
+test('ENDLESS RUN: bank early from the pause menu and survive five rounds for the achievement', () => {
+  const { game } = spyGame();
+  game.profile.cleared.neon.clears = 1;
+  const n = new NeonMode(game, { endless: { round: 1 } });
+  assert.equal(n.canBank(), false, 'nothing banked in round one');
+  const n6 = new NeonMode(game, { endless: { round: 6, bits: 200, xp: 100, time: 300, score: 2500 } });
+  assert.equal(n6.canBank(), true);
+  n6.bank();
+  assert.equal(game.profile.endless.neon?.rounds, 5);
+  assert.ok(game.profile.achievements.includes('endless5'));
+  assert.equal(new RampageMode(game).canBank(), false, 'a normal run has nothing to bank');
 });
 
 // ---- CORE COMMAND ------------------------------------------------------------------------

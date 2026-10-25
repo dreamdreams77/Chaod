@@ -45,6 +45,7 @@ export const QUESTS: QuestDef[] = [
   { id: 'speed_demon', title: 'SPEED DEMON', desc: 'Clear a world (not a boss) in under 150 seconds.', goal: 1, bits: 90, xp: 45, play: 'worlds' },
   { id: 'disk_diver', title: 'DISK DIVER', desc: 'Find 4 new floppy disks.', goal: 4, bits: 60, xp: 30, play: 'worlds' },
   { id: 'star_collector', title: 'STAR COLLECTOR', desc: 'Earn 6 mastery stars (clean, fast and collector goals on the cabinets).', goal: 6, bits: 100, xp: 50, play: 'worlds' },
+  { id: 'endless_runner', title: 'NO FINISH LINE', desc: 'Survive 3 rounds of an ENDLESS RUN in any world.', goal: 1, bits: 90, xp: 45, play: 'worlds' },
   { id: 'daily_grinder', title: 'DAILY GRINDER', desc: 'Clear 3 daily challenges (any days).', goal: 3, bits: 90, xp: 40, play: 'daily' },
   { id: 'arcade_regular', title: 'ARCADE REGULAR', desc: 'Finish 5 lobby mini-game rounds with a score above zero.', goal: 5, bits: 50, xp: 20, play: 'arcade' },
   { id: 'arcade_ace', title: 'ARCADE ACE', desc: 'Score 50+ in CART CATCH.', goal: 1, bits: 70, xp: 30, play: 'catch' },
@@ -72,6 +73,7 @@ export function questGain(q: QuestDef, ev: QuestEvent): number {
       case 'speed_demon': return r.cleared && !r.boss && r.time < 150 ? 1 : 0;
       case 'disk_diver': return ev.newFloppies;
       case 'star_collector': return ev.newStars;
+      case 'endless_runner': return (r.endless?.rounds ?? 0) >= 3 ? 1 : 0;
       case 'daily_grinder': return r.cleared && r.challenge === 'daily' ? 1 : 0;
     }
     return 0;
