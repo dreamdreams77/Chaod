@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.2.0 — vibration and a sound-effects switch
+- **SOUND EFFECTS** can now be switched off on its own (Settings, and the pause menu), separately from the music switch and from MUTE ALL.
+- **Vibration** on phones and tablets that support it: short buzzes for damage, bombs, boss slams, parries, level-ups, disks, power-ups and goals. It is deliberately sparing (no buzz for every coin or explosion), a weak buzz never cuts off a stronger one, and it works with the sound off. Switch it on or off in Settings or the pause menu (the row only appears on a touch device that can vibrate; iPhones cannot). Turning it on gives a test buzz.
+- The pause menu now lists MUSIC, SOUND FX and VIBRATION and resizes to fit.
+- Checked in a bug review: the vibration row toggles on a tap, a browser that blocks vibrate() cannot crash the game, and desktop browsers that have the function but no motor no longer show a dead row.
+
 ## 3.1.0 — two new worlds: BLOCK PARTY and BOLT BRIGADE
 - **BLOCK PARTY** (falling-block puzzle, opens after two cleared worlds): seven pieces from a fair bag, hold, ghost piece, wall kicks, lock delay, combos, perfect clears and a score. Clear 30 lines (24 on Easy, 40 on Hard) to win; topping out costs a heart and clears the top of the well. Fusion BOMB BLOCKS (puzzle + shooter) turns every ninth piece into a bomb. New chaos events GRAVITY SURGE, RISING TIDE and LIGHTS OUT. Keyboard, the pad, or touch: drag to slide, drag down to soft drop, flick up to drop, tap to rotate, tap HOLD to hold. Disks at 10, 20 and 30 lines.
 - **BOLT BRIGADE** (run-and-gun with robot masters, opens after three cleared worlds): pick FROSTBYTE, FLAREBOT, SPROUTRON or VOLTWIRE on a stage select, run a generated stage (pits, spikes, zaps, flame jets, walkers, hoppers, turrets and flyers), beat the master in its arena and keep its weapon. Charge the buster by holding fire; every master is weak to another master's weapon (ice beats fire, fire beats leaf, leaf beats volt, volt beats ice) for triple damage. Beat all four to open the FORTRESS, where they come back to back. Fusion BEAT BUSTER (shooter + rhythm) rewards shots fired on the beat. New chaos events BLACKOUT and STATIC JAM, and MOON PHYSICS now reaches this world. Disks hide in the first three stages. Touch: drag to run and jump, tap to shoot, hold to charge, second finger swaps weapons.

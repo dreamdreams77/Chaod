@@ -64,7 +64,7 @@ Every key is remappable in **Settings → Remap Controls**. Each world shows its
 
 ## Accessibility
 
-Remappable controls · keyboard-only play · **game speed** 50–100% (rhythm songs slow down to match) · screen-shake slider · **reduced flashing** (caps flash intensity and removes flickery chaos events) · CRT toggle · Chaos Director intensity from OFF to HIGH · three difficulties · master/music/SFX volume and mute · large, telegraphed warnings for every boss attack and chaos event · the game is fully playable without sound.
+Remappable controls · keyboard-only play · separate switches for music, sound effects and vibration · **game speed** 50–100% (rhythm songs slow down to match) · screen-shake slider · **reduced flashing** (caps flash intensity and removes flickery chaos events) · CRT toggle · Chaos Director intensity from OFF to HIGH · three difficulties · master/music/SFX volume and mute · large, telegraphed warnings for every boss attack and chaos event · the game is fully playable without sound.
 
 ## Seeds
 
@@ -95,7 +95,7 @@ Zero runtime dependencies and zero binary assets: every sprite is drawn from rec
 ## Quality checks
 
 ```bash
-npm run check        # typecheck (src + tests) + 129 unit tests + production build
+npm run check        # typecheck (src + tests) + 132 unit tests + production build
 npm run smoke        # headless Chromium: plays every world, then drives the full campaign to the ending
 ```
 

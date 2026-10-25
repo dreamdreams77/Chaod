@@ -270,42 +270,72 @@ test('settings: sound effects and vibration default on, survive bad values and c
   assert.equal(migrateSettings({ sfxOn: 'no', vibration: 0 }).sfxOn, true, 'junk falls back to the default');
 });
 
-test('vibration: buzzes follow sound cues, respect the switch, never stack closer than the gap, and tolerate no support', () => {
+test('vibration: only meaningful cues buzz, a weak cue never cuts off a strong one, the switch and missing support are respected', () => {
   const calls: Array<number | number[]> = [];
   const original = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   const setNav = (value: unknown) => Object.defineProperty(globalThis, 'navigator', { value, configurable: true, writable: true });
-  setNav({ vibrate: (p: number | number[]) => (calls.push(p), true) });
-  const h = new Haptics();
-  assert.equal(h.supported, true);
-  h.cue('hurt', 1000);
-  assert.equal(calls.length, 1);
-  h.cue('hit', 1010);
-  assert.equal(calls.length, 1, 'a second cue inside the gap is dropped');
-  h.cue('hit', 1100);
-  assert.equal(calls.length, 2);
-  h.cue('coin', 2000);
-  assert.equal(calls.length, 2, 'quiet cues have no buzz');
-  h.enabled = false;
-  h.cue('levelup', 3000);
-  assert.equal(calls.length, 2, 'switched off means silent');
-  h.enabled = true;
-  for (const p of Object.values(HAPTIC_PATTERNS)) assert.ok((Array.isArray(p) ? Math.max(...p) : p) <= 120 && (Array.isArray(p) ? p.reduce((a, b) => a + b, 0) : p) <= 300, 'buzzes stay short');
-  setNav({});
-  const none = new Haptics();
-  assert.equal(none.supported, false);
-  assert.doesNotThrow(() => none.cue('hurt', 5000));
-  assert.doesNotThrow(() => none.test());
-  if (original) Object.defineProperty(globalThis, 'navigator', original);
-  else delete (globalThis as { navigator?: unknown }).navigator;
+  try {
+    setNav({ vibrate: (p: number | number[]) => (calls.push(p), true), maxTouchPoints: 5 });
+    const h = new Haptics();
+    assert.equal(h.supported, true);
+    h.cue('levelup', 1000); // 210 ms long
+    assert.equal(calls.length, 1);
+    h.cue('block', 1050); // weaker, inside the running buzz: dropped
+    assert.equal(calls.length, 1);
+    h.cue('hurt', 1060); // 70 ms is weaker than 210 too
+    assert.equal(calls.length, 1);
+    h.cue('bomb', 1070); // 110 is still weaker than 210 until it ends
+    assert.equal(calls.length, 1);
+    h.cue('hurt', 1300); // the long buzz is over
+    assert.equal(calls.length, 2);
+    h.cue('levelup', 1320); // stronger than what is running: allowed to take over
+    assert.equal(calls.length, 3);
+    h.cue('coin', 5000);
+    h.cue('explode', 5000);
+    h.cue('hit', 5000);
+    assert.equal(calls.length, 3, 'noisy cues (coins, explosions, hits) have no buzz');
+    h.enabled = false;
+    h.cue('levelup', 9000);
+    assert.equal(calls.length, 3, 'switched off means silent');
+    for (const p of Object.values(HAPTIC_PATTERNS)) assert.ok((Array.isArray(p) ? p.reduce((a, b) => a + b, 0) : p) <= 300, 'buzzes stay short');
+    // A browser with the API but no touch screen (desktop Chrome) counts as unsupported.
+    setNav({ vibrate: () => true, maxTouchPoints: 0 });
+    assert.equal(new Haptics().supported, false);
+    // vibrate() throwing must never escape.
+    setNav({ vibrate: () => { throw new Error('blocked'); }, maxTouchPoints: 1 });
+    const thrower = new Haptics();
+    assert.doesNotThrow(() => thrower.cue('hurt', 1));
+    assert.doesNotThrow(() => thrower.test());
+    assert.doesNotThrow(() => thrower.stop());
+    setNav({});
+    const none = new Haptics();
+    assert.equal(none.supported, false);
+    assert.doesNotThrow(() => none.cue('hurt', 5000));
+    assert.doesNotThrow(() => none.stop());
+  } finally {
+    if (original) Object.defineProperty(globalThis, 'navigator', original);
+    else delete (globalThis as { navigator?: unknown }).navigator;
+  }
 });
 
-test('sound effects off silences the effects but still announces cues, so vibration works with the sound off', () => {
+test('sound effects off really silences them, while cues are still announced for vibration', () => {
   const a = new AudioEngine();
   const seen: string[] = [];
   a.onCue = (n) => seen.push(n);
-  a.setVolumes({ master: 1, music: 1, sfx: 1, muted: false, musicOn: true, sfxOn: false });
-  a.sfx('hurt');
+  // A stand-in for a running Web Audio context: count the blips that would play.
+  let blips = 0;
+  const hack = a as unknown as { ctx: unknown; sfxBus: unknown; blip: () => void };
+  hack.ctx = { state: 'running', currentTime: 1 };
+  hack.sfxBus = {};
+  hack.blip = () => { blips++; };
+  a.setVolumes({ master: 1, music: 1, sfx: 1, muted: false, musicOn: true, sfxOn: true });
   a.sfx('coin');
-  assert.deepEqual(seen, ['hurt', 'coin']);
-  assert.equal(a.volumes.sfxOn, false);
+  assert.ok(blips > 0, 'sound effects play when on');
+  const before = blips;
+  a.setVolumes({ master: 1, music: 1, sfx: 1, muted: false, musicOn: true, sfxOn: false });
+  (hack as unknown as { lastCues: Map<string, number> }).lastCues.clear();
+  a.sfx('coin');
+  a.sfx('hurt');
+  assert.equal(blips, before, 'nothing plays with sound effects off');
+  assert.deepEqual(seen, ['coin', 'coin', 'hurt'], 'every cue is still announced');
 });

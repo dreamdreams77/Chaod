@@ -19,8 +19,11 @@ import type { ModeOpts } from './modes/base.ts';
 import type { Action } from './core/input.ts';
 import type { ChaosDirector } from './chaos/director.ts';
 
-const PAUSE_ITEMS = ['RESUME', 'RESTART', 'SETTINGS', 'MUSIC', 'SOUND FX', 'VIBRATION', 'QUIT TO LOBBY'] as const;
-const PAUSE_WITH_BANK = ['RESUME', 'RESTART', 'SETTINGS', 'MUSIC', 'SOUND FX', 'VIBRATION', 'BANK & END RUN', 'QUIT TO LOBBY'] as const;
+/** The pause list in its four variants (the BANK row and the VIBRATION row come and go), built once. */
+const pauseList = (bank: boolean, vib: boolean): readonly string[] => ['RESUME', 'RESTART', 'SETTINGS', 'MUSIC', 'SOUND FX', ...(vib ? ['VIBRATION'] : []), ...(bank ? ['BANK & END RUN'] : []), 'QUIT TO LOBBY'];
+/** Indexed [bank row][vibration row]. */
+const PAUSE_LISTS = [[pauseList(false, false), pauseList(false, true)], [pauseList(true, false), pauseList(true, true)]];
+const PAUSE_FRAMES = new Map<number, { y: number; h: number; items: number }>();
 
 export interface Scene {
   id: string;
@@ -142,6 +145,22 @@ export class Game {
     this.settings.bindings = this.input.bindings;
     this.store.saveSettings(this.settings);
     this.applySettings();
+  }
+  /** Sound effects on/off (the music has its own switch). */
+  toggleSfx(): void {
+    this.settings.sfxOn = !this.settings.sfxOn;
+    this.saveSettings();
+    if (this.settings.sfxOn) this.audio.sfx('confirm');
+  }
+  /** Vibration on/off; does nothing (and says so) on a device that cannot vibrate. */
+  toggleVibration(): void {
+    if (!haptics.supported) {
+      this.toast('VIBRATION', 'NOT AVAILABLE ON THIS DEVICE', '#9a9ab8');
+      return;
+    }
+    this.settings.vibration = !this.settings.vibration;
+    this.saveSettings();
+    if (this.settings.vibration) haptics.test();
   }
   saveProfile(): void {
     this.store.saveProfile(this.profile);
@@ -366,12 +385,19 @@ export class Game {
   }
   /** Where the pause box and its first row sit; it grows with the number of rows. */
   private get pauseFrame(): { y: number; h: number; items: number } {
-    const h = 58 + this.pauseItems.length * this.pauseStep + 16;
-    return { y: Math.round(H / 2 - h / 2) - 4, h, items: Math.round(H / 2 - h / 2) - 4 + 36 };
+    const n = this.pauseItems.length;
+    let f = PAUSE_FRAMES.get(n);
+    if (!f) {
+      const h = 40 + n * (n > 7 ? 13 : 15) + 22;
+      const y = Math.round(H / 2 - h / 2) - 4;
+      f = { y, h, items: y + 32 };
+      PAUSE_FRAMES.set(n, f);
+    }
+    return f;
   }
   /** An ENDLESS RUN with a round banked can be cashed out from the pause menu. */
   get pauseItems(): readonly string[] {
-    return this.scene.canBank?.() ? PAUSE_WITH_BANK : PAUSE_ITEMS;
+    return PAUSE_LISTS[this.scene.canBank?.() ? 1 : 0][haptics.supported ? 1 : 0];
   }
   private updatePause(): void {
     const inp = this.input;
@@ -384,8 +410,8 @@ export class Game {
       if (item === 'RESUME') { this.paused = false; this.audio.muffle(false); }
       else if (item === 'RESTART') this.restart();
       else if (item === 'MUSIC') { this.settings.musicOn = !this.settings.musicOn; this.saveSettings(); }
-      else if (item === 'SOUND FX') { this.settings.sfxOn = !this.settings.sfxOn; this.applySettings(); this.saveSettings(); if (this.settings.sfxOn) this.audio.sfx('confirm'); }
-      else if (item === 'VIBRATION') { this.settings.vibration = !this.settings.vibration; this.applySettings(); this.saveSettings(); if (this.settings.vibration) haptics.test(); }
+      else if (item === 'SOUND FX') this.toggleSfx();
+      else if (item === 'VIBRATION') this.toggleVibration();
       else if (item === 'BANK & END RUN') {
         this.paused = false;
         this.audio.muffle(false);
@@ -552,10 +578,9 @@ export class Game {
     const fr = this.pauseFrame;
     frame(ctx, W / 2 - 80, fr.y, 160, fr.h, '#1d1233', '#3fe0ff');
     drawText(ctx, 'PAUSED', W / 2, fr.y + 8, '#fff', { align: 'center', scale: 2 });
-    const state = (on: boolean) => (on ? 'ON' : 'OFF');
     this.pauseItems.forEach((it, i) => {
       const sel = i === this.pauseIndex;
-      const label = it === 'MUSIC' ? `MUSIC: ${state(this.settings.musicOn)}` : it === 'SOUND FX' ? `SOUND FX: ${state(this.settings.sfxOn)}` : it === 'VIBRATION' ? `VIBRATION: ${haptics.supported ? state(this.settings.vibration) : 'N/A'}` : it;
+      const label = it === 'MUSIC' ? (this.settings.musicOn ? 'MUSIC: ON' : 'MUSIC: OFF') : it === 'SOUND FX' ? (this.settings.sfxOn ? 'SOUND FX: ON' : 'SOUND FX: OFF') : it === 'VIBRATION' ? (this.settings.vibration ? 'VIBRATION: ON' : 'VIBRATION: OFF') : it;
       drawText(ctx, (sel ? '▶ ' : '  ') + label, W / 2 - 66, fr.items + i * this.pauseStep, sel ? '#ffcf3f' : '#ccc');
     });
     drawText(ctx, 'ESC/P RESUME • M MUSIC', W / 2, fr.y + fr.h - 12, '#888', { align: 'center' });
