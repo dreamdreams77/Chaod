@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.0 — endless runs, a growing BYTE and a seventh world
+- **ENDLESS RUN** (cabinet menu of any cleared world): the same world again and again on fresh seeds, each round tougher (enemies, bullets and boss health scale up, chaos is cranked from round 3, damage doubles from round 5). One heart is patched up between rounds. Pause and BANK & END RUN to cash out. The payout grows with every round (full pay from round 5); personal bests are kept per world. New quest NO FINISH LINE and achievement NO END IN SIGHT.
+- **BYTE evolves.** Lifetime care (feeding, fetch, treats) grows BYTE into KILOBYTE (15), MEGABYTE (40) and GIGABYTE (80), each with its own sprite, a +4% bits perk and a longer bark stun. Treats now keep working after bond 5. Outfits (hats, shades, scarf, cape, wings) are bought with bits from BYTE's new DRESS UP menu and show in the lobby, fetch and the mall. Older saves keep their growth.
+- **PENALTY STORM**, the seventh world (opens after four cleared worlds): sports + bullet hell. Dribble a top-down pitch, dodge the keeper's five bullet patterns (fan, rain, spiral, ring, sweep) and score six goals; aim by running left or right as you kick. Get hit and the ball is knocked loose. New fusion SLAP SHOT (a ball in flight smashes bullets), chaos events CROSSWIND, MUD PITCH and MEGA KEEPER, the HAT TRICK achievement, mastery stars, its own music and a seeded plan per match. Balanced with scripted players.
+- The lobby now holds seven cabinets; the Shrine and Lab moved down a little so cabinet names are readable. The version shown on the title screen matches this log again.
+
 ## 2.0.2 — bug-check fixes
 - Title screen: tapping no longer slips past the ERASE confirmation (only the YES button erases; anywhere else keeps your save), the first tap just starts the music, and the save summary counts all six worlds. Starting a new game also clears the lobby's cached quest/cabinet notices.
 - Boss Rush: retrying after a loss in leg 2 restarts at leg 1, and floppies and flags earned in leg 1 carry through to the results.

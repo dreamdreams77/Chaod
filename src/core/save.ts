@@ -2,8 +2,8 @@ import { ACTIONS, Bindings, DEFAULT_BINDINGS, cloneBindings } from './input.ts';
 import { Wardrobe, defaultWardrobe, cleanWardrobe } from '../data/cosmetics.ts';
 import { PetOutfit, defaultOutfit, cleanOutfit } from '../data/pet.ts';
 
-export type ModeId = 'rampage' | 'neon' | 'mall' | 'beatdown' | 'rhythm' | 'command';
-export const MODE_IDS: ModeId[] = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm', 'command'];
+export type ModeId = 'rampage' | 'neon' | 'mall' | 'beatdown' | 'rhythm' | 'command' | 'penalty';
+export const MODE_IDS: ModeId[] = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm', 'command', 'penalty'];
 export type Difficulty = 'easy' | 'normal' | 'hard';
 export type ChaosIntensity = 'off' | 'low' | 'normal' | 'high';
 export type ChaosCategory = 'cosmetic' | 'environmental' | 'combat' | 'genre' | 'legendary';
@@ -88,7 +88,7 @@ export function defaultProfile(): Profile {
     bossesDefeated: [],
     bossChoices: {},
     abilities: [],
-    mutationsUnlocked: ['beat_platforms', 'switch_shots', 'lurker_pursuit', 'pet_guardian', 'combo_xp', 'block_rain', 'note_bullets', 'tower_xp'],
+    mutationsUnlocked: ['beat_platforms', 'switch_shots', 'lurker_pursuit', 'pet_guardian', 'combo_xp', 'block_rain', 'note_bullets', 'tower_xp', 'slap_shot'],
     mutationsDisabled: [],
     pet: { bond: 1, hunger: 2, fedToday: 0, trainedToday: 0, xp: 0, care: 0, outfit: defaultOutfit() },
     achievements: [],

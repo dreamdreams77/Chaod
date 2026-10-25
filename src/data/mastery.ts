@@ -17,7 +17,7 @@ export interface StarDef {
 }
 
 /** Par clear times in seconds; a "fast" star needs a faster clear. */
-export const PAR_SECONDS: Record<ModeId, number> = { rampage: 160, neon: 130, mall: 330, beatdown: 120, rhythm: 200, command: 300 };
+export const PAR_SECONDS: Record<ModeId, number> = { rampage: 160, neon: 130, mall: 330, beatdown: 120, rhythm: 200, command: 300, penalty: 100 };
 
 export const STARS: StarDef[] = [
   { id: 'clean', name: 'UNTOUCHED', desc: () => 'Clear it without taking damage.' },

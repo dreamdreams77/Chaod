@@ -21,6 +21,7 @@ import { MallMode } from './modes/mall.ts';
 import { BeatdownMode } from './modes/beatdown.ts';
 import { RhythmMode } from './modes/rhythm.ts';
 import { CommandMode } from './modes/command.ts';
+import { PenaltyMode } from './modes/penalty.ts';
 import { validateRegistry } from './fusion/registry.ts';
 import { CHAOS_EVENTS } from './chaos/events.ts';
 import type { Scene } from './game.ts';
@@ -65,6 +66,7 @@ function boot(): void {
       case 'beatdown': return new BeatdownMode(game, opts);
       case 'rhythm': return new RhythmMode(game, opts);
       case 'command': return new CommandMode(game, opts);
+      case 'penalty': return new PenaltyMode(game, opts);
     }
   };
   game.sharedChallenge = parseChallenge(location.search);

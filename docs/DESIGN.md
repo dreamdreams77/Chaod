@@ -76,7 +76,7 @@ Plus **scripted genre shifts** inside levels: platformer → shmup → platforme
 - **Kart racing + turn-based RPG:** collisions with rival karts open full encounter screens.
 - **Dating sim + horror:** dialogue trust decides resources and which supernatural events occur.
 - **Strategy + platformer:** place turrets while running the level.
-- **Sports + bullet hell:** score while dodging patterns.
+- ~~**Sports + bullet hell:** score while dodging patterns.~~ Built as **PENALTY STORM**: dribble a top-down pitch, dodge the keeper's five bullet patterns, and score six goals; a hit knocks the ball loose.
 - **Pet sim + survival horror (full):** an evolving monster that only your pet can fight.
 
 ## 5. The Chaos Director

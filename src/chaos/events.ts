@@ -47,11 +47,15 @@ export const CHAOS_EVENTS: ChaosEventDef[] = [
   { id: 'fog_bank', name: 'FOG BANK', category: 'environmental', modes: ['neon'], duration: 9, telegraph: 2, cooldown: 30, weight: 3, flags: ['fog'], bossSafe: true, harsh: true, blurb: 'Draw distance: emotionally unavailable.' },
   { id: 'power_surge', name: 'POWER SURGE', category: 'environmental', modes: ['mall'], duration: 7, telegraph: 1.5, cooldown: 30, weight: 3, flags: ['lights_on', 'monster_haste'], bossSafe: true, blurb: 'Lights on! ...it can see you too.' },
 
+  { id: 'crosswind', name: 'CROSSWIND', category: 'environmental', modes: ['penalty'], duration: 9, telegraph: 2, cooldown: 30, weight: 3, flags: ['crosswind'], bossSafe: true, blurb: 'A gale sweeps the pitch. Bullets drift sideways.' },
+  { id: 'mud_pitch', name: 'MUD PITCH', category: 'environmental', modes: ['penalty'], duration: 9, telegraph: 1.5, cooldown: 30, weight: 3, flags: ['mud'], bossSafe: true, blurb: 'Heavy boots, slow bullets. Your shots lose some zip.' },
+
   // ---- Combat mutations ---------------------------------------------------
   { id: 'giant', name: 'MEGA MODE', category: 'combat', modes: ['rampage', 'beatdown'], duration: 8, telegraph: 1.5, cooldown: 30, weight: 3, flags: ['giant'], group: 'size', bossSafe: true, blockedSegments: ['shmup'], blurb: 'Double size. Double damage. Double hitbox.' },
   { id: 'tiny', name: 'POCKET SIZE', category: 'combat', modes: ['mall'], duration: 8, telegraph: 1.5, cooldown: 30, weight: 3, flags: ['tiny'], group: 'size', bossSafe: true, blurb: 'Too small to be seen. Too small to run fast.' },
   { id: 'bouncy_bullets', name: 'BOUNCE HOUSE', category: 'combat', modes: ['rampage', 'beatdown'], duration: 10, telegraph: 1.5, cooldown: 25, weight: 3, flags: ['bouncy'], bossSafe: true, blurb: 'Every projectile is now a springy little creature.' },
   { id: 'reverse_world', name: 'REVERSE DAY', category: 'combat', modes: ['rampage', 'neon'], duration: 8, telegraph: 2, cooldown: 30, weight: 2, flags: ['reverse'], bossSafe: false, harsh: true, blurb: 'Everyone else moves backwards.' },
+  { id: 'big_keeper', name: 'MEGA KEEPER', category: 'combat', modes: ['penalty'], duration: 8, telegraph: 2, cooldown: 35, weight: 2, flags: ['big_keeper'], bossSafe: true, harsh: true, blurb: 'The keeper ate a mushroom. Wide load.' },
   { id: 'lane_mirror', name: 'MIRROR MIX', category: 'combat', modes: ['rhythm'], duration: 8, telegraph: 2, cooldown: 30, weight: 3, flags: ['lane_mirror'], bossSafe: true, harsh: true, blurb: 'Lanes flip left-to-right.' },
 
   // ---- Genre transformations ----------------------------------------------
@@ -85,6 +89,10 @@ export const KEVIN_RULES: Partial<Record<ModeId, Array<{ flag: string; text: str
   beatdown: [
     { flag: 'low_gravity', text: 'BUG #3000: JUMPS NOT FLOATY. FIXED.' },
     { flag: 'giant', text: 'BUG #6502: HERO UNDERSIZED. FIXED.' },
+  ],
+  penalty: [
+    { flag: 'crosswind', text: 'BUG #1966: BALL TRAVELS IN STRAIGHT LINES. FIXED.' },
+    { flag: 'mud', text: 'BUG #0090: GRASS TOO GRIPPY. "FIXED".' },
   ],
   rhythm: [
     { flag: 'lane_mirror', text: 'BUG #0101: LANES IN WRONG ORDER. FIXED.' },

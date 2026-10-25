@@ -24,6 +24,7 @@ export const PAL = {
   horror: { name: 'SURVIVAL HORROR', bg0: '#050405', bg1: '#141012', bg2: '#2a2124', fg: '#d8cfc4', accent: '#c9a227', accent2: '#6b8f71', danger: '#b3122e', good: '#8fbf6b' },
   fighter: { name: 'FIGHTER', bg0: '#2b0f0f', bg1: '#6b2a1a', bg2: '#d9773f', fg: '#fff3e0', accent: '#ffd23f', accent2: '#3fa9ff', danger: '#ff2b2b', good: '#6bff6b' },
   rhythm: { name: 'RHYTHM', bg0: '#0a0420', bg1: '#250a4a', bg2: '#5a1ab3', fg: '#ffffff', accent: '#ff3fd2', accent2: '#3fffe0', danger: '#ff3f3f', good: '#d6ff3f' },
+  penalty: { name: 'SPORTS', bg0: '#04140a', bg1: '#0c3a1c', bg2: '#17803a', fg: '#f4fff4', accent: '#ff9f3f', accent2: '#ffffff', danger: '#ff3f5a', good: '#7dff6b' },
   command: { name: 'STRATEGY', bg0: '#06140c', bg1: '#0f2e1e', bg2: '#1f5a3a', fg: '#e8fff0', accent: '#7dff6b', accent2: '#3fe0ff', danger: '#ff3f5a', good: '#7dff6b' },
   bullet: { name: 'BULLET HELL', bg0: '#000010', bg1: '#0c0c3a', bg2: '#30307a', fg: '#ffffff', accent: '#ff7af5', accent2: '#7affff', danger: '#ff3355', good: '#aaff66' },
 } satisfies Record<string, Palette>;

@@ -25,7 +25,7 @@ Requires Node 20+. A click or key press is needed before audio starts (browser a
 
 ## What's in the first release
 
-**A hub and six genuinely different worlds**, sharing one character, one level/XP curve, one bit economy, one save:
+**A hub and seven genuinely different worlds**, sharing one character, one level/XP curve, one bit economy, one save:
 
 | World | Base genre | Mid-level genre shift | Genre-fusion mutations |
 |---|---|---|---|
@@ -35,12 +35,15 @@ Requires Node 20+. A click or key press is needed before audio starts (browser a
 | **BOSS BEATDOWN** | 1-on-1 fighter vs. BRICKLORD MAX | At 25% HP the boss gets bored and turns the fight into a **bullet hell** | **GRINDCORE** (fighter + RPG): combo hits earn XP and level you up mid-fight. **LINE CLEAR KO** (puzzle + fighter): falling blocks stack; fill a row to crush the boss. |
 | **GLITCH RHYTHM** | 4-lane rhythm boss fight vs. DJ STATIC | Phase 3 doubles down on tempo | **SHOTS ON THE ONE** (rhythm + bullet hell): on-time notes fire at the boss; misses send parryable static bolts down your lanes. |
 | **CORE COMMAND** | Tower-defence strategy | From wave 5 spitters turn it into a **bullet-hell siege** | **VETERAN TOWERS** (strategy + RPG): towers earn XP from kills and level up on their own. |
+| **PENALTY STORM** | Top-down football: dribble and shoot | The keeper answers with **bullet-hell patterns**; get hit and you lose the ball | **SLAP SHOT** (sports + bullet hell): the ball smashes every bullet it touches on the way to goal. |
 
-Ten fusions total (eight available from the start, two unlocked by play). Every mutation can be toggled in the hub's **Mutation Lab**; each active mutation adds +15% bits.
+Eleven fusions total (nine available from the start, two unlocked by play). Every mutation can be toggled in the hub's **Mutation Lab**; each active mutation adds +15% bits.
 
-**THE CHAOS DIRECTOR** fires 19 telegraphed events across five categories — cosmetic, environmental, combat, genre transformation and legendary — with rules for cooldowns, minimum warning time, recovery after damage, genre compatibility, boss-specific events, accessibility, and unwinnable-combination prevention. Players can feed it with stylish play, summon it with chaos orbs, and bias it at the hub shrine. Watch for **KEVIN FROM QA**, who "fixes" a rule wherever he appears.
+**THE CHAOS DIRECTOR** fires 22 telegraphed events across five categories — cosmetic, environmental, combat, genre transformation and legendary — with rules for cooldowns, minimum warning time, recovery after damage, genre compatibility, boss-specific events, accessibility, and unwinnable-combination prevention. Players can feed it with stylish play, summon it with chaos orbs, and bias it at the hub shrine. Watch for **KEVIN FROM QA**, who "fixes" a rule wherever he appears.
 
-**Also:** a lobby **Quest Board** (twelve quests that pay out automatically) and a **Mini-Game Arcade** (CART CATCH, BYTE BREAKOUT, WHACK-A-GLITCH, STACK-A-CART and GLITCH MEMORY); two full bosses with phases, telegraphs, weak points and defeat sequences; a mercy-or-delete choice for each; an ending; 15 floppy disks; 20 achievements; boss rematches; seeded challenge modifiers on replays; a shop; a virtual pet to feed and train; a secret character; an original cast and central mystery.
+**ENDLESS RUN** (any cleared world): round after round on fresh seeds, a little tougher each time, with a heart patched up between rounds; bank your haul from the pause menu. **BYTE** grows through four forms (BYTE, KILOBYTE, MEGABYTE, GIGABYTE) as you care for it, earns small run perks, and can be dressed in hats, shades, scarves and wings.
+
+**Also:** a lobby **Quest Board** (fifteen quests that pay out automatically) and a **Mini-Game Arcade** (CART CATCH, BYTE BREAKOUT, WHACK-A-GLITCH, STACK-A-CART and GLITCH MEMORY); two full bosses with phases, telegraphs, weak points and defeat sequences; a mercy-or-delete choice for each; an ending; 15 floppy disks; 27 achievements; boss rematches; seeded challenge modifiers on replays; a shop; a virtual pet to feed and train; a secret character; an original cast and central mystery.
 
 ## Controls
 
@@ -75,7 +78,7 @@ src/
   fusion/            GENRE FUSION registry (data) + engine (trait queries)
   chaos/             CHAOS DIRECTOR rules + event catalogue (data)
   procgen/           curated-chunk levels, race tracks, mall maps, rhythm charts (+ validators)
-  modes/             the six worlds, sharing ModeBase
+  modes/             the seven worlds, sharing ModeBase
   scenes/            title, settings, hub, results, ending, menus
   data/              story, cast, dialogue, shop, achievements, rewards
 tests/               node:test unit tests (incl. headless physics vs. level validator)
@@ -88,7 +91,7 @@ Zero runtime dependencies and zero binary assets: every sprite is drawn from rec
 ## Quality checks
 
 ```bash
-npm run check        # typecheck (src + tests) + 78 unit tests + production build
+npm run check        # typecheck (src + tests) + 89 unit tests + production build
 npm run smoke        # headless Chromium: plays every world, then drives the full campaign to the ending
 ```
 
@@ -104,7 +107,7 @@ The unit tests cover the RNG, saves and migrations, input remapping, every Chaos
 
 ## Roadmap
 
-Part 2 — **THE HIGH SCORE**: the remaining roadmap bosses (THE LURKER as a full encounter, THE CLOSING-TIME MANAGER, THE HIGH SCORE), plus expansion genres already designed in [docs/DESIGN.md](docs/DESIGN.md): kart racing + turn-based RPG battles, dating sim + horror, strategy + platformer, sports + bullet hell.
+Part 2 — **THE HIGH SCORE**: the remaining roadmap bosses (THE LURKER as a full encounter, THE CLOSING-TIME MANAGER, THE HIGH SCORE), plus expansion genres already designed in [docs/DESIGN.md](docs/DESIGN.md): kart racing + turn-based RPG battles, dating sim + horror, strategy + platformer, ~~sports + bullet hell~~ (built: PENALTY STORM).
 
 ## Contributing
 

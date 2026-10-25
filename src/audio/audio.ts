@@ -13,7 +13,7 @@ export type SfxName =
   | 'jump' | 'land' | 'hit' | 'hurt' | 'coin' | 'floppy' | 'shoot' | 'explode' | 'select' | 'confirm' | 'back'
   | 'boost' | 'powerup' | 'warn' | 'chaos' | 'levelup' | 'block' | 'perfect' | 'miss' | 'bark' | 'door' | 'heartbeat' | 'transition' | 'unlock' | 'step';
 
-export type TrackId = 'title' | 'hub' | 'rampage' | 'shmup' | 'neon' | 'neon_night' | 'mall' | 'beatdown' | 'beatdown_bh' | 'rhythm' | 'ending' | 'none';
+export type TrackId = 'title' | 'hub' | 'rampage' | 'shmup' | 'neon' | 'neon_night' | 'mall' | 'beatdown' | 'beatdown_bh' | 'rhythm' | 'penalty' | 'ending' | 'none';
 
 interface TrackDef {
   bpm: number;
@@ -45,6 +45,7 @@ export const TRACKS: Record<Exclude<TrackId, 'none'>, TrackDef> = {
   beatdown: { bpm: 140, root: 55, scale: MIN, lead: 'square', bass: 'sawtooth', drums: 'rock', density: 0.75, seed: 71 },
   beatdown_bh: { bpm: 164, root: 56, scale: PHR, lead: 'sawtooth', bass: 'square', drums: 'break', density: 0.85, seed: 73 },
   rhythm: { bpm: 120, root: 57, scale: PENT, lead: 'square', bass: 'sawtooth', drums: 'four', density: 0.7, seed: 89 },
+  penalty: { bpm: 138, root: 60, scale: MAJ, lead: 'square', bass: 'triangle', drums: 'rock', density: 0.6, seed: 103 },
   ending: { bpm: 84, root: 60, scale: MAJ, lead: 'triangle', bass: 'sine', drums: 'sparse', density: 0.5, seed: 97, pad: true },
 };
 

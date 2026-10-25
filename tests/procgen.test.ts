@@ -141,3 +141,18 @@ test('core command maps are contiguous, never self-crossing, reach the core, and
   assert.deepEqual(generateCommand(9), generateCommand(9));
   assert.notDeepEqual(generateCommand(9).path, generateCommand(10).path);
 });
+
+import { generatePitch, validatePitch, GOALS_TO_WIN } from '../src/procgen/pitch.ts';
+
+test('penalty matches: every seed makes a valid, reproducible plan with gentle openers', () => {
+  for (let seed = 1; seed <= 400; seed++) {
+    const p = generatePitch(seed * 7919);
+    const v = validatePitch(p);
+    assert.ok(v.ok, `seed ${seed}: ${v.reason}`);
+    assert.equal(p.rounds.length, GOALS_TO_WIN);
+  }
+  assert.deepEqual(generatePitch(1234), generatePitch(1234));
+  const kinds = new Set<string>();
+  for (let seed = 1; seed <= 60; seed++) for (const r of generatePitch(seed).rounds) for (const x of r) kinds.add(x);
+  assert.equal(kinds.size, 5, 'all five patterns show up across seeds');
+});

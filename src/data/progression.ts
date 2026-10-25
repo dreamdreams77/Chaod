@@ -34,7 +34,7 @@ export interface AchievementDef {
 }
 export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'first_clear', name: 'HELLO WORLD', desc: 'Clear any world.' },
-  { id: 'all_modes', name: 'GENRE FLUID', desc: 'Clear all six worlds.' },
+  { id: 'all_modes', name: 'GENRE FLUID', desc: 'Clear all seven worlds.' },
   { id: 'floppy5', name: 'DISK JOCKEY', desc: 'Collect 5 floppy disks.' },
   { id: 'floppy15', name: 'FULL BACKUP', desc: 'Collect all 15 floppy disks.' },
   { id: 'boss_bricklord', name: 'LINE CLEAR', desc: 'Defeat BRICKLORD MAX.' },
@@ -53,6 +53,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'rematch', name: 'BACK FOR MORE', desc: 'Win a boss rematch.' },
   { id: 'beat_rex', name: 'NEW LAP RECORD', desc: 'Beat REX TURBO in NEON PANIC.' },
   { id: 'level5', name: 'LEVELED UP', desc: 'Reach level 5.' },
+  { id: 'hat_trick', name: 'HAT TRICK', desc: 'Score 3 goals in a row without being hit in PENALTY STORM.' },
   { id: 'flawless_core', name: 'PERFECT DEFENSE', desc: 'Clear CORE COMMAND without a single leak.' },
   { id: 'boss_rush', name: 'RUSH HOUR', desc: 'Beat BRICKLORD MAX and DJ STATIC back to back in BOSS RUSH.' },
   { id: 'endless5', name: 'NO END IN SIGHT', desc: 'Survive 5 rounds of an ENDLESS RUN.' },

@@ -11,7 +11,7 @@
  */
 import { MODE_IDS, type ModeId } from '../core/save.ts';
 
-export type GenreId = 'platformer' | 'shooter' | 'racing' | 'horror' | 'fighter' | 'rpg' | 'rhythm' | 'puzzle' | 'pet' | 'bullethell' | 'strategy';
+export type GenreId = 'platformer' | 'shooter' | 'racing' | 'horror' | 'fighter' | 'rpg' | 'rhythm' | 'puzzle' | 'pet' | 'bullethell' | 'strategy' | 'sports';
 
 export const GENRES: Record<GenreId, { name: string; color: string; traits: string[] }> = {
   platformer: { name: 'PLATFORMER', color: '#ffcf3f', traits: ['jumping', 'gravity', 'moving_platforms', 'vertical_traversal'] },
@@ -24,6 +24,7 @@ export const GENRES: Record<GenreId, { name: string; color: string; traits: stri
   puzzle: { name: 'PUZZLE', color: '#b07aff', traits: ['switches', 'logic_rules', 'environment_manipulation', 'spatial_constraints'] },
   pet: { name: 'VIRTUAL PET', color: '#9dff3f', traits: ['care', 'bond', 'personality', 'training'] },
   strategy: { name: 'STRATEGY', color: '#7dff6b', traits: ['placement', 'economy', 'waves', 'upgrades'] },
+  sports: { name: 'SPORTS', color: '#ff9f3f', traits: ['scoring', 'possession', 'timing_shots'] },
   bullethell: { name: 'BULLET HELL', color: '#ff7af5', traits: ['dense_patterns', 'grazing', 'dodging'] },
 };
 
@@ -95,6 +96,16 @@ export const MUTATIONS: MutationDef[] = [
     traits: ['pet_companion', 'pet_bark'],
     modes: ['mall'],
     params: { baseStun: 1.5, stunPerBond: 0.7, cooldown: 9 },
+    unlock: { kind: 'start' },
+  },
+  {
+    id: 'slap_shot',
+    name: 'SLAP SHOT',
+    genres: ['sports', 'bullethell'],
+    tagline: 'A ball in flight smashes every bullet it touches, clearing a lane to the net.',
+    traits: ['ball_shield'],
+    modes: ['penalty'],
+    params: { radius: 11 },
     unlock: { kind: 'start' },
   },
   {

@@ -289,3 +289,127 @@ test('CORE COMMAND: a final leak that empties the core is a loss, never a win, a
   n.update(1 / 60);
   assert.equal(before - n.hp, 2, 'a bug leak costs two hearts in NIGHTMARE mode');
 });
+
+// ---- PENALTY STORM -----------------------------------------------------------------------
+
+import { PenaltyMode } from '../src/modes/penalty.ts';
+import { GOAL as PGOAL, GOALS_TO_WIN } from '../src/procgen/pitch.ts';
+
+function penaltyGame() {
+  const g = commandGame();
+  (g as unknown as Record<string, unknown>).say = () => {};
+  return g;
+}
+
+/** Puts the match in play with the keeper parked at `keeperX`, the ball at the player's feet. */
+function readyPenalty(game: Game, keeperX: number): PenaltyMode {
+  const m = new PenaltyMode(game);
+  m.phase = 'play';
+  m.keeper.x = keeperX;
+  m.keeper.state = 'recover';
+  m.keeper.holdT = 99;
+  m.px = 240;
+  m.py = 220;
+  return m;
+}
+
+function runFrames(m: PenaltyMode, n: number): void {
+  for (let i = 0; i < n; i++) m.update(1 / 60);
+}
+
+test('PENALTY STORM: a shot at the keeper is saved, a shot into the open side is a goal', () => {
+  const g = penaltyGame();
+  const saved = readyPenalty(g, 240);
+  runFrames(saved, 1); // ball to the player's feet
+  saved.aimX = 0;
+  saved.kick();
+  assert.equal(saved.ball.state, 'flying');
+  saved.keeper.state = 'recover'; // keeper does not move
+  runFrames(saved, 120);
+  assert.equal(saved.saves, 1, 'straight at the keeper is a save');
+  assert.equal(saved.goals, 0);
+
+  const g2 = penaltyGame();
+  const scored = readyPenalty(g2, 190); // keeper on the left, shoot right
+  scored.px = 300;
+  runFrames(scored, 1);
+  scored.aimX = 1;
+  scored.kick();
+  runFrames(scored, 120);
+  assert.equal(scored.goals, 1);
+  assert.equal(scored.phase, 'goal');
+  assert.ok(scored.runBits >= 12, 'goals pay bits');
+});
+
+test('PENALTY STORM: a bullet hit costs a heart and knocks the ball loose; the hearts running out loses the match', () => {
+  const g = penaltyGame();
+  const m = readyPenalty(g, 240);
+  runFrames(m, 1);
+  const hp = m.hp;
+  m.bullets.push({ x: m.px, y: m.py - 7, vx: 0, vy: 0, age: 0, hue: 0 });
+  runFrames(m, 1);
+  assert.equal(m.hp, hp - 1);
+  assert.equal(m.ball.state, 'loose', 'the ball is knocked away');
+  assert.ok(m.iframes > 1, 'a hit grants a moment of safety');
+  m.bullets.push({ x: m.px, y: m.py - 7, vx: 0, vy: 0, age: 0, hue: 0 });
+  runFrames(m, 1);
+  assert.equal(m.hp, hp - 1, 'no second hit during the safety window');
+  m.hp = 1;
+  m.iframes = 0;
+  m.bullets.push({ x: m.px, y: m.py - 7, vx: 0, vy: 0, age: 0, hue: 0 });
+  runFrames(m, 1);
+  assert.equal(m.phase, 'lost');
+});
+
+test('PENALTY STORM: SLAP SHOT clears bullets in the ball\'s path, and only while that mutation is on', () => {
+  const clear = (disabled: boolean): number => {
+    const g = penaltyGame();
+    if (disabled) g.profile.mutationsDisabled.push('slap_shot');
+    const m = readyPenalty(g, 240);
+    runFrames(m, 1);
+    m.aimX = 0;
+    m.kick();
+    m.keeper.state = 'recover';
+    // a bullet sitting in the flight path, well ahead of the ball
+    m.bullets.push({ x: m.ball.x + (m.aimTarget() - m.ball.x) * 0.3, y: m.ball.y + (PGOAL.line - m.ball.y) * 0.3, vx: 0, vy: 0, age: 0, hue: 1 });
+    runFrames(m, 20);
+    return m.bullets.length;
+  };
+  assert.equal(clear(false), 0, 'the shot smashes the bullet');
+  assert.equal(clear(true), 1, 'without the mutation it passes through');
+});
+
+test('PENALTY STORM: six goals win the match with floppies and a HAT TRICK for three clean goals in a row', () => {
+  const { game, started } = spyGame();
+  game.settings.chaos = 'off';
+  (game as unknown as Record<string, unknown>).say = () => {};
+  const m = new PenaltyMode(game);
+  m.phase = 'play';
+  for (let i = 0; i < GOALS_TO_WIN; i++) {
+    m.phase = 'play';
+    m.ball.state = 'flying';
+    m.ball.x = 240 + (i % 2 ? 60 : -60);
+    m.ball.y = PGOAL.line;
+    m.keeper.x = 240 + (i % 2 ? -60 : 60);
+    m.update(1 / 60);
+  }
+  assert.equal(m.goals, GOALS_TO_WIN);
+  assert.equal(m.phase, 'won');
+  assert.ok(m.runFlags.has('hat_trick'));
+  assert.equal(m.foundFloppies.length, 3);
+  runFrames(m, 200);
+  assert.equal(started.length, 0, 'the win goes to results, not another run');
+  assert.ok(game.profile.cleared.penalty.clears === 1);
+  assert.ok(game.profile.achievements.includes('hat_trick'));
+});
+
+test('PENALTY STORM unlocks after four cleared worlds and every procedural match is valid', async () => {
+  const { isModeUnlocked } = await import('../src/data/story.ts');
+  const p = defaultProfile();
+  p.cleared.rampage.clears = 1;
+  p.cleared.neon.clears = 1;
+  p.cleared.mall.clears = 1;
+  assert.equal(isModeUnlocked('penalty', p.cleared), false);
+  p.cleared.beatdown.clears = 1;
+  assert.equal(isModeUnlocked('penalty', p.cleared), true);
+});

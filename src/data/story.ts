@@ -116,6 +116,7 @@ export const MODE_INFO: Record<ModeId, { title: string; genre: string; blurb: st
   mall: { title: 'NIGHTMARE MALL', genre: 'SURVIVAL HORROR + PET', blurb: 'Find 3 keycards and escape. Hide in lockers. BYTE can bark.', color: '#b3122e' },
   beatdown: { title: 'BOSS BEATDOWN', genre: 'FIGHTER → BULLET HELL', blurb: 'Fight BRICKLORD MAX. Fill block rows. Survive his genre tantrum.', color: '#ff6f3f' },
   rhythm: { title: 'GLITCH RHYTHM', genre: 'RHYTHM + SHOOTER', blurb: 'Hit notes on the beat to shoot DJ STATIC. Dodge the glitches.', color: '#ff3fd2' },
+  penalty: { title: 'PENALTY STORM', genre: 'SPORTS + BULLET HELL', blurb: 'Dribble, dodge the keeper\'s bullet patterns and score six goals.', color: '#ff9f3f' },
   command: { title: 'CORE COMMAND', genre: 'STRATEGY → BULLET HELL', blurb: 'Build towers along the glitch road. Eight waves. Defend the Cartridge Core.', color: '#7dff6b' },
 };
 
@@ -123,6 +124,7 @@ export const MODE_INFO: Record<ModeId, { title: string; genre: string; blurb: st
 export function lockHint(mode: ModeId): string {
   if (mode === 'neon' || mode === 'mall') return 'Clear RETRO RAMPAGE first.';
   if (mode === 'command') return 'Clear any three worlds first.';
+  if (mode === 'penalty') return 'Clear any four worlds first.';
   return 'Clear any two worlds first.';
 }
 
@@ -137,5 +139,6 @@ export function isModeUnlocked(mode: ModeId, cleared: Record<ModeId, { clears: n
     case 'beatdown': return total >= 2;
     case 'rhythm': return total >= 2;
     case 'command': return total >= 3;
+    case 'penalty': return total >= 4;
   }
 }

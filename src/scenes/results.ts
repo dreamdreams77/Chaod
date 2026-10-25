@@ -82,7 +82,8 @@ class ResultsScene implements Scene {
     drawText(ctx, head, W / 2, 42, this.r.cleared || endless ? '#7dff6b' : '#ff6f3f', { align: 'center', scale: 2 });
     if (endless) {
       const best = this.game.profile.endless[this.r.mode];
-      drawText(ctx, `BEST: ${best?.rounds ?? 0} ROUNDS.  ${endless.rounds >= 5 ? 'FULL PAYOUT!' : 'GO FIVE ROUNDS FOR THE FULL PAYOUT.'}`, W / 2, 62, '#ccc', { align: 'center' });
+      const bestRounds = best?.rounds ?? 0;
+      drawText(ctx, `BEST: ${bestRounds} ROUND${bestRounds === 1 ? '' : 'S'}.  ${endless.rounds >= 5 ? 'FULL PAYOUT!' : 'GO FIVE ROUNDS FOR THE FULL PAYOUT.'}`, W / 2, 62, '#ccc', { align: 'center' });
     } else if (!this.r.cleared) drawText(ctx, 'You keep half your bits and XP. Failure is just a genre.', W / 2, 62, '#ccc', { align: 'center' });
 
     frame(ctx, 60, 76, W - 120, 132, '#1d1233ee', '#3fe0ff');

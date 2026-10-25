@@ -31,8 +31,8 @@ interface Thing {
 }
 
 const CAB_Y = 58;
-/** Left edge of each of the six cabinets (32px wide, 76px apart, roughly centred on the 480px screen). */
-const CAB_X = [30, 106, 182, 258, 334, 410];
+/** Left edge of each of the seven cabinets (32px wide, 66px apart, roughly centred on the 480px screen). */
+const CAB_X = [26, 92, 158, 224, 290, 356, 422];
 
 export class HubScene implements Scene {
   id = 'hub';
@@ -58,8 +58,8 @@ export class HubScene implements Scene {
     this.things.push({ id: 'manual', x: 270, y: 130, label: 'THE MANUAL', r: 16 });
     this.things.push({ id: 'byte', x: 60, y: 200, label: 'BYTE (PET)', r: 18 });
     this.things.push({ id: 'shop', x: 420, y: 200, label: 'MADAME POLYGON (SHOP)', r: 18 });
-    this.things.push({ id: 'lab', x: 440, y: 120, label: 'MUTATION LAB', r: 16 });
-    this.things.push({ id: 'shrine', x: 40, y: 120, label: 'CHAOS SHRINE', r: 16 });
+    this.things.push({ id: 'lab', x: 440, y: 140, label: 'MUTATION LAB', r: 16 });
+    this.things.push({ id: 'shrine', x: 40, y: 140, label: 'CHAOS SHRINE', r: 16 });
     this.things.push({ id: 'quests', x: 188, y: 168, label: 'QUEST BOARD', r: 26 });
     this.things.push({ id: 'arcade', x: 292, y: 186, label: 'MINI-GAME ARCADE', r: 18 });
     this.things.push({ id: 'daily', x: 118, y: 196, label: 'DAILY CHALLENGE', r: 22 });
@@ -770,8 +770,8 @@ export class HubScene implements Scene {
     this.drawQuestBoard(ctx);
     this.drawDailySign(ctx);
     this.drawMiniCabinet(ctx);
-    this.drawStation(ctx, 440, 120, 'LAB', '#ff3fd2');
-    this.drawStation(ctx, 40, 120, 'SHRINE', '#ff3fa4');
+    this.drawStation(ctx, 440, 140, 'LAB', '#ff3fd2');
+    this.drawStation(ctx, 40, 140, 'SHRINE', '#ff3fa4');
     rect(ctx, 316, 222, 28, 22, '#3a2a10');
     rect(ctx, 318, 224, 24, 10, '#ffcf3f55');
     drawText(ctx, '★', 330, 226, '#ffcf3f', { align: 'center', shadow: null });
@@ -831,6 +831,7 @@ export class HubScene implements Scene {
         case 'neon': for (let i = 0; i < 4; i++) rect(ctx, x + 16 - i * 3, y + 14 + i * 4, 1 + i * 6, 1, '#ff3fa4'); rect(ctx, x + 14, y + 25, 4, 2, '#3fe0ff'); break;
         case 'mall': if (Math.floor(t * 2) % 3) { rect(ctx, x + 12, y + 16, 2, 2, '#ff2040'); rect(ctx, x + 17, y + 16, 2, 2, '#ff2040'); } break;
         case 'beatdown': rect(ctx, x + 8, y + 18, 5, 8, '#20c4b0'); rect(ctx, x + 18, y + 14, 7, 12, '#ff3f3f'); break;
+        case 'penalty': rect(ctx, x + 4, y + 10, 24, 18, '#0f4a24'); rect(ctx, x + 10, y + 11, 12, 2, '#fff'); rect(ctx, x + 12 + Math.round(Math.sin(t * 3) * 4), y + 13, 4, 3, '#ff9f3f'); rect(ctx, x + 15, y + 26 - ((t * 14) % 14), 3, 3, '#fff'); rect(ctx, x + 6 + ((t * 20) % 22), y + 18, 2, 2, '#ff3fd2'); break;
         case 'command': for (let i = 0; i < 5; i++) rect(ctx, x + 5 + i * 4, y + 22 - (i % 2) * 6, 3, 3, i % 2 ? '#7dff6b' : '#ff3f6b'); rect(ctx, x + 5, y + 25, 22, 2, '#2a2438'); rect(ctx, x + 6 + ((t * 14) % 16), y + 23, 3, 3, '#ffcf3f'); break;
         case 'rhythm': for (let i = 0; i < 4; i++) rect(ctx, x + 6 + i * 5, y + 10 + ((t * 30 + i * 7) % 16), 4, 2, ['#ff3fd2', '#3fe0ff', '#7dff6b', '#ffcf3f'][i]); break;
       }
