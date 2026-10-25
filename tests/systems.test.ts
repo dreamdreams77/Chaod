@@ -230,3 +230,13 @@ test('collecting all fifteen floppies unlocks the secret character', () => {
   assert.ok(profile.secretUnlocked);
   assert.ok(summary.achievements.includes('floppy15') && summary.achievements.includes('secret'));
 });
+
+test('clearAll reports cut-short events on the next update so end hooks still run', () => {
+  const d = new ChaosDirector(cfg());
+  for (let i = 0; i < 60 * 600 && d.active.length === 0; i++) d.update(1 / 60, ctx());
+  const live = d.active.slice();
+  assert.ok(live.length > 0, 'precondition: an event is running');
+  d.clearAll();
+  d.update(1 / 60, ctx());
+  for (const a of live) assert.ok(d.ended.includes(a), `${a.def.id} reported as ended`);
+});

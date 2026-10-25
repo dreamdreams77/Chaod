@@ -67,6 +67,8 @@ export class ChaosDirector {
   /** Events that started this frame — modes may react (sound, spawn Kevin, etc.). */
   started: ActiveEvent[] = [];
   ended: ActiveEvent[] = [];
+  /** Events cut short by clearAll(); reported on the next update so modes still run their end hooks. */
+  private cleared: ActiveEvent[] = [];
   history: string[] = [];
 
   constructor(private cfg: DirectorConfig) {
@@ -107,7 +109,8 @@ export class ChaosDirector {
 
   update(dt: number, ctx: DirectorContext): void {
     this.started = [];
-    this.ended = [];
+    this.ended = this.cleared;
+    this.cleared = [];
     this.clock += dt;
     this.sinceLast += dt;
     this.recoverLock = Math.max(0, this.recoverLock - dt);
@@ -162,6 +165,8 @@ export class ChaosDirector {
       if (e.group && groups.has(e.group)) return false;
       if (ctx.segment && e.blockedSegments?.includes(ctx.segment)) return false;
       if (this.active.some((a) => a.def.id === e.id)) return false;
+      // Never stack two sources of the same flag (incl. Kevin's chosen rule): when one ends it would undo the other.
+      if (this.active.some((a) => e.flags.some((f) => a.def.flags.includes(f) || a.extraFlags.includes(f)))) return false;
       const last = this.lastFired.get(e.id);
       if (last !== undefined && this.clock - last < e.cooldown) return false;
       if (e.id === 'kevin_bug' && !(KEVIN_RULES[this.cfg.mode]?.length)) return false;
@@ -202,7 +207,7 @@ export class ChaosDirector {
 
   /** End every event immediately (used on death/respawn and boss phase changes). */
   clearAll(): void {
-    for (const a of this.active) this.ended.push(a);
+    for (const a of this.active) this.cleared.push(a);
     this.active.length = 0;
   }
 }

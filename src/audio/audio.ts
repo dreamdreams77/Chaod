@@ -139,6 +139,8 @@ export class AudioEngine {
   private def: TrackDef | null = null;
   private trackStart = 0;
   private nextStep = 0;
+  /** Audio-clock time at which the song was frozen for a pause, if it is. */
+  private heldAt: number | null = null;
   private stepIndex = 0;
   private tempoScale = 1;
   private simClock = 0;
@@ -202,6 +204,22 @@ export class AudioEngine {
   }
   resume(): void {
     if (this.ctx && this.ctx.state === 'suspended') void this.ctx.resume();
+  }
+
+  /**
+   * Freeze or thaw the song clock for pausing. The audio hardware clock keeps
+   * running, so thawing shifts the song's origin by the time spent paused;
+   * otherwise rhythm notes would all "pass" during a pause.
+   */
+  hold(on: boolean): void {
+    if (!this.ctx) return;
+    if (on && this.heldAt === null) this.heldAt = this.ctx.currentTime;
+    else if (!on && this.heldAt !== null) {
+      const d = this.ctx.currentTime - this.heldAt;
+      this.trackStart += d;
+      this.nextStep += d;
+      this.heldAt = null;
+    }
   }
 
   /** Muffle the music (pause menus, horror, underwater-ish moments). */
@@ -281,6 +299,7 @@ export class AudioEngine {
     }
     this.def = TRACKS[this.track];
     this.song = composeSong(this.def);
+    this.heldAt = null;
     if (this.ctx) {
       this.trackStart = this.ctx.currentTime + 0.05;
       this.nextStep = this.trackStart;
@@ -297,7 +316,7 @@ export class AudioEngine {
    * sound is running (sample-accurate for rhythm gameplay), else simulation time.
    */
   musicTime(): number {
-    if (this.ctx && this.ctx.state === 'running' && this.track !== 'none') return Math.max(0, this.ctx.currentTime - this.trackStart);
+    if (this.ctx && this.ctx.state === 'running' && this.track !== 'none') return Math.max(0, (this.heldAt ?? this.ctx.currentTime) - this.trackStart);
     return this.simClock;
   }
 

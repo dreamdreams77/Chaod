@@ -222,7 +222,7 @@ export class BeatdownMode extends ModeBase {
       if (this.bMove === 'dizzy') dmg *= 1.5;
       this.damageBoss(dmg, weak ? 'CORE HIT!' : this.combo >= 3 ? `${this.combo} HIT COMBO` : undefined);
       this.stun = Math.min(100, this.stun + (this.attackKind === 2 ? 14 : 7));
-      if (this.stun >= 100 && this.bMove !== 'dizzy' && this.bMove !== 'stuck') {
+      if (this.stun >= 100 && this.phase !== 3 && this.bMove !== 'dizzy' && this.bMove !== 'stuck') {
         this.bMove = 'dizzy';
         this.bT = 2.5;
         this.stun = 0;
@@ -281,6 +281,7 @@ export class BeatdownMode extends ModeBase {
     } else if (this.phase === 2 && frac <= 0.25) {
       this.phase = 3;
       this.director.clearAll();
+      this.fallers.length = 0;
       this.bMove = 'float';
       this.bT = 6;
       this.game.genreShift('FIGHTER', 'BULLET HELL', PAL.bullet.accent);

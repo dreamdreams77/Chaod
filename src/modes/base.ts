@@ -13,7 +13,7 @@ import { drawText } from '../render/font.ts';
 import { showResults } from '../scenes/results.ts';
 import { MODE_INFO } from '../data/story.ts';
 
-const BUMP: Record<ChaosIntensity, ChaosIntensity> = { off: 'low', low: 'normal', normal: 'high', high: 'high' };
+const BUMP: Record<ChaosIntensity, ChaosIntensity> = { off: 'off', low: 'normal', normal: 'high', high: 'high' };
 
 export abstract class ModeBase implements Scene {
   abstract id: string;
@@ -102,7 +102,7 @@ export abstract class ModeBase implements Scene {
         this.kevin = { t: 0, note: ev.note ?? 'BUG: REALITY. STATUS: WONTFIX.' };
         this.runFlags.add('kevin');
         this.addBits(15);
-      } else if (ev.def.id === 'fatal_exception') {
+      } else if (ev.def.id === 'fatal_exception' && !this.ended) {
         this.game.startFatal(this);
       }
       this.onChaosStart(ev);
@@ -111,6 +111,7 @@ export abstract class ModeBase implements Scene {
   }
 
   onFatal(win: boolean): void {
+    if (this.ended) return;
     if (win) {
       this.addBits(60);
       this.heal(1);

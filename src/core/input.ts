@@ -68,6 +68,8 @@ export class Input {
     const kd = (e: KeyboardEvent) => {
       if (this.captureNext) {
         e.preventDefault();
+        // Ignore auto-repeat of the key that opened the prompt.
+        if (e.repeat) return;
         const cb = this.captureNext;
         this.captureNext = null;
         cb(e.code);

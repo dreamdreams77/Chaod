@@ -89,6 +89,7 @@ export class NeonMode extends ModeBase {
     // A turn-based SKILL CHECK slows time to a crawl while the player picks a command.
     const dt = this.skill ? dt0 * 0.15 : dt0;
     this.tickShared(dt);
+    const skillActive = !!this.skill;
     if (this.skill) this.updateSkill(dt0);
     const inp = this.game.input;
 
@@ -115,7 +116,7 @@ export class NeonMode extends ModeBase {
 
     // Boost
     this.boostT = Math.max(0, this.boostT - dt);
-    if (inp.pressed('jump') && this.boost >= 0.34 && this.boostT <= 0.2) {
+    if (!skillActive && inp.pressed('jump') && this.boost >= 0.34 && this.boostT <= 0.2) {
       this.boost -= 0.34;
       let power = 1;
       if (this.fusion.has('beat_boost')) {

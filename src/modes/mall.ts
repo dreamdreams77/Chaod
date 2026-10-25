@@ -31,6 +31,7 @@ export class MallMode extends ModeBase {
   keys = 0;
   hidden = false;
   hiddenLocker: MallItem | null = null;
+  private lockedPopupT = -99;
   iframes = 0;
   moving = false;
   running = false;
@@ -189,7 +190,10 @@ export class MallMode extends ModeBase {
         this.escaped = true;
         this.game.audio.sfx('levelup');
         this.game.fx.flash('#fff', 0.5);
-      } else if (Math.floor(this.time * 2) % 4 === 0) this.popups.add(this.px, this.py - 20, `LOCKED: ${this.keys}/3 KEYS`, '#c9a227');
+      } else if (this.time - this.lockedPopupT > 1.5) {
+        this.lockedPopupT = this.time;
+        this.popups.add(this.px, this.py - 20, `LOCKED: ${this.keys}/3 KEYS`, '#c9a227');
+      }
     }
   }
 

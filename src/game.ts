@@ -197,6 +197,7 @@ export class Game {
   update(dt: number): void {
     this.time += dt;
     const inp = this.input;
+    this.audio.hold(this.paused);
     this.fx.update(dt);
     for (const t of this.toasts) t.t += dt;
     this.toasts = this.toasts.filter((t) => t.t < 3.2);
