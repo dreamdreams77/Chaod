@@ -79,6 +79,10 @@ export class HubScene implements Scene {
   update(dt: number): void {
     this.t += dt;
     this.particles.update(dt);
+    // The glowing Core sheds sparks once both shards are home (emitted per sim step, not per frame).
+    if (this.game.profile.bossesDefeated.filter((b) => b === 'bricklord' || b === 'static').length >= 2 && !this.game.profile.endingSeen) {
+      this.particles.emit(240, 120, 1, '#7dff6b', 30, 0.6, 2, -20);
+    }
     this.paletteFlip = Math.max(0, this.paletteFlip - dt);
     const inp = this.game.input;
     // Kevin wanders
@@ -142,8 +146,9 @@ export class HubScene implements Scene {
       case 'manual': {
         const lines = manualLines({ clears: MODE_IDS.filter((m) => p.cleared[m].clears > 0).length, bosses: p.bossesDefeated, floppies: p.floppies.length, trust: p.manualTrust, ending: p.endingSeen });
         this.game.say(lines, (eff) => {
-          if (eff.includes('trust+')) p.manualTrust++;
-          if (eff.includes('trust-')) p.manualTrust--;
+          const decided = p.lore.includes('manual_confession');
+          if (!decided && eff.includes('trust+')) p.manualTrust++;
+          if (!decided && eff.includes('trust-')) p.manualTrust--;
           if (eff.length && !p.lore.includes('manual_confession')) p.lore.push('manual_confession');
           this.save();
         });
@@ -225,6 +230,7 @@ export class HubScene implements Scene {
 
   private petMenu(): void {
     const pet = this.game.profile.pet;
+    const keep = this.menu?.index;
     const care = pet.xp;
     const items: MenuItem[] = [
       { label: 'FEED', value: () => (pet.hunger > 0 ? `HUNGRY ${'●'.repeat(pet.hunger)}` : 'FULL'), sub: 'BYTE gets hungry after each adventure. Feeding builds bond.', onSelect: () => this.feed() },
@@ -233,6 +239,7 @@ export class HubScene implements Scene {
       { label: 'BACK', onSelect: () => (this.menu = null) },
     ];
     this.menu = new ListMenu('BYTE — VIRTUAL PET', items, () => (this.menu = null), { x: 90, y: 60, w: 300, accent: '#9dff3f' });
+    if (keep !== undefined) this.menu.index = Math.min(keep, items.length - 1);
   }
 
   private addCare(n: number): void {
@@ -287,6 +294,7 @@ export class HubScene implements Scene {
 
   private shopMenu(): void {
     const p = this.game.profile;
+    const keep = this.menu?.index;
     const items: MenuItem[] = SHOP.map((s) => {
       const owned = !s.repeatable && p.abilities.includes(s.id);
       const blocked = (s.requires && !p.abilities.includes(s.requires)) || (s.id === 'treats' && p.pet.bond >= 5);
@@ -313,6 +321,7 @@ export class HubScene implements Scene {
     });
     items.push({ label: 'BACK', onSelect: () => (this.menu = null) });
     this.menu = new ListMenu(`MADAME POLYGON — ${p.bits} BITS`, items, () => (this.menu = null), { x: 60, y: 30, w: 360, accent: '#b07aff', footer: POLYGON_INTRO });
+    if (keep !== undefined) this.menu.index = Math.min(keep, items.length - 1);
   }
 
   private labMenu(): void {
@@ -422,7 +431,6 @@ export class HubScene implements Scene {
     rect(ctx, 214, 140, 52, 20, '#2a2a3a');
     drawCoreIcon(ctx, 240, 132, t, 2);
     for (let i = 0; i < 2; i++) rect(ctx, 226 + i * 22, 156, 6, 6, i < shards ? (i ? '#ff3fd2' : '#ff6f3f') : '#444');
-    if (shards >= 2 && !p.endingSeen) this.particles.emit(240, 120, 1, '#7dff6b', 30, 0.6, 2, -20);
     drawManual(ctx, 270, 130, t);
     // Stations
     this.drawStation(ctx, 440, 120, 'LAB', '#ff3fd2');

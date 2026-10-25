@@ -172,7 +172,11 @@ export class Input {
     const gameplay: Action[] = ['left', 'right', 'up', 'down', 'jump', 'attack', 'special', 'pause'];
     if (gameplay.includes(a)) {
       for (const other of gameplay) {
-        if (other !== a) this.bindings[other] = this.bindings[other].filter((k) => k !== code);
+        if (other === a) continue;
+        let next = this.bindings[other].filter((k) => k !== code);
+        // Never leave an action unbound: fall back to its default keys.
+        if (next.length === 0) next = DEFAULT_BINDINGS[other].filter((k) => k !== code);
+        this.bindings[other] = next;
       }
     }
     list[slot] = code;

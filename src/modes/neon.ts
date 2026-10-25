@@ -13,7 +13,7 @@ import type { Game } from '../game.ts';
 import { ModeBase } from './base.ts';
 import { DirectorContext } from '../chaos/director.ts';
 import { generateNeon, NeonTrack, SEG_LEN, LANES, TrackObj } from '../procgen/neon.ts';
-import { H, W, PAL, rect, clamp, approach, hearts, bar } from '../render/gfx.ts';
+import { H, W, PAL, rect, clamp, approach, hearts, bar, glow } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 
 const ROAD_W = 2000;
@@ -553,6 +553,15 @@ export class NeonMode extends ModeBase {
     ctx.beginPath();
     ctx.rect(0, 0, W, pr.clip);
     ctx.clip();
+    // Ground shadow anchors each object to the road; pickups also get a soft halo.
+    if (o.kind !== 'boost') {
+      const sw = (o.kind === 'barrier' ? 520 : o.kind === 'cone' ? 240 : 220) * s;
+      rect(ctx, sx - sw / 2, y - sw * 0.03, sw, Math.max(1, sw * 0.07), 'rgba(0,0,0,0.38)');
+    }
+    if (o.kind === 'bit' || o.kind === 'heart' || o.kind === 'floppy' || o.kind === 'chaos') {
+      const hw = (o.kind === 'bit' ? 120 : 240) * s;
+      if (hw > 3) glow(ctx, sx, y - hw * 1.1, hw * 1.6, o.kind === 'heart' ? '255,63,107' : o.kind === 'bit' ? '255,207,63' : o.kind === 'floppy' ? '63,224,255' : '255,63,210', 0.35);
+    }
     switch (o.kind) {
       case 'cone': {
         const w = 220 * s, h = 300 * s;
@@ -611,6 +620,7 @@ export class NeonMode extends ModeBase {
     ctx.beginPath();
     ctx.rect(0, 0, W, clip);
     ctx.clip();
+    rect(ctx, sx - w * 0.55, y - h * 0.1, w * 1.1, Math.max(1, h * 0.2), 'rgba(0,0,0,0.4)');
     rect(ctx, sx - w / 2, y - h, w, h * 0.7, color);
     rect(ctx, sx - w * 0.35, y - h * 1.25, w * 0.7, h * 0.6, color);
     rect(ctx, sx - w * 0.28, y - h * 1.15, w * 0.56, h * 0.35, '#1a1030');

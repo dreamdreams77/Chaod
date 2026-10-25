@@ -89,6 +89,7 @@ export class SettingsScene implements Scene {
     this.game.scene.exit?.();
     this.game.scene = next;
     // Returning to a paused gameplay scene keeps its state; menus re-enter.
+    this.game.holdAudio = false;
     if (!next.pausable) next.enter?.();
     else {
       this.game.paused = true;
@@ -99,7 +100,14 @@ export class SettingsScene implements Scene {
   update(dt: number): void {
     this.t += dt;
     this.eraseArmed = Math.max(0, this.eraseArmed - dt);
-    if (this.capture) return;
+    if (this.capture) {
+      // Touch pads cannot press a key, so the pause button cancels the prompt.
+      if (this.game.input.usingTouch && this.game.input.pressed('back')) {
+        this.game.input.captureNext = null;
+        this.capture = null;
+      }
+      return;
+    }
     this.menu.update(this.game);
   }
 

@@ -24,10 +24,11 @@ function withActor(ctx: CanvasRenderingContext2D, a: Actor, body: () => void): v
   ctx.scale((a.facing * s) / Math.sqrt(sq), s * sq);
   // Soft contact shadow; shrinks while airborne so jumps read clearly.
   const air = a.pose === 'jump' ? 0.6 : 1;
-  ctx.globalAlpha = 0.28 * air;
+  const baseAlpha = ctx.globalAlpha;
+  ctx.globalAlpha = baseAlpha * 0.28 * air;
   r(ctx, -6 * air, -1, 12 * air, 2, '#000');
   r(ctx, -4 * air, 0, 8 * air, 2, '#000');
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha = baseAlpha;
   // A hard 1px offset shadow behind every limb reads as an outline and lifts the sprite off busy backdrops.
   ctx.shadowColor = 'rgba(8,4,16,0.75)';
   ctx.shadowOffsetX = 1;

@@ -197,7 +197,7 @@ export class Game {
   update(dt: number): void {
     this.time += dt;
     const inp = this.input;
-    this.audio.hold(this.paused);
+    this.audio.hold(this.paused || this.holdAudio);
     this.fx.update(dt);
     for (const t of this.toasts) t.t += dt;
     this.toasts = this.toasts.filter((t) => t.t < 3.2);
@@ -212,6 +212,7 @@ export class Game {
         this.scene = tr.next;
         tr.next = null;
         this.paused = false;
+        this.holdAudio = false;
         this.fx.reset();
         this.scene.enter?.();
       }
@@ -297,6 +298,7 @@ export class Game {
         this.paused = false;
         this.audio.muffle(false);
         // Settings return to the paused gameplay scene untouched.
+        this.holdAudio = true;
         const s = this.settingsFactory(() => current);
         this.scene.exit?.();
         this.scene = s;
@@ -339,6 +341,8 @@ export class Game {
   }
 
   // ---- drawing -----------------------------------------------------------------
+  /** Keeps the song frozen while Settings is open from the pause menu. */
+  holdAudio = false;
   private crtShown = true;
 
   render(): void {

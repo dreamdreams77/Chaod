@@ -34,6 +34,7 @@ export class RhythmMode extends ModeBase {
   bolts: Bolt[] = [];
   shots: Shot[] = [];
   nextBlock = 8;
+  private lastBlock: Note[] = [];
   hp: number;
   bMaxHp: number;
   bHp: number;
@@ -126,7 +127,8 @@ export class RhythmMode extends ModeBase {
     const beat = this.beatNow();
     // Generate chart blocks ahead of time
     while (this.nextBlock < beat + 12) {
-      const block = generateBlock(this.chartRng, this.nextBlock, this.phase, { easy: 0, normal: 1, hard: 2 }[this.game.settings.difficulty]);
+      const block = generateBlock(this.chartRng, this.nextBlock, this.phase, { easy: 0, normal: 1, hard: 2 }[this.game.settings.difficulty], this.lastBlock);
+      this.lastBlock = block;
       this.notes.push(...block);
       this.nextBlock += BLOCK_BEATS;
     }
@@ -248,6 +250,7 @@ export class RhythmMode extends ModeBase {
       this.game.audio.shiftTo('rhythm', this.tempo);
       this.beatBase = now;
       this.nextBlock = resume;
+      this.lastBlock = [];
       this.game.genreShift('RHYTHM', 'RHYTHM (DOUBLE TIME)', PAL.rhythm.accent);
     }
   }

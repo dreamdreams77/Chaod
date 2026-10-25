@@ -176,7 +176,7 @@ export class AudioEngine {
         this.applyVolumes();
         if (this.track !== 'none') this.restartTrack();
       }
-      if (this.ctx.state === 'suspended') void this.ctx.resume();
+      if (this.ctx.state !== 'running') void this.ctx.resume();
     } catch {
       this.enabled = false;
       this.ctx = null;
@@ -203,7 +203,7 @@ export class AudioEngine {
     if (this.ctx && this.ctx.state === 'running') void this.ctx.suspend();
   }
   resume(): void {
-    if (this.ctx && this.ctx.state === 'suspended') void this.ctx.resume();
+    if (this.ctx && this.ctx.state !== 'running') void this.ctx.resume();
   }
 
   /**
@@ -292,6 +292,7 @@ export class AudioEngine {
 
   private restartTrack(): void {
     this.simClock = 0;
+    this.heldAt = null;
     if (this.track === 'none') {
       this.song = null;
       this.def = null;
@@ -323,6 +324,10 @@ export class AudioEngine {
   /** Call every simulation step. Schedules upcoming notes (lookahead scheduler). */
   update(dt: number): void {
     if (!(this.ctx && this.ctx.state === 'running')) {
+      this.simClock += dt;
+      return;
+    }
+    if (this.track === 'none') {
       this.simClock += dt;
       return;
     }

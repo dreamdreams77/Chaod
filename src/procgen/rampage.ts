@@ -241,6 +241,8 @@ export function generateRampage(seed: number, opts: RampageOpts): RampageLevel {
         let ch = rows[y][x];
         if ((ch === 'B' || ch === 'b') && !opts.beatPlatforms) ch = '=';
         if (ch === 'S' && !opts.switchShots) ch = '.';
+        // With no switches to open them, gates would seal the floppy vault for good.
+        if (ch === 'G' && !opts.switchShots) ch = '.';
         if (SPAWN_CHARS.includes(ch)) {
           let keep = true;
           if (ch === 'e' || ch === 'f') keep = rng.chance(0.85);

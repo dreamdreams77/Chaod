@@ -12,7 +12,7 @@ import type { Game } from '../game.ts';
 import { ModeBase } from './base.ts';
 import { DirectorContext } from '../chaos/director.ts';
 import { generateMall, MallMap, MW, MH, mallWalkable, nextStepToward, MALL_NOTES, MallItem } from '../procgen/mall.ts';
-import { H, W, rect, clamp, hearts, bar } from '../render/gfx.ts';
+import { H, W, rect, clamp, hearts, bar, glow } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { drawByte, drawCass, drawFloppy, Pose } from '../render/actors.ts';
 
@@ -450,6 +450,7 @@ export class MallMode extends ModeBase {
         rect(ctx, sx - 5, sy + 4, 10, 3, '#000');
         ctx.globalAlpha = 1;
       }
+      if (it.kind === 'key' || it.kind === 'floppy' || it.kind === 'chaos') glow(ctx, sx, sy, 16, it.kind === 'key' ? '255,207,63' : it.kind === 'floppy' ? '63,224,255' : '255,63,210', 0.3 + Math.sin(this.time * 4) * 0.08);
       switch (it.kind) {
         case 'key': rect(ctx, sx - 5, sy - 3, 10, 7, '#c9a227'); rect(ctx, sx - 3, sy - 1, 3, 3, '#fff'); break;
         case 'battery': rect(ctx, sx - 3, sy - 5, 6, 10, '#6b8f71'); rect(ctx, sx - 1, sy - 6, 2, 1, '#ccc'); break;

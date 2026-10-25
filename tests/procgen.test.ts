@@ -105,3 +105,25 @@ test('glitch notes never stack and level plans never repeat a chunk back-to-back
     for (let i = 1; i < plan.length; i++) assert.notEqual(plan[i], plan[i - 1], `seed ${seed}: ${plan.join(',')}`);
   }
 });
+
+test('chart blocks stay playable across block seams', () => {
+  for (let seed = 0; seed < 150; seed++) {
+    const rng = new Rng(seed);
+    for (const phase of [1, 2, 3]) {
+      let prev: ReturnType<typeof generateBlock> = [];
+      let all: typeof prev = [];
+      for (let b = 0; b < 6; b++) {
+        prev = generateBlock(rng, 8 + b * BLOCK_BEATS, phase, 2, prev);
+        all = all.concat(prev);
+      }
+      assert.equal(validateBlock(all, phase), null, `seed ${seed} phase ${phase}`);
+    }
+  }
+});
+
+test('with TRICK SHOT off, no gates remain to seal the floppy vault', () => {
+  for (let seed = 0; seed < 100; seed++) {
+    const lvl = generateRampage(seed, { beatPlatforms: false, switchShots: false });
+    assert.ok(!lvl.tiles.some((r) => r.includes('G')), `seed ${seed}`);
+  }
+});

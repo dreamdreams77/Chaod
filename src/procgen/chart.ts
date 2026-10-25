@@ -22,9 +22,11 @@ export function minGapForPhase(phase: number): number {
   return phase >= 3 ? 0.5 : 1;
 }
 
-export function generateBlock(rng: Rng, startBeat: number, phase: number, difficulty: number): Note[] {
+/** `prev` is the previous block, so lane spacing and glitch separation hold across the seam. */
+export function generateBlock(rng: Rng, startBeat: number, phase: number, difficulty: number, prev: Note[] = []): Note[] {
   const notes: Note[] = [];
   const lastInLane = [-99, -99, -99, -99];
+  for (const n of prev) if (n.kind !== 'glitch') lastInLane[n.lane] = Math.max(lastInLane[n.lane], n.beat + (n.len ?? 0));
   const minGap = minGapForPhase(phase);
   const step = phase >= 2 ? 0.5 : 1;
   const density = Math.min(0.9, 0.42 + phase * 0.12 + difficulty * 0.08);
@@ -35,7 +37,7 @@ export function generateBlock(rng: Rng, startBeat: number, phase: number, diffic
     const p = b % 4 === 0 ? 1 : onBeat ? density : density * 0.55;
     if (!rng.chance(p)) continue;
     const chord = phase >= 2 && onBeat && b % 4 === 0 && rng.chance(0.35);
-    const lanes = rng.shuffle([0, 1, 2, 3]).filter((l) => beat - lastInLane[l] >= minGap);
+    const lanes = rng.shuffle([0, 1, 2, 3]).filter((l) => beat - lastInLane[l] >= minGap && !prev.some((g) => g.kind === 'glitch' && g.lane === l && Math.abs(g.beat - beat) < 1));
     const count = Math.min(chord ? 2 : 1, lanes.length);
     for (let i = 0; i < count; i++) {
       const lane = lanes[i];
@@ -50,7 +52,7 @@ export function generateBlock(rng: Rng, startBeat: number, phase: number, diffic
     for (let i = 0; i < n; i++) {
       const beat = startBeat + rng.int(1, BLOCK_BEATS - 1) + (rng.chance(0.5) ? 0.5 : 0);
       const lane = rng.int(0, 3);
-      const clash = notes.some((x) => (x.lane === lane && Math.abs(x.beat - beat) < 1) || (x.kind === 'glitch' && Math.abs(x.beat - beat) < 0.5) || (x.kind === 'hold' && x.lane === lane && beat >= x.beat && beat <= x.beat + (x.len ?? 0) + 0.5));
+      const clash = prev.concat(notes).some((x) => (x.lane === lane && Math.abs(x.beat - beat) < 1) || (x.kind === 'glitch' && Math.abs(x.beat - beat) < 0.5) || (x.kind === 'hold' && x.lane === lane && beat >= x.beat && beat <= x.beat + (x.len ?? 0) + 0.5));
       if (!clash) notes.push({ beat, lane, kind: 'glitch' });
     }
   }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1 — second review pass
+- Fixes: Settings opened from pause no longer lets the rhythm song run; Retro Rampage's floppy vault is no longer sealed when TRICK SHOT is off; chart blocks keep lane spacing and glitch separation across seams; the song clock advances on the game-over screen; iOS "interrupted" audio recovers; rebinding can no longer leave an action with no keys; touch users can cancel a remap with the pause button; the Manual's trust choice counts once; hub shop/pet menus keep the cursor after a purchase; hub core sparks no longer depend on refresh rate; sprite alpha is preserved for fades.
+- Depth: object and car shadows and pickup halos in Neon Panic, key/floppy/orb halos in Nightmare Mall.
+
 ## 1.1.0 — depth, arcade look and fixes
 - Visuals: layered parallax and haze in Retro Rampage, a deeper Neon Panic horizon, wall faces and flashlight spill in Nightmare Mall, a lit hub, a deeper Boss Beatdown arena, gradient menus, sprite outlines and soft panel shadows.
 - Arcade CRT is now drawn by the page at display resolution (even scanlines at any size); whole-number scaling keeps pixels uniform; screen shake is a smooth decaying wobble.
