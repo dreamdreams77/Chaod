@@ -429,7 +429,7 @@ export class HubScene implements Scene {
       ...MINIS.map((m) => ({
         label: m.title,
         value: () => `BEST ${p.mini[m.id]?.best ?? 0}`,
-        sub: `${m.blurb} Pays ${m.bitsPerPoint} bit${m.bitsPerPoint === 1 ? '' : 's'} per ${m.unit === 'ROUNDS' ? 'round' : 'point'}.`,
+        sub: `${m.blurb} ${m.pays}`,
         onSelect: () => { this.menu = null; startMini(this.game, m.id); },
       })),
       { label: 'BACK', onSelect: () => (this.menu = null) },

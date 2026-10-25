@@ -254,8 +254,9 @@ test('quest ids are unique, rewards positive, and every quest can be advanced by
 
 test('a clean fast clear completes quests once and pays rewards', () => {
   const p = defaultProfile();
-  const { profile, summary } = applyRun(p, run({ cleared: true, damageTaken: 0, time: 90, bits: 200, floppies: ['rampage-0'] }));
-  for (const id of ['bit_hoard', 'untouchable', 'speed_demon']) assert.ok(summary.quests.includes(id), id);
+  const { profile, summary } = applyRun(p, run({ cleared: true, damageTaken: 0, time: 90, bits: 450, floppies: ['rampage-0'] }));
+  for (const id of ['untouchable', 'speed_demon']) assert.ok(summary.quests.includes(id), id);
+  assert.ok(summary.quests.includes('bit_hoard'), 'a 450-bit run clears BIT HOARDER');
   assert.ok(profile.questsDone.includes('untouchable'));
   const paid = QUESTS.filter((q) => summary.quests.includes(q.id)).reduce((n, q) => n + q.bits, 0);
   assert.ok(profile.bits >= paid + summary.bits, 'quest bits were added on top of run bits');
@@ -274,7 +275,7 @@ test('boss clears do not count for SPEED DEMON; failed runs do not clear quests'
 test('mini-games pay bits, keep personal bests, and complete arcade quests', () => {
   let p = defaultProfile();
   const a = applyMini(p, 'catch', 70);
-  assert.equal(a.outcome.bits, 70 * MINIS.find((m) => m.id === 'catch')!.bitsPerPoint);
+  assert.equal(a.outcome.bits, Math.round(70 * MINIS.find((m) => m.id === 'catch')!.bitsPerPoint));
   assert.ok(a.outcome.best);
   assert.ok(a.outcome.quests.some((q) => q.id === 'arcade_ace'));
   p = a.profile;

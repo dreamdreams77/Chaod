@@ -172,7 +172,7 @@ export function applyMini(profile: Profile, game: MiniId, rawScore: number): { p
   const p: Profile = structuredCloneSafe(profile);
   const score = Number.isFinite(rawScore) ? Math.max(0, Math.floor(rawScore)) : 0;
   const info = MINIS.find((m) => m.id === game)!;
-  const bits = score * info.bitsPerPoint;
+  const bits = Math.round(score * info.bitsPerPoint);
   p.bits += bits;
   const rec = p.mini[game] ?? { best: 0, plays: 0 };
   const best = score > rec.best;
