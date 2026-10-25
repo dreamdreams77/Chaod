@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.0 — sixth world: CORE COMMAND
+- A new cabinet in the lobby (opens after you clear three worlds; the daily challenge now uses one shared pool of worlds so everyone gets the same one each day): defend the Cartridge Core with BLASTER, WAVE and LASER towers along a seeded winding road, across eight waves ending in a boss glitch. From wave 5, SPITTERS fire stun shots at your towers (the bullet-hell turn). Cursor and keys, or tap a cell to aim and again to build; pick towers and send waves from a tappable bar.
+- New fusion VETERAN TOWERS (strategy + RPG): towers earn XP from kills and level up by themselves. New mastery stars, quest and mini-profile entries apply to it like any world; the lobby now holds six cabinets.
+- Balanced with scripted players: an undefended core always falls, careless placement mostly loses on Normal, sensible placement wins ~98% on Normal and ~65% on Hard.
+
 ## 1.10.0 — wardrobe
 - Madame Polygon's shop has a WARDROBE: five outfits (colour schemes for Cass) and four hats (arcade cap, antenna, save-point halo, crown), bought with bits and worn everywhere, including dialogue portraits. Purely cosmetic; unowned or unknown items in a save are repaired.
 

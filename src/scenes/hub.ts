@@ -30,6 +30,8 @@ interface Thing {
 }
 
 const CAB_Y = 58;
+/** Left edge of each of the six cabinets (32px wide, 76px apart, roughly centred on the 480px screen). */
+const CAB_X = [30, 106, 182, 258, 334, 410];
 
 export class HubScene implements Scene {
   id = 'hub';
@@ -50,8 +52,7 @@ export class HubScene implements Scene {
   private cabinetAnnounced: Set<ModeId>;
 
   constructor(private game: Game) {
-    const cabX = [56, 136, 216, 296, 376];
-    MODE_IDS.forEach((m, i) => this.things.push({ id: `cab:${m}`, x: cabX[i] + 16, y: CAB_Y + 30, label: MODE_INFO[m].title, r: 18 }));
+    MODE_IDS.forEach((m, i) => this.things.push({ id: `cab:${m}`, x: CAB_X[i] + 16, y: CAB_Y + 30, label: MODE_INFO[m].title, r: 18 }));
     this.things.push({ id: 'core', x: 240, y: 150, label: 'CARTRIDGE CORE', r: 20 });
     this.things.push({ id: 'manual', x: 270, y: 130, label: 'THE MANUAL', r: 16 });
     this.things.push({ id: 'byte', x: 60, y: 200, label: 'BYTE (PET)', r: 18 });
@@ -189,7 +190,7 @@ export class HubScene implements Scene {
     const items: MenuItem[] = MODE_IDS.map((m) => {
       const open = isModeUnlocked(m, p.cleared);
       const info = MODE_INFO[m];
-      const need = m === 'neon' || m === 'mall' ? 'Clear RETRO RAMPAGE first.' : 'Clear any two worlds to unlock.';
+      const need = m === 'neon' || m === 'mall' ? 'Clear RETRO RAMPAGE first.' : m === 'command' ? 'Clear any three worlds to unlock.' : 'Clear any two worlds to unlock.';
       return {
         label: info.title,
         value: () => (open ? (p.cleared[m].clears ? `CLEARED x${p.cleared[m].clears}` : 'NEW') : 'LOCKED'),
@@ -273,7 +274,7 @@ export class HubScene implements Scene {
     const p = this.game.profile;
     const info = MODE_INFO[mode];
     if (!isModeUnlocked(mode, p.cleared)) {
-      const need = mode === 'neon' || mode === 'mall' ? 'Clear RETRO RAMPAGE first.' : 'Clear any two worlds to power this cabinet.';
+      const need = mode === 'neon' || mode === 'mall' ? 'Clear RETRO RAMPAGE first.' : mode === 'command' ? 'Clear any three worlds to power this cabinet.' : 'Clear any two worlds to power this cabinet.';
       this.say('kevin', 'KEVIN FROM QA', `This cabinet is OUT OF ORDER. ${need} I filed a ticket.`);
       return;
     }
@@ -590,11 +591,18 @@ export class HubScene implements Scene {
   }
 
   /** Today's run for this player, and the modifier that seed rolls (same for everyone). */
-  private todaysRun(): { key: string; mode: ModeId; seed: number; modifier: string } {
+  private todaysRun(): { key: string; mode: ModeId; seed: number; modifier: string; open: boolean } {
     const p = this.game.profile;
     const key = dateKey();
-    const d = dailyFor(key, MODE_IDS.filter((m) => isModeUnlocked(m, p.cleared)));
-    return { ...d, modifier: new Rng(d.seed).fork(77).pick(MODIFIERS).name };
+    const d = dailyFor(key);
+    return { ...d, modifier: new Rng(d.seed).fork(77).pick(MODIFIERS).name, open: isModeUnlocked(d.mode, p.cleared) };
+  }
+
+  /** What the player still has to do to open a cabinet. */
+  private lockHint(mode: ModeId): string {
+    if (mode === 'neon' || mode === 'mall') return 'CLEAR RETRO RAMPAGE FIRST';
+    if (mode === 'command') return 'CLEAR ANY THREE WORLDS';
+    return 'CLEAR ANY TWO WORLDS';
   }
 
   private copyLink(mode: ModeId, seed: number): void {
@@ -616,7 +624,8 @@ export class HubScene implements Scene {
       { label: 'BEST TODAY', value: () => (rec ? `${rec.best}${rec.cleared ? '  \u2605 CLEARED' : ''}` : '\u2014'), disabled: true },
       { label: 'STREAK', value: () => `${streak} DAY${streak === 1 ? '' : 'S'}`, disabled: true },
       {
-        label: rec?.cleared ? 'PLAY AGAIN (NO BONUS)' : `PLAY TODAY'S RUN  +${DAILY_BONUS + 10 * Math.min(streak + 1, 7)} BITS`,
+        label: !t.open ? `LOCKED: ${this.lockHint(t.mode)}` : rec?.cleared ? 'PLAY AGAIN (NO BONUS)' : `PLAY TODAY'S RUN  +${DAILY_BONUS + 10 * Math.min(streak + 1, 7)} BITS`,
+        disabled: !t.open,
         sub: 'Same world, seed and modifier for everyone today. One clear per day pays the bonus.',
         onSelect: () => { this.menu = null; this.game.startMode(t.mode, { seed: t.seed, daily: t.key }); },
       },
@@ -678,7 +687,7 @@ export class HubScene implements Scene {
     ctx.fillStyle = spill;
     ctx.fillRect(0, CAB_Y + 30, W, 40);
     // Light pools under each cabinet
-    [56, 136, 216, 296, 376].forEach((cx, i) => {
+    CAB_X.forEach((cx, i) => {
       const on = isModeUnlocked(MODE_IDS[i], p.cleared);
       ctx.globalAlpha = on ? 0.22 + Math.sin(t * 2 + i) * 0.04 : 0.08;
       rect(ctx, cx - 6, CAB_Y + 34, 44, 4, on ? MODE_INFO[MODE_IDS[i]].color : '#8a7aa0');
@@ -689,8 +698,7 @@ export class HubScene implements Scene {
     for (const [sx, sy, sw] of [[214, 160, 52], [316, 243, 28], [40, 213, 40], [404, 215, 34]]) rect(ctx, sx + 2, sy, sw, 4, 'rgba(0,0,0,0.35)');
     drawText(ctx, 'THE LOBBY OF LOST SAVES', W / 2, 8, pal.accent2, { align: 'center', scale: 2 });
     // Cabinets
-    const cabX = [56, 136, 216, 296, 376];
-    MODE_IDS.forEach((m, i) => this.drawCabinet(ctx, cabX[i], CAB_Y - 20, m, isModeUnlocked(m, p.cleared)));
+    MODE_IDS.forEach((m, i) => this.drawCabinet(ctx, CAB_X[i], CAB_Y - 20, m, isModeUnlocked(m, p.cleared)));
     // Core
     const shards = p.bossesDefeated.filter((b) => b === 'bricklord' || b === 'static').length;
     rect(ctx, 214, 140, 52, 20, '#2a2a3a');
@@ -701,8 +709,8 @@ export class HubScene implements Scene {
     // New players: a bouncing arrow over the first cabinet says where to start.
     if (!this.menu && p.runsStarted === 0) {
       const bob = Math.round(Math.sin(this.t * 5) * 3);
-      drawText(ctx, 'START HERE', 72, 22 + bob, '#7dff6b', { align: 'center' });
-      drawText(ctx, '\u25BC', 72, 30 + bob, '#7dff6b', { align: 'center' });
+      drawText(ctx, 'START HERE', CAB_X[0] + 16, 22 + bob, '#7dff6b', { align: 'center' });
+      drawText(ctx, '\u25BC', CAB_X[0] + 16, 30 + bob, '#7dff6b', { align: 'center' });
     }
     this.drawQuestBoard(ctx);
     this.drawDailySign(ctx);
@@ -768,6 +776,7 @@ export class HubScene implements Scene {
         case 'neon': for (let i = 0; i < 4; i++) rect(ctx, x + 16 - i * 3, y + 14 + i * 4, 1 + i * 6, 1, '#ff3fa4'); rect(ctx, x + 14, y + 25, 4, 2, '#3fe0ff'); break;
         case 'mall': if (Math.floor(t * 2) % 3) { rect(ctx, x + 12, y + 16, 2, 2, '#ff2040'); rect(ctx, x + 17, y + 16, 2, 2, '#ff2040'); } break;
         case 'beatdown': rect(ctx, x + 8, y + 18, 5, 8, '#20c4b0'); rect(ctx, x + 18, y + 14, 7, 12, '#ff3f3f'); break;
+        case 'command': for (let i = 0; i < 5; i++) rect(ctx, x + 5 + i * 4, y + 22 - (i % 2) * 6, 3, 3, i % 2 ? '#7dff6b' : '#ff3f6b'); rect(ctx, x + 5, y + 25, 22, 2, '#2a2438'); rect(ctx, x + 6 + ((t * 14) % 16), y + 23, 3, 3, '#ffcf3f'); break;
         case 'rhythm': for (let i = 0; i < 4; i++) rect(ctx, x + 6 + i * 5, y + 10 + ((t * 30 + i * 7) % 16), 4, 2, ['#ff3fd2', '#3fe0ff', '#7dff6b', '#ffcf3f'][i]); break;
       }
     } else drawText(ctx, 'X', x + 16, y + 15, '#555', { align: 'center' });

@@ -127,3 +127,17 @@ test('with TRICK SHOT off, no gates remain to seal the floppy vault', () => {
     assert.ok(!lvl.tiles.some((r) => r.includes('G')), `seed ${seed}`);
   }
 });
+
+import { generateCommand, validateCommand, CM_COLS } from '../src/procgen/command.ts';
+
+test('core command maps are contiguous, never self-crossing, reach the core, and are seed-stable', () => {
+  for (let seed = 0; seed < 300; seed++) {
+    const m = generateCommand(seed);
+    const v = validateCommand(m);
+    assert.ok(v.ok, `seed ${seed}: ${v.reason}`);
+    assert.equal(m.path[0].x, 0);
+    assert.equal(m.path[m.path.length - 1].x, CM_COLS - 1);
+  }
+  assert.deepEqual(generateCommand(9), generateCommand(9));
+  assert.notDeepEqual(generateCommand(9).path, generateCommand(10).path);
+});

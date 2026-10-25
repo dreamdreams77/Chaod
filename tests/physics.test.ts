@@ -134,3 +134,108 @@ test('BOSS RUSH hands health and the running tally from Bricklord to DJ Static a
   assert.equal(started.length, 1, 'a loss in leg 1 ends the rush with normal results');
   assert.ok(!g2.profile.achievements.includes('boss_rush'));
 });
+
+// ---- CORE COMMAND ------------------------------------------------------------------------
+
+import { CommandMode, TOWERS, WAVES, towerStat, upgradeCost } from '../src/modes/command.ts';
+import { CM_CELL, CM_TOP } from '../src/procgen/command.ts';
+
+function commandGame(difficulty: 'easy' | 'normal' | 'hard' = 'normal') {
+  const { game } = spyGame();
+  game.settings.chaos = 'off';
+  game.settings.difficulty = difficulty;
+  (game as unknown as Record<string, unknown>).genreShift = () => {};
+  (game as unknown as Record<string, unknown>).say = () => {};
+  return game;
+}
+
+function playCommand(game: Game, smart: boolean): CommandMode {
+  const m = new CommandMode(game);
+  const cover = (cx: number, cy: number, range: number) => {
+    const c = { x: cx * CM_CELL + CM_CELL / 2 + 2, y: CM_TOP + cy * CM_CELL + CM_CELL / 2 };
+    return m.map.path.filter((p) => Math.hypot(p.x * CM_CELL + CM_CELL / 2 + 2 - c.x, CM_TOP + p.y * CM_CELL + CM_CELL / 2 - c.y) <= range).length;
+  };
+  for (let i = 0; i < 60 * 60 * 15 && m.phase !== 'won' && m.phase !== 'lost'; i++) {
+    if (smart && m.phase === 'build' && i % 20 === 0) {
+      for (let tries = 0; tries < 6; tries++) {
+        m.selected = m.towers.length % 3 === 1 ? 1 : m.towers.length % 5 === 4 ? 2 : 0;
+        const def = TOWERS[m.selected];
+        if (m.cash < def.cost) {
+          const up = m.towers.find((t) => t.level < 3 && m.cash >= upgradeCost(TOWERS.find((d) => d.id === t.kind)!, t.level));
+          if (up) m.act(up.cx, up.cy);
+          break;
+        }
+        let best: { x: number; y: number; s: number } | null = null;
+        for (let y = 0; y < 7; y++) for (let x = 0; x < 17; x++) {
+          if (!m.map.free[y][x] || m.towers.some((t) => t.cx === x && t.cy === y)) continue;
+          const s = cover(x, y, towerStat(def, 1).range);
+          if (!best || s > best.s) best = { x, y, s };
+        }
+        if (best) m.act(best.x, best.y);
+      }
+    }
+    m.update(1 / 60);
+    assert.ok(m.cash >= 0 && Number.isFinite(m.cash), 'cash never goes negative');
+  }
+  return m;
+}
+
+test('CORE COMMAND: building nothing loses, thoughtful placement wins, and the run always ends', () => {
+  const idle = playCommand(commandGame(), false);
+  assert.equal(idle.phase, 'lost', 'an undefended core falls');
+  let wins = 0;
+  for (let seed = 1; seed <= 6; seed++) {
+    const g = commandGame('easy');
+    g.newSeed = () => seed * 7;
+    const m = playCommand(g, true);
+    assert.ok(m.phase === 'won' || m.phase === 'lost', 'ends within the time cap');
+    if (m.phase === 'won') wins++;
+  }
+  assert.ok(wins >= 5, `smart placement wins easy runs (${wins}/6)`);
+});
+
+test('CORE COMMAND: placing, upgrading and selling follow the cash rules', () => {
+  const m = new CommandMode(commandGame());
+  const free = (() => { for (let y = 0; y < 7; y++) for (let x = 0; x < 17; x++) if (m.map.free[y][x]) return { x, y }; throw new Error('no free cell'); })();
+  const road = m.map.path[3];
+  m.selected = 0;
+  m.act(road.x, road.y);
+  assert.equal(m.towers.length, 0, 'cannot build on the road');
+  const start = m.cash;
+  m.act(free.x, free.y);
+  assert.equal(m.towers.length, 1);
+  assert.equal(m.cash, start - TOWERS[0].cost);
+  m.cash = 0;
+  m.act(free.x, free.y);
+  assert.equal(m.towers[0].level, 1, 'no upgrade without the cash');
+  m.cash = 500;
+  m.act(free.x, free.y);
+  assert.equal(m.towers[0].level, 2);
+  assert.equal(m.cash, 500 - upgradeCost(TOWERS[0], 1));
+  const spent = m.towers[0].spent;
+  m.sellOrSend(free.x, free.y);
+  assert.equal(m.towers.length, 0);
+  assert.ok(m.cash >= 500 - upgradeCost(TOWERS[0], 1) + Math.floor(spent * 0.6) - 1, 'selling refunds 60% of the investment');
+  assert.equal(WAVES.length, 8);
+  assert.ok(towerStat(TOWERS[2], 3).dmg > towerStat(TOWERS[2], 1).dmg);
+});
+
+test('CORE COMMAND: a final leak that empties the core is a loss, never a win, and nightmare doubles leak damage', () => {
+  const g = commandGame();
+  const m = new CommandMode(g) as unknown as { phase: string; wave: number; hp: number; enemies: Array<Record<string, unknown>>; queue: unknown[]; update(dt: number): void; map: { path: unknown[] } };
+  m.phase = 'wave';
+  m.wave = 8;
+  m.hp = 1;
+  m.enemies.push({ kind: 'bug', pos: m.map.path.length, hp: 5, max: 5, slow: 0, fireCd: 9, hit: 0, x: 0, y: 0 });
+  m.update(1 / 60);
+  assert.equal(m.phase, 'lost');
+  assert.ok(!g.profile.floppies.includes('command-2'), 'no win rewards were handed out');
+
+  const n = new CommandMode(commandGame(), { nightmare: true }) as unknown as typeof m;
+  n.phase = 'wave';
+  n.wave = 2;
+  const before = n.hp;
+  n.enemies.push({ kind: 'bug', pos: n.map.path.length, hp: 5, max: 5, slow: 0, fireCd: 9, hit: 0, x: 0, y: 0 });
+  n.update(1 / 60);
+  assert.equal(before - n.hp, 2, 'a bug leak costs two hearts in NIGHTMARE mode');
+});

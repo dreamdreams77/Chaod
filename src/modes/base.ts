@@ -237,20 +237,20 @@ export abstract class ModeBase implements Scene {
     if (this.modifier) drawText(ctx, `MOD: ${this.modifier.name}`, x, y + 18, '#b07aff');
   }
 
-  drawHint(ctx: CanvasRenderingContext2D, text: string, touchText = this.gestureHint): void {
+  drawHint(ctx: CanvasRenderingContext2D, text: string, touchText = this.gestureHint, y = H - 14): void {
     if (!this.game.settings.hints || this.hintT > 7) return;
     const a = this.hintT > 6 ? 7 - this.hintT : 1;
     ctx.globalAlpha = Math.max(0, a);
-    rect(ctx, 0, H - 14, W, 14, '#000c');
+    rect(ctx, 0, y, W, 14, '#000c');
     const shown = this.game.input.usingTouch && touchText ? touchText : this.game.input.label(text);
-    drawText(ctx, shown, W / 2, H - 11, '#fff', { align: 'center' });
+    drawText(ctx, shown, W / 2, y + 3, '#fff', { align: 'center' });
     ctx.globalAlpha = 1;
   }
 
-  drawSeed(ctx: CanvasRenderingContext2D): void {
+  drawSeed(ctx: CanvasRenderingContext2D, y = H - 10): void {
     // The control hint strip occupies the same row; show the seed once it fades.
     if (this.game.settings.hints && this.hintT <= 7) return;
-    drawText(ctx, `SEED ${formatSeed(this.seed)}`, W - 6, H - 10, '#ffffff55', { align: 'right', shadow: null });
+    drawText(ctx, `SEED ${formatSeed(this.seed)}`, W - 6, y, '#ffffff55', { align: 'right', shadow: null });
   }
 
   restart(): void {

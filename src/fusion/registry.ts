@@ -9,9 +9,9 @@
  * mode(s) listed. No other wiring is required — the hub lab, reward
  * multipliers, banners and tests pick it up automatically.
  */
-import type { ModeId } from '../core/save.ts';
+import { MODE_IDS, type ModeId } from '../core/save.ts';
 
-export type GenreId = 'platformer' | 'shooter' | 'racing' | 'horror' | 'fighter' | 'rpg' | 'rhythm' | 'puzzle' | 'pet' | 'bullethell';
+export type GenreId = 'platformer' | 'shooter' | 'racing' | 'horror' | 'fighter' | 'rpg' | 'rhythm' | 'puzzle' | 'pet' | 'bullethell' | 'strategy';
 
 export const GENRES: Record<GenreId, { name: string; color: string; traits: string[] }> = {
   platformer: { name: 'PLATFORMER', color: '#ffcf3f', traits: ['jumping', 'gravity', 'moving_platforms', 'vertical_traversal'] },
@@ -23,6 +23,7 @@ export const GENRES: Record<GenreId, { name: string; color: string; traits: stri
   rhythm: { name: 'RHYTHM', color: '#ff3fd2', traits: ['musical_timing', 'beat_sync', 'timing_windows', 'combo_multiplier'] },
   puzzle: { name: 'PUZZLE', color: '#b07aff', traits: ['switches', 'logic_rules', 'environment_manipulation', 'spatial_constraints'] },
   pet: { name: 'VIRTUAL PET', color: '#9dff3f', traits: ['care', 'bond', 'personality', 'training'] },
+  strategy: { name: 'STRATEGY', color: '#7dff6b', traits: ['placement', 'economy', 'waves', 'upgrades'] },
   bullethell: { name: 'BULLET HELL', color: '#ff7af5', traits: ['dense_patterns', 'grazing', 'dodging'] },
 };
 
@@ -97,6 +98,16 @@ export const MUTATIONS: MutationDef[] = [
     unlock: { kind: 'start' },
   },
   {
+    id: 'tower_xp',
+    name: 'VETERAN TOWERS',
+    genres: ['strategy', 'rpg'],
+    tagline: 'Towers earn XP from kills and level up on their own, getting stronger as the wave goes on.',
+    traits: ['tower_levels'],
+    modes: ['command'],
+    params: { killsPerLevel: 6, maxLevel: 4 },
+    unlock: { kind: 'start' },
+  },
+  {
     id: 'combo_xp',
     name: 'GRINDCORE',
     genres: ['fighter', 'rpg'],
@@ -168,7 +179,7 @@ export function describeUnlock(rule: UnlockRule): string {
 export function validateRegistry(): string[] {
   const errors: string[] = [];
   const ids = new Set<string>();
-  const validModes: ModeId[] = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm'];
+  const validModes = MODE_IDS;
   for (const m of MUTATIONS) {
     if (ids.has(m.id)) errors.push(`duplicate mutation id ${m.id}`);
     ids.add(m.id);

@@ -37,12 +37,13 @@ export interface Daily {
   seed: number;
 }
 
-/** Today's run. Only worlds the player has unlocked are eligible; bosses are excluded. */
-export function dailyFor(key: string, eligible: ModeId[]): Daily {
-  const pool = eligible.filter((m) => m !== 'beatdown' && m !== 'rhythm');
-  const modes = pool.length ? pool : (['rampage'] as ModeId[]);
+/** The worlds a daily can land on: the same list for every player, so a day means one world. */
+export const DAILY_POOL: ModeId[] = ['rampage', 'neon', 'mall'];
+
+/** Today's run: identical for every player (worlds you have not unlocked yet show as locked). */
+export function dailyFor(key: string): Daily {
   const h = seedFromString(`chaos-daily-${key}`);
-  return { key, mode: modes[h % modes.length], seed: seedFromString(`chaos-seed-${key}`) % 1000000 };
+  return { key, mode: DAILY_POOL[h % DAILY_POOL.length], seed: seedFromString(`chaos-seed-${key}`) % 1000000 };
 }
 
 /** The streak as it stands today: it lapses if yesterday's daily was missed. */

@@ -404,19 +404,20 @@ test('new arcade quests complete at their thresholds', () => {
 
 // ---- Daily challenge and shared links ----------------------------------------------------
 
-test('the daily run is deterministic, uses only unlocked non-boss worlds, and differs by day', async () => {
-  const { dailyFor, dateKey, addDays } = await import('../src/data/daily.ts');
-  const all: ModeId[] = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm'];
-  assert.deepEqual(dailyFor('2026-10-25', all), dailyFor('2026-10-25', all));
+test('the daily run is the same for everyone, deterministic, never a boss, and differs by day', async () => {
+  const { dailyFor, dateKey, addDays, DAILY_POOL } = await import('../src/data/daily.ts');
+  assert.deepEqual(dailyFor('2026-10-25'), dailyFor('2026-10-25'));
   const seen = new Set<string>();
-  for (let i = 0; i < 40; i++) {
-    const d = dailyFor(addDays('2026-01-01', i), all);
-    assert.ok(['rampage', 'neon', 'mall'].includes(d.mode), 'bosses are never the daily');
+  const modes = new Set<string>();
+  for (let i = 0; i < 60; i++) {
+    const d = dailyFor(addDays('2026-01-01', i));
+    assert.ok(DAILY_POOL.includes(d.mode), 'only the shared pool of worlds');
     assert.ok(d.seed >= 0 && d.seed < 1000000);
     seen.add(d.mode + d.seed);
+    modes.add(d.mode);
   }
-  assert.ok(seen.size > 30, 'a different run most days');
-  assert.equal(dailyFor('2026-10-25', ['rampage']).mode, 'rampage', 'a new player only gets what is unlocked');
+  assert.ok(seen.size > 50, 'a different run most days');
+  assert.equal(modes.size, DAILY_POOL.length, 'every world in the pool comes up');
   assert.equal(dateKey(new Date('2026-03-04T23:59:59Z')), '2026-03-04');
   assert.equal(addDays('2026-12-31', 1), '2027-01-01');
 });
