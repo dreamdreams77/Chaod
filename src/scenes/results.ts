@@ -3,7 +3,7 @@ import { RunResult, RunSummary, applyRun, ACHIEVEMENTS } from '../data/progressi
 import { MUTATION_BY_ID } from '../fusion/registry.ts';
 import { MODE_INFO } from '../data/story.ts';
 import { formatSeed } from '../core/rng.ts';
-import { H, W, PAL, frame, rect, bar } from '../render/gfx.ts';
+import { H, W, PAL, frame, rect, bar, backdrop, glow } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { xpForLevel } from '../core/save.ts';
 
@@ -55,7 +55,8 @@ class ResultsScene implements Scene {
 
   draw(ctx: CanvasRenderingContext2D): void {
     const p = PAL.hub;
-    rect(ctx, 0, 0, W, H, p.bg0);
+    backdrop(ctx, '#05020d', p.bg1);
+    glow(ctx, W / 2, 40, 200, '255,63,164', 0.14);
     for (let i = 0; i < 24; i++) rect(ctx, (i * 41 + this.t * 20) % W, (i * 23) % H, 2, 2, '#ffffff22');
     const info = MODE_INFO[this.r.mode];
     drawText(ctx, info.title, W / 2, 18, info.color, { align: 'center', scale: 2 });

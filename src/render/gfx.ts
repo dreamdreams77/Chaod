@@ -218,6 +218,26 @@ export function drawCRT(ctx: CanvasRenderingContext2D, strength: number): void {
   ctx.globalAlpha = 1;
 }
 
+/** Vertical two-stop gradient fill of the whole screen (or a band). */
+export function backdrop(ctx: CanvasRenderingContext2D, top: string, bottom: string, y = 0, h = H): void {
+  const g = ctx.createLinearGradient(0, y, 0, y + h);
+  g.addColorStop(0, top);
+  g.addColorStop(1, bottom);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, y, W, h);
+}
+
+/** Soft additive light pool; `color` is "r,g,b". */
+export function glow(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, color: string, alpha = 0.35): void {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, radius);
+  g.addColorStop(0, `rgba(${color},${alpha})`);
+  g.addColorStop(1, `rgba(${color},0)`);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = g;
+  ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
 export function rect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string): void {
   ctx.fillStyle = color;
   ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));

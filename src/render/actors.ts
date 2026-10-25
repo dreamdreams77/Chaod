@@ -28,6 +28,11 @@ function withActor(ctx: CanvasRenderingContext2D, a: Actor, body: () => void): v
   r(ctx, -6 * air, -1, 12 * air, 2, '#000');
   r(ctx, -4 * air, 0, 8 * air, 2, '#000');
   ctx.globalAlpha = 1;
+  // A hard 1px offset shadow behind every limb reads as an outline and lifts the sprite off busy backdrops.
+  ctx.shadowColor = 'rgba(8,4,16,0.75)';
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
+  ctx.shadowBlur = 0;
   body();
   ctx.restore();
 }

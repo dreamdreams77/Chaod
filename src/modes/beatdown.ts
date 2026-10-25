@@ -11,7 +11,7 @@
 import type { Game } from '../game.ts';
 import { ModeBase } from './base.ts';
 import { DirectorContext } from '../chaos/director.ts';
-import { H, W, PAL, rect, clamp, approach, hearts, bar } from '../render/gfx.ts';
+import { H, W, PAL, rect, clamp, approach, hearts, bar, backdrop, glow } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { drawCass, Pose } from '../render/actors.ts';
 import { BOSS_DEFEAT } from '../data/story.ts';
@@ -616,8 +616,26 @@ export class BeatdownMode extends ModeBase {
         rect(ctx, x + 7, 153 - bob * 2, 2, 2, '#000');
       }
       rect(ctx, 0, 164, W, FLOOR - 164, pal.bg1);
+      // Back row of spectators, smaller and darker, for a sense of a deep arena
+      for (let i = 0; i < 32; i++) {
+        const x = 4 + i * 15 + (i % 2) * 5;
+        const bob = Math.floor(this.time * 3 + i * 0.7) % 2;
+        rect(ctx, x, 124 - bob, 9, 9, BCOL[(i * 3) % BCOL.length] + '44');
+      }
+      // Stage spotlights raking down onto the ring
+      glow(ctx, 120, 150, 120, '255,230,160', 0.16);
+      glow(ctx, 360, 150, 120, '255,230,160', 0.16);
     }
     rect(ctx, 0, FLOOR, W, H - FLOOR, bh ? '#151550' : '#4a1a10');
+    // Floor falls away from the horizon: lighter far edge, darker near the viewer, converging seams
+    backdrop(ctx, bh ? 'rgba(90,90,255,0.18)' : 'rgba(255,170,100,0.16)', 'rgba(0,0,0,0.35)', FLOOR, H - FLOOR);
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    for (let i = -6; i <= 6; i++) {
+      ctx.beginPath();
+      ctx.moveTo(W / 2 + i * 30, FLOOR);
+      ctx.lineTo(W / 2 + i * 62, H);
+      ctx.stroke();
+    }
     for (let x = LEFT; x <= RIGHT; x += CW) rect(ctx, x, FLOOR, 1, H - FLOOR, '#ffffff22');
     rect(ctx, LEFT - 4, 0, 4, H, '#00000055');
     rect(ctx, RIGHT, 0, 4, H, '#00000055');
@@ -627,8 +645,10 @@ export class BeatdownMode extends ModeBase {
         const col = this.grid[r][c];
         if (!col) continue;
         const x = LEFT + c * CW, y = FLOOR - (r + 1) * CW * 0.5;
+        rect(ctx, x + 2, y + 3, CW - 2, CW * 0.5 - 2, 'rgba(0,0,0,0.35)');
         rect(ctx, x + 1, y + 1, CW - 2, CW * 0.5 - 2, col);
         rect(ctx, x + 3, y + 3, CW - 6, 3, '#ffffff66');
+        rect(ctx, x + 1, y + CW * 0.5 - 4, CW - 2, 2, 'rgba(0,0,0,0.25)');
       }
       if (this.fusion.has('block_rain') && this.phase === 2) {
         const filled = this.grid[r].filter(Boolean).length;
@@ -688,6 +708,13 @@ export class BeatdownMode extends ModeBase {
     const m = this.bMove;
     const shake = m === 'dead' ? (Math.random() - 0.5) * 6 : 0;
     const wind = (m === 'punch' && this.bT > 0.25) || (m === 'throw') || (m === 'steal');
+    // Ground shadow stretches with distance from the floor so jumps and floating read clearly.
+    {
+      const lift = Math.max(0, Math.min(1, (FLOOR - y) / 140));
+      ctx.globalAlpha = 0.4 * (1 - lift * 0.6);
+      rect(ctx, x - 34 + lift * 10, FLOOR - 3, 68 - lift * 20, 6, '#000');
+      ctx.globalAlpha = 1;
+    }
     ctx.save();
     ctx.translate(x + shake, y);
     ctx.scale(this.bFacing, 1);

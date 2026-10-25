@@ -1,7 +1,7 @@
 /** Title screen, controls reference and credits. */
 import type { Game, Scene } from '../game.ts';
 import { ListMenu, MenuItem } from './menu.ts';
-import { H, W, rect, frame } from '../render/gfx.ts';
+import { H, W, rect, frame, backdrop, glow } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { drawCass, drawByte, drawManual, drawKevin, drawRex, drawPolygon } from '../render/actors.ts';
 import { defaultProfile } from '../core/save.ts';
@@ -91,7 +91,9 @@ export class TitleScene implements Scene {
   draw(ctx: CanvasRenderingContext2D): void {
     const t = this.t;
     // Background: a stack of genre "cartridges" scrolling in a CRT-blue void
-    rect(ctx, 0, 0, W, H, '#0b0716');
+    backdrop(ctx, '#05020d', '#1d0f33');
+    glow(ctx, W / 2, 70, 190, '255,63,164', 0.22 + Math.sin(t * 1.5) * 0.04);
+    glow(ctx, W / 2, 210, 150, '63,224,255', 0.12);
     for (let i = 0; i < 12; i++) {
       const y = ((i * 31 + t * 18) % (H + 40)) - 40;
       const x = (i * 97) % W;
@@ -101,7 +103,8 @@ export class TitleScene implements Scene {
       rect(ctx, x + 4, y + 4, 26, 12, '#000');
       ctx.globalAlpha = 1;
     }
-    // Perspective grid floor
+    // Perspective grid floor, fading out toward the horizon
+    backdrop(ctx, 'rgba(255,63,164,0.18)', 'rgba(255,63,164,0)', 205, 20);
     for (let i = 0; i < 12; i++) {
       const y = 210 + i * i * 0.6 + ((t * 20) % 10) * (i / 12);
       rect(ctx, 0, y, W, 1, '#ff3fa455');

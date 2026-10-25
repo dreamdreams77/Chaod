@@ -11,7 +11,7 @@ import type { Game } from '../game.ts';
 import { ModeBase } from './base.ts';
 import { DirectorContext, ActiveEvent } from '../chaos/director.ts';
 import { generateRampage, RampageLevel, TILE, ROWS } from '../procgen/rampage.ts';
-import { H, W, PAL, rect, clamp, approach, hearts } from '../render/gfx.ts';
+import { H, W, PAL, rect, clamp, approach, hearts, glow } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { drawBit, drawCass, drawFloppy, drawHeart, Pose } from '../render/actors.ts';
 
@@ -869,6 +869,15 @@ export class RampageMode extends ModeBase {
   private drawBackground(ctx: CanvasRenderingContext2D, pal: typeof PAL.rampage, camX: number, shmup: boolean): void {
     if (shmup) {
       rect(ctx, 0, 0, W, H, pal.bg0);
+      // Nebula clouds and a distant ringed planet drift at different speeds
+      glow(ctx, ((300 - camX * 0.05) % (W + 240) + W + 240) % (W + 240) - 120, 90, 150, '255,63,210', 0.16);
+      glow(ctx, ((120 - camX * 0.09) % (W + 240) + W + 240) % (W + 240) - 120, 190, 130, '63,255,207', 0.12);
+      {
+        const px = ((380 - camX * 0.15) % (W + 120) + W + 120) % (W + 120) - 60;
+        rect(ctx, px - 14, 60, 28, 28, '#3a2480');
+        rect(ctx, px - 12, 62, 12, 24, '#5a3fb0');
+        rect(ctx, px - 24, 72, 48, 3, '#b07aff');
+      }
       for (let i = 0; i < 80; i++) {
         const sp = (i % 3) + 1;
         const x = ((i * 137 - camX * sp * 0.3) % W + W) % W;

@@ -2,7 +2,7 @@
 import type { Game, Scene } from '../game.ts';
 import { ListMenu, MenuItem } from './menu.ts';
 import { ACTIONS, ACTION_LABELS, DEFAULT_BINDINGS, cloneBindings, keyLabel, Action } from '../core/input.ts';
-import { H, W, PAL, rect } from '../render/gfx.ts';
+import { H, W, PAL, rect, backdrop, glow } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { ChaosIntensity, Difficulty, defaultProfile } from '../core/save.ts';
 import { formatSeed } from '../core/rng.ts';
@@ -104,7 +104,8 @@ export class SettingsScene implements Scene {
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
-    rect(ctx, 0, 0, W, H, PAL.hub.bg0);
+    backdrop(ctx, '#05020d', PAL.hub.bg1);
+    glow(ctx, W / 2, H, 220, '63,224,255', 0.1);
     for (let y = 0; y < H; y += 8) rect(ctx, 0, y, W, 1, '#ffffff06');
     this.menu.draw(ctx, this.t);
     if (this.capture) {
