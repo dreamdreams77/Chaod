@@ -89,10 +89,18 @@ export class Particles {
   draw(ctx: CanvasRenderingContext2D, camX = 0, camY = 0): void {
     for (const p of this.pool) {
       if (!p.alive) continue;
-      ctx.globalAlpha = Math.min(1, (p.life / p.max) * 1.5);
+      const a = Math.min(1, (p.life / p.max) * 1.5);
       ctx.fillStyle = p.color;
       const s = p.size;
-      ctx.fillRect(Math.round(p.x - camX - s / 2), Math.round(p.y - camY - s / 2), s, s);
+      const px = Math.round(p.x - camX - s / 2);
+      const py = Math.round(p.y - camY - s / 2);
+      // Additive halo makes bursts read as light rather than flat squares.
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = a * 0.25;
+      ctx.fillRect(px - 1, py - 1, s + 2, s + 2);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = a;
+      ctx.fillRect(px, py, s, s);
     }
     ctx.globalAlpha = 1;
   }

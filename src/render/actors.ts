@@ -22,6 +22,12 @@ function withActor(ctx: CanvasRenderingContext2D, a: Actor, body: () => void): v
   const s = a.scale ?? 1;
   const sq = a.squash ?? 1;
   ctx.scale((a.facing * s) / Math.sqrt(sq), s * sq);
+  // Soft contact shadow; shrinks while airborne so jumps read clearly.
+  const air = a.pose === 'jump' ? 0.6 : 1;
+  ctx.globalAlpha = 0.28 * air;
+  r(ctx, -6 * air, -1, 12 * air, 2, '#000');
+  r(ctx, -4 * air, 0, 8 * air, 2, '#000');
+  ctx.globalAlpha = 1;
   body();
   ctx.restore();
 }
@@ -181,6 +187,9 @@ export function drawPolygon(ctx: CanvasRenderingContext2D, x: number, y: number,
 /** Spinning gold coin ("bit"). */
 export function drawBit(ctx: CanvasRenderingContext2D, x: number, y: number, t: number): void {
   const w = Math.max(1, Math.round(Math.abs(Math.cos(t * 4)) * 6));
+  ctx.globalAlpha = 0.18 + 0.08 * Math.sin(t * 6);
+  r(ctx, x - 5, y - 5, 10, 10, '#ffcf3f');
+  ctx.globalAlpha = 1;
   r(ctx, x - w / 2, y - 3, w, 6, '#ffcf3f');
   if (w > 2) r(ctx, x - w / 2 + 1, y - 2, 1, 4, '#fff6c0');
 }
