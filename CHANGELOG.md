@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.1.1 — touch detection
+- Phones and tablets that only send pointer events (pen input, "desktop site" mode) are now recognised as touch on the first tap, so the on-screen pad appears and help text says A / B / C instead of Z / X / C. Before, those devices showed keyboard wording such as "HOLD X" with no X anywhere.
+
 ## 2.1.0 — endless runs, a growing BYTE and a seventh world
 - **ENDLESS RUN** (cabinet menu of any cleared world): the same world again and again on fresh seeds, each round tougher (enemies, bullets and boss health scale up, chaos is cranked from round 3, damage doubles from round 5). One heart is patched up between rounds. Pause and BANK & END RUN to cash out. The payout grows with every round (full pay from round 5); personal bests are kept per world. New quest NO FINISH LINE and achievement NO END IN SIGHT.
 - **BYTE evolves.** Lifetime care (feeding, fetch, treats) grows BYTE into KILOBYTE (15), MEGABYTE (40) and GIGABYTE (80), each with its own sprite, a +4% bits perk and a longer bark stun. Treats now keep working after bond 5. Outfits (hats, shades, scarf, cape, wings) are bought with bits from BYTE's new DRESS UP menu and show in the lobby, fetch and the mall. Older saves keep their growth.

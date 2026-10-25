@@ -274,9 +274,14 @@ export function setupTouch(root: HTMLElement, input: Input, onEnable: () => void
     zones[zone].appendChild(b);
   }
   const enable = () => {
+    if (input.usingTouch) return;
     input.usingTouch = true;
     root.classList.add('on');
     onEnable();
   };
   window.addEventListener('touchstart', enable, { once: true, passive: true });
+  // Some phones and tablets (pen input, "desktop site" mode) only report pointer events, never touchstart.
+  window.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch' || e.pointerType === 'pen') enable();
+  }, { passive: true });
 }
