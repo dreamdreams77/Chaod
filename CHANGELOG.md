@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.6.2 — quests you can play
+- Every quest page now has a PLAY NOW button (the cursor starts on it): world quests open the world list, arcade quests start their mini-game directly (ARCADE ACE starts CART CATCH, BRICK BOSS starts BYTE BREAKOUT, and so on). Before, the page only had BACK to select.
+
 ## 1.6.1 — an easy way into the games
 - The lobby menu (II / Esc) now starts with PLAY A WORLD, a list of every world with its status (NEW, CLEARED, LOCKED); pick one, then PLAY. It also links straight to the Quest Board and the Mini-Game Arcade, so you never have to walk anywhere to start playing.
 - New players see a bouncing "START HERE" arrow over the first cabinet until they have played a run.

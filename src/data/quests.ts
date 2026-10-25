@@ -33,21 +33,23 @@ export interface QuestDef {
   goal: number;
   bits: number;
   xp: number;
+  /** Where PLAY NOW takes you: the world list, the arcade menu, or straight into one mini-game. */
+  play: 'worlds' | 'arcade' | MiniId;
 }
 
 export const QUESTS: QuestDef[] = [
-  { id: 'bit_hoard', title: 'BIT HOARDER', desc: 'Earn 400 bits from runs.', goal: 400, bits: 70, xp: 30 },
-  { id: 'run_clears', title: 'GAME CLEARER', desc: 'Clear 5 worlds or bosses.', goal: 5, bits: 80, xp: 40 },
-  { id: 'untouchable', title: 'UNTOUCHABLE', desc: 'Clear a run without taking damage.', goal: 1, bits: 100, xp: 50 },
-  { id: 'chaos_tourist', title: 'CHAOS TOURIST', desc: 'Witness 5 different chaos events in one run (Chaos NORMAL or HIGH).', goal: 1, bits: 70, xp: 35 },
-  { id: 'speed_demon', title: 'SPEED DEMON', desc: 'Clear a world (not a boss) in under 150 seconds.', goal: 1, bits: 90, xp: 45 },
-  { id: 'disk_diver', title: 'DISK DIVER', desc: 'Find 4 new floppy disks.', goal: 4, bits: 60, xp: 30 },
-  { id: 'arcade_regular', title: 'ARCADE REGULAR', desc: 'Play 5 lobby mini-games and score in each.', goal: 5, bits: 50, xp: 20 },
-  { id: 'arcade_ace', title: 'ARCADE ACE', desc: 'Score 50+ in CART CATCH.', goal: 1, bits: 70, xp: 30 },
-  { id: 'brick_boss', title: 'BRICK BOSS', desc: 'Score 52+ in BYTE BREAKOUT (the wall has 60 points).', goal: 1, bits: 70, xp: 30 },
-  { id: 'whack_ace', title: 'GLITCH EXTERMINATOR', desc: 'Score 55+ in WHACK-A-GLITCH.', goal: 1, bits: 70, xp: 30 },
-  { id: 'tower_builder', title: 'TOWER BUILDER', desc: 'Score 24+ in STACK-A-CART.', goal: 1, bits: 70, xp: 30 },
-  { id: 'memory_master', title: 'MEMORY MASTER', desc: 'Clear 6 rounds in GLITCH MEMORY.', goal: 1, bits: 70, xp: 30 },
+  { id: 'bit_hoard', title: 'BIT HOARDER', desc: 'Earn 400 bits from runs.', goal: 400, bits: 70, xp: 30, play: 'worlds' },
+  { id: 'run_clears', title: 'GAME CLEARER', desc: 'Clear 5 worlds or bosses.', goal: 5, bits: 80, xp: 40, play: 'worlds' },
+  { id: 'untouchable', title: 'UNTOUCHABLE', desc: 'Clear a run without taking damage.', goal: 1, bits: 100, xp: 50, play: 'worlds' },
+  { id: 'chaos_tourist', title: 'CHAOS TOURIST', desc: 'Witness 5 different chaos events in one run (Chaos NORMAL or HIGH).', goal: 1, bits: 70, xp: 35, play: 'worlds' },
+  { id: 'speed_demon', title: 'SPEED DEMON', desc: 'Clear a world (not a boss) in under 150 seconds.', goal: 1, bits: 90, xp: 45, play: 'worlds' },
+  { id: 'disk_diver', title: 'DISK DIVER', desc: 'Find 4 new floppy disks.', goal: 4, bits: 60, xp: 30, play: 'worlds' },
+  { id: 'arcade_regular', title: 'ARCADE REGULAR', desc: 'Play 5 lobby mini-games and score in each.', goal: 5, bits: 50, xp: 20, play: 'arcade' },
+  { id: 'arcade_ace', title: 'ARCADE ACE', desc: 'Score 50+ in CART CATCH.', goal: 1, bits: 70, xp: 30, play: 'catch' },
+  { id: 'brick_boss', title: 'BRICK BOSS', desc: 'Score 52+ in BYTE BREAKOUT (the wall has 60 points).', goal: 1, bits: 70, xp: 30, play: 'breakout' },
+  { id: 'whack_ace', title: 'GLITCH EXTERMINATOR', desc: 'Score 55+ in WHACK-A-GLITCH.', goal: 1, bits: 70, xp: 30, play: 'whack' },
+  { id: 'tower_builder', title: 'TOWER BUILDER', desc: 'Score 24+ in STACK-A-CART.', goal: 1, bits: 70, xp: 30, play: 'stack' },
+  { id: 'memory_master', title: 'MEMORY MASTER', desc: 'Clear 6 rounds in GLITCH MEMORY.', goal: 1, bits: 70, xp: 30, play: 'memory' },
 ];
 
 export const QUEST_BY_ID = new Map(QUESTS.map((q) => [q.id, q]));

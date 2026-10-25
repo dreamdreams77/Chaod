@@ -452,16 +452,18 @@ export class HubScene implements Scene {
    * Detail page for list rows with nothing to "do": a small menu of text lines plus BACK, shown in
    * place of the list (no dialogue involved, so A, a tap or II/back always returns to the same row).
    */
-  private card(name: string, text: string, reopen: (at?: number) => void, rows: Array<[string, string]> = []): void {
+  private card(name: string, text: string, reopen: (at?: number) => void, rows: Array<[string, string]> = [], actions: MenuItem[] = []): void {
     const at = this.menu?.index;
     const back = () => reopen(at);
     const items: MenuItem[] = [
       ...wrap(text, 52).map((line) => ({ label: line, disabled: true, color: '#ddd' })),
       ...rows.map(([label, value]) => ({ label, value: () => value, disabled: true })),
+      ...actions,
       { label: 'BACK', onSelect: back },
     ];
     this.menu = new ListMenu(name, items, back, { x: 60, y: 50, w: 360, accent: '#ffcf3f' });
-    this.menu.index = items.length - 1;
+    // The cursor starts on the first thing you can do (PLAY NOW if there is one), not on the text.
+    this.menu.index = actions.length ? items.length - 1 - actions.length : items.length - 1;
   }
 
   private trophyMenu(keep?: number): void {
@@ -503,7 +505,11 @@ export class HubScene implements Scene {
           onSelect: () => this.card(q.title, q.desc, (at) => this.questMenu(at), [
             ['STATUS', ok ? 'COMPLETE' : `${prog} / ${q.goal}`],
             ['REWARD', `${q.bits} BITS + ${q.xp} XP`],
-          ]),
+          ], [{
+            label: ok ? 'PLAY AGAIN' : 'PLAY NOW',
+            sub: q.play === 'worlds' ? 'Pick a world to play.' : q.play === 'arcade' ? 'Open the mini-game arcade.' : `Start ${MINIS.find((m) => m.id === q.play)?.title ?? 'the game'}.`,
+            onSelect: () => (q.play === 'worlds' ? this.worldPicker() : q.play === 'arcade' ? this.arcadeMenu() : (this.menu = null, startMini(this.game, q.play))),
+          }]),
         };
       }),
       { label: 'BACK', onSelect: () => (this.menu = null) },
