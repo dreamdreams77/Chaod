@@ -80,6 +80,10 @@ export interface Settings {
   /** Music on/off switch, independent of the music volume. */
   musicOn: boolean;
   sfx: number;
+  /** Sound effects on/off, independent of the music switch and the volume sliders. */
+  sfxOn: boolean;
+  /** Vibration on/off (phones and tablets that support it). */
+  vibration: boolean;
   muted: boolean;
   shake: number; // 0..1
   reducedFlash: boolean;
@@ -148,6 +152,8 @@ export function defaultSettings(): Settings {
     music: 0.6,
     musicOn: true,
     sfx: 0.8,
+    sfxOn: true,
+    vibration: true,
     muted: false,
     shake: 1,
     reducedFlash: false,
@@ -278,6 +284,8 @@ export function migrateSettings(raw: unknown): Settings {
     cleanBind[a] = Array.isArray(v) && v.every((k) => typeof k === 'string') ? (v as string[]).slice() : DEFAULT_BINDINGS[a].slice();
   }
   s.bindings = cloneBindings(cleanBind);
+  s.sfxOn = s.sfxOn !== false;
+  s.vibration = s.vibration !== false;
   s.assist = s.assist === true;
   s.perks = s.perks !== false;
   if (s.fixedSeed !== null && !(typeof s.fixedSeed === 'number' && Number.isInteger(s.fixedSeed) && s.fixedSeed >= 0 && s.fixedSeed <= 999999)) s.fixedSeed = null;

@@ -9,6 +9,7 @@ import { Input, setupTouch } from './core/input.ts';
 import { TouchGestures } from './core/gestures.ts';
 import { setTextFilter } from './render/font.ts';
 import { parseChallenge } from './data/daily.ts';
+import { haptics } from './core/haptics.ts';
 import { AudioEngine } from './audio/audio.ts';
 import { SaveStore, browserKV, ModeId } from './core/save.ts';
 import { W, H } from './render/gfx.ts';
@@ -53,6 +54,7 @@ function boot(): void {
   const input = new Input(settings.bindings);
   input.attach(window);
   const audio = new AudioEngine();
+  audio.onCue = (name) => haptics.cue(name);
   const regErrors = validateRegistry();
   if (regErrors.length) console.warn('Mutation registry problems:', regErrors);
 

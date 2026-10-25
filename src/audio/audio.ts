@@ -166,7 +166,9 @@ export class AudioEngine {
   private simClock = 0;
   private lastCues = new Map<string, number>();
   enabled = true;
-  volumes = { master: 0.8, music: 0.6, sfx: 0.8, muted: false, musicOn: true };
+  volumes = { master: 0.8, music: 0.6, sfx: 0.8, muted: false, musicOn: true, sfxOn: true };
+  /** Told about every sound cue (before any mute), so vibration can follow gameplay even with the sound off. */
+  onCue: ((name: SfxName) => void) | null = null;
   /** Chaos warnings and big moments briefly pull the music down so the cue is heard. */
   private ducked = false;
   duck(on: boolean): void {
@@ -215,7 +217,7 @@ export class AudioEngine {
     return !!this.ctx && this.ctx.state === 'running';
   }
 
-  setVolumes(v: { master: number; music: number; sfx: number; muted: boolean; musicOn: boolean }): void {
+  setVolumes(v: { master: number; music: number; sfx: number; muted: boolean; musicOn: boolean; sfxOn: boolean }): void {
     this.volumes = { ...v };
     this.applyVolumes();
   }
@@ -224,7 +226,7 @@ export class AudioEngine {
     const t = this.ctx.currentTime;
     this.master.gain.setTargetAtTime(this.volumes.muted ? 0 : this.volumes.master, t, 0.02);
     this.musicBus.gain.setTargetAtTime(this.volumes.musicOn ? this.volumes.music * 0.35 * (this.ducked ? 0.45 : 1) : 0, t, this.ducked ? 0.08 : 0.25);
-    this.sfxBus.gain.setTargetAtTime(this.volumes.sfx * 0.6, t, 0.02);
+    this.sfxBus.gain.setTargetAtTime(this.volumes.sfxOn ? this.volumes.sfx * 0.6 : 0, t, 0.02);
   }
 
   suspend(): void {
@@ -257,6 +259,8 @@ export class AudioEngine {
   }
 
   sfx(name: SfxName, pitch = 1): void {
+    this.onCue?.(name);
+    if (!this.volumes.sfxOn) return;
     if (!this.ctx || !this.sfxBus || this.ctx.state !== 'running') return;
     // Rate-limit identical cues so swarms of events stay pleasant.
     const now = this.ctx.currentTime;

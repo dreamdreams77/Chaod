@@ -6,6 +6,7 @@ import { H, W, PAL, rect, backdrop, glow } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { ChaosIntensity, Difficulty, defaultProfile } from '../core/save.ts';
 import { formatSeed } from '../core/rng.ts';
+import { haptics } from '../core/haptics.ts';
 
 const DIFFS: Difficulty[] = ['easy', 'normal', 'hard'];
 const CHAOS: ChaosIntensity[] = ['off', 'low', 'normal', 'high'];
@@ -33,6 +34,8 @@ export class SettingsScene implements Scene {
     const items: MenuItem[] = [
       { label: 'MASTER VOLUME', value: () => pct(s.master), onAdjust: (d) => { s.master = clamp01(s.master + d * 0.1); this.save(); } },
       { label: 'MUSIC', value: () => (s.musicOn ? 'ON' : 'OFF'), sub: 'Turns the soundtrack on or off; sound effects stay. Press M anywhere to toggle.', onAdjust: () => { s.musicOn = !s.musicOn; this.save(); } },
+      { label: 'SOUND EFFECTS', value: () => (s.sfxOn ? 'ON' : 'OFF'), sub: 'Turns every sound effect on or off; the music has its own switch.', onAdjust: () => { s.sfxOn = !s.sfxOn; this.game.applySettings(); this.save(); if (s.sfxOn) this.game.audio.sfx('coin'); } },
+      { label: 'VIBRATION', value: () => (haptics.supported ? (s.vibration ? 'ON' : 'OFF') : 'N/A'), sub: haptics.supported ? 'Short buzzes for hits, bombs and goals. CONFIRM tests it.' : 'This browser cannot vibrate (iPhones and most computers cannot).', onAdjust: () => { s.vibration = !s.vibration; this.game.applySettings(); this.save(); if (s.vibration) haptics.test(); }, onSelect: () => haptics.test() },
       { label: 'MUSIC VOLUME', value: () => pct(s.music), onAdjust: (d) => { s.music = clamp01(s.music + d * 0.1); this.save(); } },
       { label: 'SFX VOLUME', value: () => pct(s.sfx), onAdjust: (d) => { s.sfx = clamp01(s.sfx + d * 0.1); this.save(); this.game.audio.sfx('coin'); } },
       { label: 'MUTE ALL', value: () => (s.muted ? 'ON' : 'OFF'), onAdjust: () => { s.muted = !s.muted; this.save(); } },

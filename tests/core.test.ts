@@ -256,3 +256,56 @@ test('a veteran pet save does not jump to the final form on migration', () => {
   const p = migrateProfile({ pet: { bond: 5, hunger: 0, xp: 70 } });
   assert.equal(p.pet.care, 14);
 });
+
+import { Haptics, HAPTIC_PATTERNS } from '../src/core/haptics.ts';
+import { AudioEngine } from '../src/audio/audio.ts';
+
+test('settings: sound effects and vibration default on, survive bad values and can be switched off', () => {
+  const d = defaultSettings();
+  assert.equal(d.sfxOn, true);
+  assert.equal(d.vibration, true);
+  assert.equal(migrateSettings({}).sfxOn, true);
+  assert.equal(migrateSettings({ sfxOn: false }).sfxOn, false);
+  assert.equal(migrateSettings({ vibration: false }).vibration, false);
+  assert.equal(migrateSettings({ sfxOn: 'no', vibration: 0 }).sfxOn, true, 'junk falls back to the default');
+});
+
+test('vibration: buzzes follow sound cues, respect the switch, never stack closer than the gap, and tolerate no support', () => {
+  const calls: Array<number | number[]> = [];
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const setNav = (value: unknown) => Object.defineProperty(globalThis, 'navigator', { value, configurable: true, writable: true });
+  setNav({ vibrate: (p: number | number[]) => (calls.push(p), true) });
+  const h = new Haptics();
+  assert.equal(h.supported, true);
+  h.cue('hurt', 1000);
+  assert.equal(calls.length, 1);
+  h.cue('hit', 1010);
+  assert.equal(calls.length, 1, 'a second cue inside the gap is dropped');
+  h.cue('hit', 1100);
+  assert.equal(calls.length, 2);
+  h.cue('coin', 2000);
+  assert.equal(calls.length, 2, 'quiet cues have no buzz');
+  h.enabled = false;
+  h.cue('levelup', 3000);
+  assert.equal(calls.length, 2, 'switched off means silent');
+  h.enabled = true;
+  for (const p of Object.values(HAPTIC_PATTERNS)) assert.ok((Array.isArray(p) ? Math.max(...p) : p) <= 120 && (Array.isArray(p) ? p.reduce((a, b) => a + b, 0) : p) <= 300, 'buzzes stay short');
+  setNav({});
+  const none = new Haptics();
+  assert.equal(none.supported, false);
+  assert.doesNotThrow(() => none.cue('hurt', 5000));
+  assert.doesNotThrow(() => none.test());
+  if (original) Object.defineProperty(globalThis, 'navigator', original);
+  else delete (globalThis as { navigator?: unknown }).navigator;
+});
+
+test('sound effects off silences the effects but still announces cues, so vibration works with the sound off', () => {
+  const a = new AudioEngine();
+  const seen: string[] = [];
+  a.onCue = (n) => seen.push(n);
+  a.setVolumes({ master: 1, music: 1, sfx: 1, muted: false, musicOn: true, sfxOn: false });
+  a.sfx('hurt');
+  a.sfx('coin');
+  assert.deepEqual(seen, ['hurt', 'coin']);
+  assert.equal(a.volumes.sfxOn, false);
+});

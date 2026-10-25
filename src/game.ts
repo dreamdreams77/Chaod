@@ -5,6 +5,7 @@
  */
 import { Input } from './core/input.ts';
 import { AudioEngine, TrackId } from './audio/audio.ts';
+import { haptics } from './core/haptics.ts';
 import { Profile, SaveStore, Settings, ModeId } from './core/save.ts';
 import { Rng } from './core/rng.ts';
 import { H, W, ScreenFx, drawCRT, frame, rect } from './render/gfx.ts';
@@ -18,8 +19,8 @@ import type { ModeOpts } from './modes/base.ts';
 import type { Action } from './core/input.ts';
 import type { ChaosDirector } from './chaos/director.ts';
 
-const PAUSE_ITEMS = ['RESUME', 'RESTART', 'SETTINGS', 'MUSIC', 'QUIT TO LOBBY'] as const;
-const PAUSE_WITH_BANK = ['RESUME', 'RESTART', 'SETTINGS', 'MUSIC', 'BANK & END RUN', 'QUIT TO LOBBY'] as const;
+const PAUSE_ITEMS = ['RESUME', 'RESTART', 'SETTINGS', 'MUSIC', 'SOUND FX', 'VIBRATION', 'QUIT TO LOBBY'] as const;
+const PAUSE_WITH_BANK = ['RESUME', 'RESTART', 'SETTINGS', 'MUSIC', 'SOUND FX', 'VIBRATION', 'BANK & END RUN', 'QUIT TO LOBBY'] as const;
 
 export interface Scene {
   id: string;
@@ -130,7 +131,9 @@ export class Game {
   // ---- settings / persistence -------------------------------------------------
   applySettings(): void {
     const s = this.settings;
-    this.audio.setVolumes({ master: s.master, music: s.music, sfx: s.sfx, muted: s.muted, musicOn: s.musicOn });
+    this.audio.setVolumes({ master: s.master, music: s.music, sfx: s.sfx, muted: s.muted, musicOn: s.musicOn, sfxOn: s.sfxOn });
+    haptics.enabled = s.vibration;
+    if (!s.vibration) haptics.stop();
     this.fx.shakeScale = s.shake;
     this.fx.reducedFlash = s.reducedFlash;
     this.input.bindings = s.bindings;
@@ -341,14 +344,15 @@ export class Game {
       return;
     }
     if (this.paused) {
-      const row = Math.floor((y - 100) / this.pauseStep);
+      const fr = this.pauseFrame;
+      const row = Math.floor((y - fr.items) / this.pauseStep);
       if (x >= W / 2 - 80 && x <= W / 2 + 80 && row >= 0 && row < this.pauseItems.length) {
         if (row === this.pauseIndex) this.input.pulse('confirm');
         else {
           this.pauseIndex = row;
           this.audio.sfx('select');
         }
-      } else if (x < W / 2 - 80 || x > W / 2 + 80 || y < 66 || y > 206) this.input.pulse('back');
+      } else if (x < W / 2 - 80 || x > W / 2 + 80 || y < fr.y || y > fr.y + fr.h) this.input.pulse('back');
       return;
     }
     if (this.scene.tap?.(x, y)) return;
@@ -358,7 +362,12 @@ export class Game {
 
   /** Row height of the pause list; it tightens a little when the extra BANK row is there. */
   private get pauseStep(): number {
-    return this.pauseItems.length > 5 ? 14 : 16;
+    return this.pauseItems.length > 7 ? 13 : 15;
+  }
+  /** Where the pause box and its first row sit; it grows with the number of rows. */
+  private get pauseFrame(): { y: number; h: number; items: number } {
+    const h = 58 + this.pauseItems.length * this.pauseStep + 16;
+    return { y: Math.round(H / 2 - h / 2) - 4, h, items: Math.round(H / 2 - h / 2) - 4 + 36 };
   }
   /** An ENDLESS RUN with a round banked can be cashed out from the pause menu. */
   get pauseItems(): readonly string[] {
@@ -375,6 +384,8 @@ export class Game {
       if (item === 'RESUME') { this.paused = false; this.audio.muffle(false); }
       else if (item === 'RESTART') this.restart();
       else if (item === 'MUSIC') { this.settings.musicOn = !this.settings.musicOn; this.saveSettings(); }
+      else if (item === 'SOUND FX') { this.settings.sfxOn = !this.settings.sfxOn; this.applySettings(); this.saveSettings(); if (this.settings.sfxOn) this.audio.sfx('confirm'); }
+      else if (item === 'VIBRATION') { this.settings.vibration = !this.settings.vibration; this.applySettings(); this.saveSettings(); if (this.settings.vibration) haptics.test(); }
       else if (item === 'BANK & END RUN') {
         this.paused = false;
         this.audio.muffle(false);
@@ -538,14 +549,16 @@ export class Game {
 
   private drawPause(ctx: CanvasRenderingContext2D): void {
     rect(ctx, 0, 0, W, H, '#0b0716b0');
-    frame(ctx, W / 2 - 80, 66, 160, 140, '#1d1233', '#3fe0ff');
-    drawText(ctx, 'PAUSED', W / 2, 76, '#fff', { align: 'center', scale: 2 });
+    const fr = this.pauseFrame;
+    frame(ctx, W / 2 - 80, fr.y, 160, fr.h, '#1d1233', '#3fe0ff');
+    drawText(ctx, 'PAUSED', W / 2, fr.y + 8, '#fff', { align: 'center', scale: 2 });
+    const state = (on: boolean) => (on ? 'ON' : 'OFF');
     this.pauseItems.forEach((it, i) => {
       const sel = i === this.pauseIndex;
-      const label = it === 'MUSIC' ? `MUSIC: ${this.settings.musicOn ? 'ON' : 'OFF'}` : it;
-      drawText(ctx, (sel ? '▶ ' : '  ') + label, W / 2 - 60, 102 + i * this.pauseStep, sel ? '#ffcf3f' : '#ccc');
+      const label = it === 'MUSIC' ? `MUSIC: ${state(this.settings.musicOn)}` : it === 'SOUND FX' ? `SOUND FX: ${state(this.settings.sfxOn)}` : it === 'VIBRATION' ? `VIBRATION: ${haptics.supported ? state(this.settings.vibration) : 'N/A'}` : it;
+      drawText(ctx, (sel ? '▶ ' : '  ') + label, W / 2 - 66, fr.items + i * this.pauseStep, sel ? '#ffcf3f' : '#ccc');
     });
-    drawText(ctx, 'ESC/P TO RESUME • M MUSIC', W / 2, 190, '#888', { align: 'center' });
+    drawText(ctx, 'ESC/P RESUME • M MUSIC', W / 2, fr.y + fr.h - 12, '#888', { align: 'center' });
   }
 
   private drawFatal(ctx: CanvasRenderingContext2D): void {
