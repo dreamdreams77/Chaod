@@ -8,7 +8,7 @@ const ctx = await context({
   format: 'esm',
   sourcemap: true,
   outdir: 'dev-out/src',
-  define: { __DEV__: 'true' },
+  define: { __DEV__: 'true', __VERSION__: JSON.stringify('dev') },
   logLevel: 'info',
 });
 await ctx.watch();

@@ -28,6 +28,14 @@ interface Bolt { lane: number; beat: number; alive: boolean; parried: boolean }
 interface Shot { lane: number; y: number; dmg: number; alive: boolean }
 
 export class RhythmMode extends ModeBase {
+  gesture = 'lanes' as const;
+  gestureHint = 'TOUCH THE LANES ON THE BEAT \u2022 AVOID RED X \u2022 PARRY BOLTS ON THE LINE';
+  /** The lane (and so the arrow) nearest a touch; the whole screen is a big target. */
+  laneAt(x: number): (typeof ACTS)[number] {
+    let best = 0;
+    for (let c = 1; c < 4; c++) if (Math.abs(LANE_X[c] - x) < Math.abs(LANE_X[best] - x)) best = c;
+    return ACTS[this.perm[best]];
+  }
   id = 'rhythm';
   crt = 0.45;
   notes: Note[] = [];

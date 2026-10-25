@@ -429,7 +429,7 @@ export class HubScene implements Scene {
   private card(name: string, text: string, reopen: (at?: number) => void, who: PortraitId = 'manual'): void {
     const at = this.menu?.index;
     this.menu = null;
-    this.game.say([{ who, name, text }], () => reopen(at));
+    this.game.say([{ who, name, text, instant: true }], () => reopen(at));
   }
 
   private trophyMenu(keep?: number): void {
@@ -472,7 +472,7 @@ export class HubScene implements Scene {
             const at = this.menu?.index;
             this.menu = null;
             const status = ok ? 'COMPLETE! The reward is already in your pocket.' : `Progress: ${prog}/${q.goal}.`;
-            this.game.say([{ who: 'manual', name: q.title, text: `${q.desc} ${status} Reward: ${q.bits} bits and ${q.xp} XP.` }], () => this.questMenu(at));
+            this.game.say([{ who: 'manual', name: q.title, text: `${q.desc} ${status} Reward: ${q.bits} bits and ${q.xp} XP.`, instant: true }], () => this.questMenu(at));
           },
         };
       }),

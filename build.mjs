@@ -15,7 +15,7 @@ const result = await build({
   write: false,
   sourcemap: false,
   legalComments: 'none',
-  define: { __DEV__: 'false' },
+  define: { __DEV__: 'false', __VERSION__: JSON.stringify(JSON.parse(await readFile('package.json', 'utf8')).version) },
 });
 
 const js = result.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');

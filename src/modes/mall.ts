@@ -21,6 +21,8 @@ const T = 16;
 type MonsterState = 'wander' | 'investigate' | 'chase' | 'stunned' | 'search';
 
 export class MallMode extends ModeBase {
+  gesture = 'topdown' as const;
+  gestureHint = 'DRAG: WALK \u2022 TAP: HIDE / INTERACT \u2022 2ND FINGER HELD: RUN';
   id = 'mall';
   crt = 0.55;
   map: MallMap;

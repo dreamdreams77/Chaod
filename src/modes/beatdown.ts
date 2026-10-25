@@ -30,6 +30,8 @@ interface Proj { x: number; y: number; vx: number; vy: number; r: number; kind: 
 interface Faller { col: number; y: number; vy: number; warn: number; color: string; alive: boolean }
 
 export class BeatdownMode extends ModeBase {
+  gesture = 'side' as const;
+  gestureHint = 'DRAG: MOVE, UP: JUMP, DOWN: BLOCK \u2022 TAP: ATTACK \u2022 2ND FINGER: CART WAVE';
   id = 'beatdown';
   crt = 0.25;
   // player

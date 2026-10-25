@@ -156,6 +156,12 @@ export class Input {
 
   /** A one-frame press, for taps on the screen itself. */
   pulse(a: Action): void {
+    if (this.touchDown.has(a)) {
+      // Already held by the on-screen pad: add a fresh press edge without releasing it.
+      this.touchPressed.add(a);
+      this.anyBuf = true;
+      return;
+    }
     this.setVirtual(a, true);
     this.setVirtual(a, false);
   }

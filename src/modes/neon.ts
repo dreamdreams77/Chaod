@@ -27,6 +27,8 @@ interface Proj { x: number; y: number; w: number; scale: number; clip: number; c
 type SkillCheck = { t: number; sel: number } | null;
 
 export class NeonMode extends ModeBase {
+  gesture = 'racer' as const;
+  gestureHint = 'DRAG: STEER, DOWN: BRAKE \u2022 TAP: BOOST \u2022 2ND FINGER HELD: DRIFT';
   id = 'neon';
   crt = 0.35;
   track: NeonTrack;

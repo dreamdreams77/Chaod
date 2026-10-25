@@ -8,6 +8,9 @@ import { defaultProfile } from '../core/save.ts';
 import { keyLabel } from '../core/input.ts';
 import { CAST, BOSSES } from '../data/story.ts';
 
+/** Injected by the build (package.json version); undefined when run unbundled, e.g. in tests. */
+declare const __VERSION__: string | undefined;
+
 type Panel = 'menu' | 'controls' | 'credits' | 'confirmNew';
 
 export class TitleScene implements Scene {
@@ -153,7 +156,7 @@ export class TitleScene implements Scene {
       drawText(ctx, 'CONFIRM = YES   BACK = NO', W / 2, 182, '#fff', { align: 'center' });
     } else if (this.panel === 'controls') this.drawControls(ctx);
     else this.drawCredits(ctx);
-    drawText(ctx, 'V1.0 • ORIGINAL GAME • MIT LICENSE', W / 2, H - 10, '#ffffff55', { align: 'center', shadow: null });
+    drawText(ctx, `V${typeof __VERSION__ === 'string' ? __VERSION__ : 'dev'} • ORIGINAL GAME • MIT LICENSE`, W / 2, H - 10, '#ffffff55', { align: 'center', shadow: null });
   }
 
   private drawControls(ctx: CanvasRenderingContext2D): void {

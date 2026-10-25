@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.1 — quest cards close in one press; version on the title screen
+- Quest and Trophy Case info cards show their whole text at once, so one press (A, Enter or a tap) closes them and returns to the list; before, the first press only finished the typing effect, which made the board feel stuck.
+- The title screen footer now shows the build version (e.g. V1.5.1) so you can tell whether your browser has the latest page.
+- Touch gestures for the worlds (drag to move, drag up to jump, tap to attack/boost, lane touches in Glitch Rhythm) and their review fixes: lane slides retarget, a second finger takes over steering when the first lifts, button holds survive a tap, gestures reset when the app loses focus.
+
 ## 1.5.0 — touchscreen play without buttons (lobby and mini-games)
 - Lobby: tap a person or machine to walk to it and use it, or tap open floor to walk there. The D-pad still takes over instantly.
 - CART CATCH and BYTE BREAKOUT: drag a finger (or mouse) to steer, or tap a spot and the cartridge glides there; a tap also serves the ball. GLITCH MEMORY: tap the arrow pads. Result panels have PLAY AGAIN and LOBBY buttons.

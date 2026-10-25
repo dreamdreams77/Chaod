@@ -10,6 +10,8 @@ export interface Line {
   name: string;
   text: string;
   choices?: Array<{ label: string; effect?: string }>;
+  /** Show the whole line at once (info cards), so one press closes it. */
+  instant?: boolean;
 }
 
 export const CAST = {

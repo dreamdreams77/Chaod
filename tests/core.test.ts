@@ -137,3 +137,86 @@ test('the repo-root index.html is the built game (GitHub Pages serves it), not t
   assert.ok(!root.includes('src="./src/main.ts"'), 'root index.html still points at the TypeScript source: run `npm run build`');
   assert.ok(root.includes('<script>'), 'root index.html has the game script inlined');
 });
+
+test('touch gestures map drags, taps and extra fingers onto the virtual buttons', async () => {
+  const { TouchGestures } = await import('../src/core/gestures.ts');
+  const held = new Set<string>();
+  const pulses: string[] = [];
+  const input = {
+    setVirtual: (a: string, on: boolean) => { if (on) held.add(a); else held.delete(a); },
+    pulse: (a: string) => pulses.push(a),
+  };
+  let mode: 'side' | 'racer' | 'topdown' | 'lanes' | null = 'side';
+  const g = new TouchGestures(input as never, () => mode, (x) => (x < 240 ? 'left' : 'right'));
+  // drag right, then up: holds right, then up + jump (a held jump gives full jump height)
+  g.down(1, 100, 100, 0);
+  g.move(1, 130, 100);
+  assert.deepEqual([...held], ['right']);
+  g.move(1, 130, 70);
+  assert.ok(held.has('up') && held.has('jump') && held.has('right'));
+  g.up(1, 100);
+  assert.equal(held.size, 0, 'lifting the finger releases everything');
+  assert.deepEqual(pulses, [], 'a drag is not a tap');
+  // quick tap = attack; second finger = special
+  g.down(2, 100, 100, 1000);
+  g.up(2, 1100);
+  assert.deepEqual(pulses, ['attack']);
+  g.down(3, 100, 100, 2000);
+  g.down(4, 200, 100, 2010);
+  assert.deepEqual(pulses, ['attack', 'special']);
+  g.up(4, 2100);
+  g.up(3, 2200);
+  // racer: tap boosts, second finger holds drift, "up" is ignored
+  mode = 'racer';
+  pulses.length = 0;
+  g.down(5, 100, 100, 3000);
+  g.up(5, 3050);
+  assert.deepEqual(pulses, ['jump']);
+  g.down(6, 100, 100, 4000);
+  g.down(7, 150, 100, 4010);
+  assert.ok(held.has('special'));
+  g.move(6, 100, 60);
+  assert.ok(!held.has('up'), 'the racer ignores upward drags');
+  g.up(7, 4100);
+  assert.ok(!held.has('special'));
+  g.up(6, 4200);
+  // lanes: each finger holds the lane it is on
+  mode = 'lanes';
+  g.down(8, 100, 100, 5000);
+  g.down(9, 400, 100, 5001);
+  assert.ok(held.has('left') && held.has('right'));
+  // menus take over: everything is released
+  mode = null;
+  g.tick(5100);
+  assert.equal(held.size, 0);
+});
+
+test('gestures: sliding between lanes retargets, and a second finger takes over steering when the first lifts', async () => {
+  const { TouchGestures } = await import('../src/core/gestures.ts');
+  const held = new Set<string>();
+  const input = { setVirtual: (a: string, on: boolean) => { if (on) held.add(a); else held.delete(a); }, pulse: () => {} };
+  let mode: 'side' | 'lanes' = 'lanes';
+  const g = new TouchGestures(input as never, () => mode, (x) => (x < 240 ? 'left' : 'right'));
+  g.down(1, 100, 100, 0);
+  assert.deepEqual([...held], ['left']);
+  g.move(1, 400, 100);
+  assert.deepEqual([...held], ['right'], 'sliding to another lane releases the old one and presses the new one');
+  g.up(1, 10);
+  assert.equal(held.size, 0);
+  mode = 'side';
+  g.down(2, 100, 100, 100);
+  g.down(3, 200, 100, 110);
+  g.up(2, 200);
+  g.move(3, 240, 100);
+  assert.ok(held.has('right'), 'the surviving finger steers after the first one lifts');
+});
+
+test('Input.pulse adds a press edge without releasing a button the pad is already holding', () => {
+  const inp = new Input(DEFAULT_BINDINGS);
+  inp.setVirtual('jump', true);
+  inp.endFrame();
+  assert.equal(inp.pressed('jump'), false);
+  inp.pulse('jump');
+  assert.equal(inp.pressed('jump'), true, 'fresh press edge');
+  assert.equal(inp.held('jump'), true, 'still held');
+});

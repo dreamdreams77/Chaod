@@ -12,6 +12,8 @@ import { drawText, wrap } from './render/font.ts';
 import { drawPortrait, drawKevin } from './render/actors.ts';
 import type { Line } from './data/story.ts';
 import { ACHIEVEMENTS } from './data/progression.ts';
+import type { GestureMode } from './core/gestures.ts';
+import type { Action } from './core/input.ts';
 import type { ChaosDirector } from './chaos/director.ts';
 
 export interface Scene {
@@ -34,6 +36,12 @@ export interface Scene {
   /** Finger or mouse held and moving over the screen (logical coordinates). */
   drag?(x: number, y: number): void;
   dragEnd?(): void;
+  /** Touchscreen gesture scheme for this scene (see core/gestures.ts). */
+  gesture?: GestureMode;
+  /** Help text shown on touchscreens instead of the keyboard hint. */
+  gestureHint?: string;
+  /** Rhythm lanes: the action for the lane nearest a screen x. */
+  laneAt?(x: number): Action | null;
 }
 
 interface DialogState {
@@ -171,7 +179,7 @@ export class Game {
   }
 
   say(lines: Line[], done: (effects: string[]) => void = () => {}): void {
-    this.dialog = { lines, index: 0, chars: 0, choice: 0, effects: [], done };
+    this.dialog = { lines, index: 0, chars: lines[0]?.instant ? lines[0].text.length : 0, choice: 0, effects: [], done };
   }
   get inDialog(): boolean {
     return this.dialog !== null;
@@ -276,7 +284,7 @@ export class Game {
           this.audio.sfx('confirm');
         } else this.audio.sfx('select');
         d.index++;
-        d.chars = 0;
+        d.chars = d.lines[d.index]?.instant ? d.lines[d.index].text.length : 0;
         d.choice = 0;
         if (d.index >= d.lines.length) {
           this.dialog = null;
@@ -284,6 +292,14 @@ export class Game {
         }
       }
     }
+  }
+
+  /** The gesture scheme in force right now, or null while menus, dialogue, pause or transitions own the screen. */
+  gestureMode(): GestureMode | null {
+    if (this.transition || this.fatal || this.dialog || this.paused) return null;
+    const s = this.scene as Scene & { ended?: boolean };
+    if (s.ended) return null;
+    return s.gesture ?? null;
   }
 
   drag(x: number, y: number): void {

@@ -3,6 +3,7 @@
  * Fusion engine, the Chaos Director, run rewards, modifiers, HUD widgets.
  */
 import type { Game, Scene } from '../game.ts';
+import type { GestureMode } from '../core/gestures.ts';
 import { ChaosDirector, DirectorContext, ActiveEvent } from '../chaos/director.ts';
 import { FusionEngine } from '../fusion/engine.ts';
 import { Rng, formatSeed } from '../core/rng.ts';
@@ -19,6 +20,9 @@ export abstract class ModeBase implements Scene {
   abstract id: string;
   pausable = true;
   crt = 0.3;
+  /** Touchscreen gesture scheme and its on-screen help; subclasses set both. */
+  gesture?: GestureMode;
+  gestureHint?: string;
   readonly director: ChaosDirector;
   readonly fusion: FusionEngine;
   readonly rng: Rng;
@@ -194,12 +198,13 @@ export abstract class ModeBase implements Scene {
     if (this.modifier) drawText(ctx, `MOD: ${this.modifier.name}`, x, y + 18, '#b07aff');
   }
 
-  drawHint(ctx: CanvasRenderingContext2D, text: string): void {
+  drawHint(ctx: CanvasRenderingContext2D, text: string, touchText = this.gestureHint): void {
     if (!this.game.settings.hints || this.hintT > 7) return;
     const a = this.hintT > 6 ? 7 - this.hintT : 1;
     ctx.globalAlpha = Math.max(0, a);
     rect(ctx, 0, H - 14, W, 14, '#000c');
-    drawText(ctx, this.game.input.label(text), W / 2, H - 11, '#fff', { align: 'center' });
+    const shown = this.game.input.usingTouch && touchText ? touchText : this.game.input.label(text);
+    drawText(ctx, shown, W / 2, H - 11, '#fff', { align: 'center' });
     ctx.globalAlpha = 1;
   }
 

@@ -30,6 +30,8 @@ const RUN = 110;
 const JUMP_V = 330;
 
 export class RampageMode extends ModeBase {
+  gesture = 'side' as const;
+  gestureHint = 'DRAG: MOVE, UP: JUMP \u2022 TAP OR HOLD: ATTACK \u2022 2ND FINGER: BLASTER';
   id = 'rampage';
   crt = 0.18;
   level: RampageLevel;
@@ -1080,7 +1082,7 @@ export class RampageMode extends ModeBase {
     if (this.dead > 0) {
       drawText(ctx, this.continues >= 3 ? 'GAME OVER' : 'OUCH! REBOOTING...', W / 2, 120, '#ff3f6b', { align: 'center', scale: 2 });
     }
-    if (this.shmupState === 'in') this.drawHint(ctx, 'SHMUP! ARROWS FLY • HOLD X FIRE • HOLD C SPREAD SHOT');
+    if (this.shmupState === 'in') this.drawHint(ctx, 'SHMUP! ARROWS FLY • HOLD X FIRE • HOLD C SPREAD SHOT', 'SHMUP! DRAG: FLY • HOLD STILL OR TAP: FIRE • 2ND FINGER: SPECIAL');
     else this.drawHint(ctx, 'ARROWS MOVE • Z JUMP • X ATTACK • C BLASTER (UP+C SHOOTS UP) • ESC PAUSE');
     this.drawSeed(ctx);
   }

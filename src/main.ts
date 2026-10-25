@@ -6,6 +6,7 @@
  */
 import { Game } from './game.ts';
 import { Input, setupTouch } from './core/input.ts';
+import { TouchGestures } from './core/gestures.ts';
 import { AudioEngine } from './audio/audio.ts';
 import { SaveStore, browserKV, ModeId } from './core/save.ts';
 import { W, H } from './render/gfx.ts';
@@ -81,27 +82,39 @@ function boot(): void {
     if (r.width === 0 || r.height === 0) return null;
     return [((e.clientX - r.left) * W) / r.width, ((e.clientY - r.top) * H) / r.height];
   };
-  let dragging = false;
+  const gestures = new TouchGestures(input, () => game.gestureMode(), (x) => game.scene.laneAt?.(x) ?? null);
+  let dragId: number | null = null;
   canvas.addEventListener('pointerdown', (e) => {
     const p = logical(e);
     if (!p) return;
-    dragging = true;
     canvas.setPointerCapture?.(e.pointerId);
-    game.tap(p[0], p[1]);
-    game.drag(p[0], p[1]);
+    if (e.pointerType !== 'mouse') gestures.down(e.pointerId, p[0], p[1], performance.now());
+    // Menus, taps and mini-game steering follow the first finger only.
+    if (dragId === null) {
+      dragId = e.pointerId;
+      game.tap(p[0], p[1]);
+      game.drag(p[0], p[1]);
+    }
   });
   canvas.addEventListener('pointermove', (e) => {
-    if (!dragging) return;
     const p = logical(e);
-    if (p) game.drag(p[0], p[1]);
+    if (!p) return;
+    if (e.pointerType !== 'mouse') gestures.move(e.pointerId, p[0], p[1]);
+    if (dragId === e.pointerId) game.drag(p[0], p[1]);
   });
-  const endDrag = () => {
-    if (!dragging) return;
-    dragging = false;
+  const endDrag = (id: number) => {
+    if (dragId !== id) return;
+    dragId = null;
     game.dragEnd();
   };
-  canvas.addEventListener('pointerup', endDrag);
-  canvas.addEventListener('pointercancel', endDrag);
+  canvas.addEventListener('pointerup', (e) => {
+    gestures.up(e.pointerId, performance.now());
+    endDrag(e.pointerId);
+  });
+  canvas.addEventListener('pointercancel', (e) => {
+    gestures.up(e.pointerId, performance.now());
+    endDrag(e.pointerId);
+  });
   // M toggles the music from anywhere (not while a remap prompt is waiting for a key).
   window.addEventListener('keydown', (e) => {
     if (e.code !== 'KeyM' || e.repeat || e.ctrlKey || e.metaKey || e.altKey || input.captureNext || Object.values(input.bindings).some((keys) => keys.includes('KeyM'))) return;
@@ -142,6 +155,7 @@ function boot(): void {
   // Focus loss pauses gameplay; hidden tabs suspend audio.
   const autoPause = () => {
     input.clearAll();
+    gestures.cancelAll();
     if (game.scene.pausable && !game.paused) {
       game.paused = true;
       game.pauseIndex = 0;
@@ -164,6 +178,7 @@ function boot(): void {
   const frame = (now: number) => {
     if (crashed) return;
     try {
+      gestures.tick(performance.now());
       let elapsed = (now - last) / 1000;
       last = now;
       if (elapsed > 0.25) elapsed = 0.25; // avoid spiral of death after stalls

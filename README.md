@@ -52,7 +52,7 @@ Nine fusions total (seven available from the start, two unlocked by play). Every
 | Block (fighter) | Down |
 | Pause | Esc / P |
 
-Every key is remappable in **Settings → Remap Controls**. Each world shows its own controls when it starts. A simple on-screen pad appears on touchscreens (not yet tested on real devices — see limitations). Menus, the lobby and the three mini-games can also be played by tapping and dragging the screen itself; the worlds use the pad.
+Every key is remappable in **Settings → Remap Controls**. Each world shows its own controls when it starts. A simple on-screen pad appears on touchscreens (not yet tested on real devices — see limitations). Menus, the lobby and the three mini-games can also be played by tapping and dragging the screen itself; the worlds can be steered with gestures (drag to move, drag up to jump, tap to attack or boost, touch the lanes in Glitch Rhythm), and the pad works everywhere.
 
 ## Accessibility
 
@@ -87,7 +87,7 @@ Zero runtime dependencies and zero binary assets: every sprite is drawn from rec
 ## Quality checks
 
 ```bash
-npm run check        # typecheck (src + tests) + 52 unit tests + production build
+npm run check        # typecheck (src + tests) + 55 unit tests + production build
 npm run smoke        # headless Chromium: plays every world, then drives the full campaign to the ending
 ```
 
