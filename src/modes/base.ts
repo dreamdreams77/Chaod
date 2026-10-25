@@ -146,8 +146,13 @@ export abstract class ModeBase implements Scene {
   get diffMult(): number {
     return { easy: 0.6, normal: 1, hard: 1.4 }[this.game.settings.difficulty] * this.tier * (this.game.settings.assist ? 0.85 : 1) * this.perkFx.diff;
   }
+  /** Damage the PLAYER deals (GLASS CANNON doubles it). */
   get damageMult(): number {
-    return this.modifier?.id === 'glass' || this.modifier?.id === 'nightmare' || this.endlessRound >= 5 || this.fusion.has('curse_greed') ? 2 : 1;
+    return this.modifier?.id === 'glass' ? 2 : 1;
+  }
+  /** Damage the player TAKES: NIGHTMARE, late ENDLESS rounds and the PAWN SHOP curse double it. */
+  get takenMult(): number {
+    return this.modifier?.id === 'nightmare' || this.endlessRound >= 5 || this.fusion.has('curse_greed') ? 2 : 1;
   }
   hasPerk(id: string): boolean {
     return this.perkList.some((p) => p.id === id);
@@ -252,7 +257,7 @@ export abstract class ModeBase implements Scene {
         legs[rush.leg],
         { rematch: true, perks, rush: { leg: rush.leg + 1, legs, carryHp: this.hp, bits: (rush.bits ?? 0) + this.runBits, xp: (rush.xp ?? 0) + this.runXp + 40, time: (rush.time ?? 0) + this.time, damage: (rush.damage ?? 0) + this.damageTaken, score: (rush.score ?? 0) + score, chaos: [...this.chaosSeen], floppies: [...this.foundFloppies], flags: [...this.runFlags] } },
         // RETRY after a loss in a later leg starts the whole run again, so no leg's tally is ever paid twice.
-        { mode: legs[0], opts: { rematch: true, perks, rush: { leg: 1, legs } } },
+        { mode: legs[0], opts: { rematch: true, rush: { leg: 1, legs } } },
       );
       return;
     }
@@ -282,7 +287,7 @@ export abstract class ModeBase implements Scene {
       score,
       time: this.time,
       bits: this.runBits,
-      xp: Math.round((this.runXp + (cleared ? 40 : 10)) * this.perkFx.xp * (this.fusion.has('curse_frail') ? 2 : 1)),
+      xp: this.runXp + (cleared ? 40 : 10),
       floppies: this.foundFloppies,
       damageTaken: this.damageTaken,
       flags: [...this.runFlags],
@@ -299,11 +304,14 @@ export abstract class ModeBase implements Scene {
       result.boss = undefined;
       result.rematch = false;
     }
-    if (rush && rush.leg === legs.length && rush.leg > 1) {
+    if (rush && rush.leg > 1) {
+      // Whether the run ends in a win or a loss on a later leg, everything earned on the way is paid.
       mergeCarry(result, rush);
       result.bitMultiplier += legs.length > 2 ? 1 : 0.5;
-      if (cleared) result.flags = [...result.flags, legs.length > 2 ? 'gauntlet' : 'boss_rush'];
+      if (cleared && rush.leg === legs.length) result.flags = [...result.flags, legs.length > 2 ? 'gauntlet' : 'boss_rush'];
     }
+    // XP perks and the PAPER HEART curse apply to the whole run, not just its last leg or round.
+    result.xp = Math.round(result.xp * this.perkFx.xp * (this.fusion.has('curse_frail') ? 2 : 1));
     showResults(this.game, result, this.seed);
   }
 

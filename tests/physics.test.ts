@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { RampageMode } from '../src/modes/rampage.ts';
 import { NeonMode } from '../src/modes/neon.ts';
 import { MAX_JUMP_DX, MAX_JUMP_RISE, TILE, ROWS } from '../src/procgen/rampage.ts';
-import { defaultProfile, defaultSettings } from '../src/core/save.ts';
+import { defaultProfile, defaultSettings, type ModeId } from '../src/core/save.ts';
 import { Input, DEFAULT_BINDINGS } from '../src/core/input.ts';
 import type { Game } from '../src/game.ts';
 
@@ -97,7 +97,8 @@ test('NIGHTMARE mode: one less heart, double damage, bits pay double, chaos forc
   game.settings.chaos = 'normal';
   const n = new RampageMode(game, { nightmare: true });
   assert.equal(n.modifier?.id, 'nightmare');
-  assert.equal(n.damageMult, 2);
+  assert.equal(n.takenMult, 2);
+  assert.equal(n.damageMult, 1, 'nightmare changes what you take, not what you deal');
   assert.equal(n.stats.maxHp, base.stats.maxHp - 1);
   assert.equal(n.director['cfg'].intensity, 'high');
   const { game: off } = spyGame();
@@ -141,7 +142,7 @@ test('ENDLESS RUN chains rounds with a growing tally, scales difficulty, and pay
   game.profile.cleared.rampage.clears = 1;
   const r1 = new RampageMode(game, { endless: { round: 1 } });
   assert.equal(r1.tier, 1);
-  assert.equal(r1.damageMult, r1.modifier?.id === 'glass' ? 2 : 1);
+  assert.equal(r1.takenMult, 1);
   r1.hp = 1;
   r1.runBits = 50;
   r1.time = 60;
@@ -158,7 +159,7 @@ test('ENDLESS RUN chains rounds with a growing tally, scales difficulty, and pay
   const r5 = new RampageMode(game, { endless: { ...o.endless, round: 5 } });
   assert.equal(r5.hp, 2, 'health carries');
   assert.ok(r5.tier > 1.4 && r5.tier <= 2);
-  assert.equal(r5.damageMult, 2, 'from round 5 damage doubles');
+  assert.equal(r5.takenMult, 2, 'from round 5 damage taken doubles');
   assert.ok(r5.diffMult > new RampageMode(game).diffMult);
 
   const bitsBefore = game.profile.bits;
@@ -505,6 +506,8 @@ test('ASSIST MODE adds a heart and slows the world a little, without touching re
 import { HighScoreMode } from '../src/modes/highscore.ts';
 import { DashScene } from '../src/scenes/arcade.ts';
 import { GAUNTLET_LEGS } from '../src/data/story.ts';
+import { offerPerks } from '../src/data/perks.ts';
+import { Rng } from '../src/core/rng.ts';
 
 function bossGame() {
   const { game, started } = spyGame();
@@ -660,3 +663,63 @@ test('DEMO DASH: hurdles cost lives, bones score, three hits end the run and pay
 function H_GROUND(): number {
   return 270 - 56;
 }
+
+// ---- fixes from the second big check --------------------------------------------------------
+
+test('THE HIGH SCORE: the killing shot with others in flight leaves a clean shot list', () => {
+  const { game } = bossGame();
+  const m = readyBoss(game);
+  m.bHp = 1;
+  m.shots.push({ x: 40, y: 200 }, { x: 41, y: 200 }, { x: m.bx, y: m.by }, { x: 400, y: 150 });
+  m.update(1 / 60);
+  assert.equal(m.phase, 'dying');
+  assert.ok(m.shots.every((s) => s && Number.isFinite(s.x)), 'no holes in the list');
+});
+
+test('a loss on a middle gauntlet leg still pays what the earlier legs earned', () => {
+  const { game, started } = bossGame();
+  const b = new BeatdownMode(game, { rematch: true, rush: { leg: 1, legs: GAUNTLET_LEGS } });
+  b.runBits = 80;
+  b.collectFloppy(0);
+  b.finish(true, 100, { boss: 'bricklord' });
+  const [, o] = started[0] as unknown as [string, { rush: NonNullable<ConstructorParameters<typeof BeatdownMode>[1]>['rush'] }];
+  const r = new RhythmMode(game, { rematch: true, rush: o.rush });
+  assert.ok(r.foundFloppies.includes('beatdown-0'), 'disks carry into the next leg');
+  r.finish(false, 50);
+  assert.ok(game.profile.floppies.includes('beatdown-0'), 'the disk from leg one is kept');
+  assert.ok(game.profile.bits > 0);
+  assert.equal(started.length, 1, 'a loss ends the run');
+});
+
+test('retrying the gauntlet starts with a fresh perk pick, not the old perks', () => {
+  const { game } = bossGame();
+  const restarts: Array<{ mode: string; opts: { perks?: string[]; rush?: { leg: number } } }> = [];
+  (game as unknown as { startMode: (m: string, o: unknown, r: { mode: string; opts: { perks?: string[]; rush?: { leg: number } } }) => void }).startMode = (_m, _o, r) => restarts.push(r);
+  const b = new BeatdownMode(game, { rematch: true, perks: ['vitality'], rush: { leg: 1, legs: GAUNTLET_LEGS } });
+  b.finish(true, 10, { boss: 'bricklord' });
+  assert.equal(restarts[0].mode, 'beatdown');
+  assert.equal(restarts[0].opts.rush?.leg, 1);
+  assert.equal(restarts[0].opts.perks, undefined);
+});
+
+test('damage taken doubles in NIGHTMARE in every kind of world, while damage dealt stays put', () => {
+  const { game } = spyGame();
+  game.settings.chaos = 'off';
+  const m = new RampageMode(game, { nightmare: true }) as unknown as { hp: number; hurt(n: number, knock: boolean): void; takenMult: number; damageMult: number; iframes: number; dead: number };
+  const hp = m.hp;
+  m.iframes = 0;
+  m.dead = 0;
+  m.hurt(1, false);
+  assert.equal(hp - m.hp, 2);
+  assert.equal(m.damageMult, 1);
+});
+
+test('FIELD MEDIC is only offered in an ENDLESS RUN', () => {
+  const rng = new Rng(3);
+  const seen = (endless: boolean): boolean => {
+    for (let i = 0; i < 300; i++) if (offerPerks(rng, 'rampage', [], endless).some((p) => p.id === 'medic')) return true;
+    return false;
+  };
+  assert.equal(seen(false), false);
+  assert.equal(seen(true), true);
+});

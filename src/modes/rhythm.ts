@@ -12,7 +12,7 @@ import type { Game } from '../game.ts';
 import { ModeBase, ModeOpts } from './base.ts';
 import { DirectorContext, ActiveEvent } from '../chaos/director.ts';
 import { generateBlock, Note, BLOCK_BEATS, judge, WINDOWS, Grade } from '../procgen/chart.ts';
-import { H, W, PAL, rect, hearts, bar } from '../render/gfx.ts';
+import { H, W, PAL, rect, hearts, bar, clamp } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { BOSS_DEFEAT } from '../data/story.ts';
 import { Rng } from '../core/rng.ts';
@@ -74,7 +74,7 @@ export class RhythmMode extends ModeBase {
     this.bHp = this.bMaxHp;
     this.chartRng = this.rng.fork(0xbeef);
     // The GAME SPEED accessibility setting slows the song itself, so timing windows stay fair.
-    this.tempo = game.settings.gameSpeed;
+    this.tempo = clamp(game.settings.gameSpeed * this.speedMult, 0.5, 1.3);
     this.scroll = 150;
   }
 
@@ -263,7 +263,7 @@ export class RhythmMode extends ModeBase {
       const now = this.beatNow();
       const resume = Math.ceil(now) + 4;
       this.notes = this.notes.filter((n) => n.judged || n.beat < resume - 4);
-      this.tempo = 1.15 * this.game.settings.gameSpeed;
+      this.tempo = clamp(1.15 * this.game.settings.gameSpeed * this.speedMult, 0.5, 1.5);
       this.game.audio.shiftTo('rhythm', this.tempo);
       this.beatBase = now;
       this.nextBlock = resume;
@@ -307,6 +307,7 @@ export class RhythmMode extends ModeBase {
   }
 
   private damagePlayer(n: number): void {
+    n *= this.takenMult;
     this.hp -= n;
     this.noteDamage(n);
     if (this.hp <= 0) {

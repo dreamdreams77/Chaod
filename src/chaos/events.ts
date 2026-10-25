@@ -47,8 +47,8 @@ export const CHAOS_EVENTS: ChaosEventDef[] = [
   { id: 'fog_bank', name: 'FOG BANK', category: 'environmental', modes: ['neon'], duration: 9, telegraph: 2, cooldown: 30, weight: 3, flags: ['fog'], bossSafe: true, harsh: true, blurb: 'Draw distance: emotionally unavailable.' },
   { id: 'power_surge', name: 'POWER SURGE', category: 'environmental', modes: ['mall'], duration: 7, telegraph: 1.5, cooldown: 30, weight: 3, flags: ['lights_on', 'monster_haste'], bossSafe: true, blurb: 'Lights on! ...it can see you too.' },
 
-  { id: 'crosswind', name: 'CROSSWIND', category: 'environmental', modes: ['penalty'], duration: 9, telegraph: 2, cooldown: 30, weight: 3, flags: ['crosswind'], bossSafe: true, blurb: 'A gale sweeps the pitch. Bullets drift sideways.' },
-  { id: 'mud_pitch', name: 'MUD PITCH', category: 'environmental', modes: ['penalty'], duration: 9, telegraph: 1.5, cooldown: 30, weight: 3, flags: ['mud'], bossSafe: true, blurb: 'Heavy boots, slow bullets. Your shots lose some zip.' },
+  { id: 'crosswind', name: 'CROSSWIND', category: 'environmental', modes: ['penalty', 'highscore'], duration: 9, telegraph: 2, cooldown: 30, weight: 3, flags: ['crosswind'], bossSafe: true, blurb: 'A gale sweeps the pitch. Bullets drift sideways.' },
+  { id: 'mud_pitch', name: 'MUD PITCH', category: 'environmental', modes: ['penalty', 'highscore'], duration: 9, telegraph: 1.5, cooldown: 30, weight: 3, flags: ['mud'], bossSafe: true, blurb: 'Heavy boots, slow bullets. Your shots lose some zip.' },
 
   // ---- Combat mutations ---------------------------------------------------
   { id: 'giant', name: 'MEGA MODE', category: 'combat', modes: ['rampage', 'beatdown'], duration: 8, telegraph: 1.5, cooldown: 30, weight: 3, flags: ['giant'], group: 'size', bossSafe: true, blockedSegments: ['shmup'], blurb: 'Double size. Double damage. Double hitbox.' },

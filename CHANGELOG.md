@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.0.0 — THE HIGH SCORE and the big content update
+- **THE HIGH SCORE**, the final boss, waits at the Cartridge Core once you have rebooted it. Three phases of bullet hell: ARCADE (aimed fans, rings and rain), FIGHT NIGHT (it guards, telegraphs column and row slams, then drops open for a counter) and SUDDEN DEATH (every pattern at once). Automatic shots, graze bullets to earn bombs, a score that counts down as it takes damage, a mercy-or-take-the-crown ending, new trophies NEW HIGH SCORE and PERFECT SCORE, and its own three music tracks. Fully playable with touch.
+- **BOSS GAUNTLET** (unlocked by beating it): BRICKLORD MAX, DJ STATIC, the PENALTY STORM keeper in OVERTIME and THE HIGH SCORE back to back with health carried over; pays double bits. A loss on any later leg now pays what the earlier legs earned.
+- **Run perks**: before each run and each endless round you pick one of three perks (14 of them: hearts, bits, XP, slower enemies, world-specific ones, and cursed ones that pay more and cost something) or skip. Daily and shared-seed runs never offer perks. Switch them off in Settings.
+- **Mutation Lab**: three saved loadouts (BUILD A to C), and four CURSED mutations after the ending (PAWN SHOP, TURBO TERROR, STATIC STORM, PAPER HEART) that arrive switched off and pay +30% bits each.
+- **Lobby errands**: each day one of Rex, Kevin, Madame Polygon or the Manual asks a favour (the same for everyone); finish it for bits and XP and talk to them again for a thank-you. A "!" marks whoever is asking.
+- **A secret cabinet** (DEMO DASH, a runner for the developer's dog) powers on at the right edge of the lobby once any world has all three mastery stars.
+- **Share cards**: SHARE CARD on the results screen makes a picture of the run and sends it to the phone's share sheet (or saves it, with a challenge link copied).
+- **Lobby seasons** (Halloween weeks, winter lights, heart week, spring bloom, summer arcade): the lobby dresses up and plays seasonal music, and weekly goals pay 20% more.
+- **A first-visit lobby tour** (four stops, skippable) for new players.
+- **Sound pass**: new music for CORE COMMAND, the arcade, the boss phases and two seasons; new effects for kicks, goals, grazes, bombs, slams, perks and cards; the music dips when a chaos event is announced.
+- **Fixes from a second big check**: the final boss's killing shot can no longer crash the game; double damage in NIGHTMARE, late ENDLESS rounds and PAWN SHOP now means damage you take in every world (before, it doubled the damage you deal in three of them); retrying a gauntlet no longer stacks old perks; XP perks apply to the whole run; GLITCH RHYTHM now honours speed perks, curses and the TURBO modifier; the title summary no longer counts the boss as an eighth world; the final boss respects REDUCED FLASHING for bomb flashes.
+
 ## 2.2.0 — weekly goals, lobby decor, assist mode and a big bug check
 - **Weekly goals** on the Quest Board: three goals drawn from a pool of nine by the UTC week (the same for everyone, never two of a kind, reset every Monday), each paying bits and XP, plus a WEEKLY SWEEP bonus for finishing all three. They count runs, ENDLESS rounds, disks, stars, chaos events and mini-game rounds and points.
 - **Lobby decor** at Madame Polygon: three floors (checkerboard, neon grid, confetti), three wall pieces (pennant bunting, fairy lights, glow stars) and three corner pairs (plants, lava lamps, speaker stacks). One item per slot; owned items swap for free.

@@ -330,10 +330,11 @@ export class MallMode extends ModeBase {
     // Catch
     const dist = Math.hypot(this.mx - this.px, this.my - this.py);
     if (dist < 12 && this.iframes <= 0 && (!this.hidden || this.sawHide)) {
-      this.hp -= 1;
+      const dmg = this.takenMult;
+      this.hp -= dmg;
       this.caught++;
       this.iframes = 2;
-      this.noteDamage(1);
+      this.noteDamage(dmg);
       this.hidden = false;
       this.hiddenLocker = null;
       this.sawHide = false;

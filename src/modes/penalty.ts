@@ -355,7 +355,7 @@ export class PenaltyMode extends ModeBase {
   }
 
   private hurt(from: Bullet): void {
-    const dmg = this.damageMult;
+    const dmg = this.takenMult;
     this.hp = Math.max(0, this.hp - dmg);
     this.hits++;
     this.cleanRun = 0;

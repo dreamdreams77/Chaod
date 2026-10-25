@@ -3,7 +3,7 @@
  * Kept as data so writers can edit it without touching gameplay code.
  */
 import type { PortraitId } from '../render/actors.ts';
-import type { ModeId } from '../core/save.ts';
+import { MODE_IDS, type ModeId } from '../core/save.ts';
 
 export interface Line {
   who: PortraitId;
@@ -150,7 +150,7 @@ export function lockHint(mode: ModeId): string {
 /** Which cabinets are open. Curiosity-gated, never grind-gated. */
 export function isModeUnlocked(mode: ModeId, cleared: Record<ModeId, { clears: number }>): boolean {
   const c = (m: ModeId) => cleared[m].clears > 0;
-  const total = (Object.keys(cleared) as ModeId[]).filter(c).length;
+  const total = MODE_IDS.filter(c).length;
   switch (mode) {
     case 'rampage': return true;
     case 'neon': return c('rampage');

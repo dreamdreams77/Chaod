@@ -46,6 +46,7 @@ const PHASE_SPLIT = [0.66, 0.33];
 const ZONE_TOP = 120;
 const ARENA = { left: 16, right: W - 16, bottom: H - 14 };
 const HUES = ['#ffcf3f', '#ff3fd2', '#3fe0ff', '#ff3f5a'];
+const GLOWS = ['255,207,63', '255,63,210', '63,224,255', '255,63,90'];
 const START_BOMBS = 2;
 const MAX_BOMBS = 3;
 const GRAZE_PER_BOMB = 45;
@@ -218,16 +219,19 @@ export class HighScoreMode extends ModeBase {
 
   private updateShots(dt: number, armed: boolean): void {
     let keep = 0;
+    let dealt = 0;
     for (const s of this.shots) {
       s.y -= 360 * dt;
       let alive = s.y > -8;
       if (alive && armed && this.phase === 'fight' && Math.abs(s.x - this.bx) < 52 && Math.abs(s.y - this.by) < 22) {
-        this.damageBoss(this.shotDamage);
+        dealt += this.shotDamage;
         alive = false;
       }
       if (alive) this.shots[keep++] = s;
     }
     this.shots.length = keep;
+    // Damage lands after the pass: it can end the fight and clear this very list.
+    if (dealt > 0) this.damageBoss(dealt);
   }
 
   /** Applies damage, handles the phase thresholds and the end of the fight. */
@@ -414,7 +418,7 @@ export class HighScoreMode extends ModeBase {
 
   private hurt(from: Bullet | null): void {
     if (this.iframes > 0) return;
-    const dmg = this.damageMult;
+    const dmg = this.takenMult;
     this.hp = Math.max(0, this.hp - dmg);
     this.iframes = 1.7;
     this.noteDamage(dmg);
@@ -471,7 +475,8 @@ export class HighScoreMode extends ModeBase {
     for (const b of this.bullets) this.drawBullet(ctx, b);
     this.drawPlayer(ctx);
     if (this.bombFlash > 0) {
-      ctx.globalAlpha = this.bombFlash;
+      // REDUCED FLASHING caps the white-out, like every other screen flash.
+      ctx.globalAlpha = Math.min(this.bombFlash, this.game.settings.reducedFlash ? 0.12 : 0.5);
       rect(ctx, 0, 0, W, H, '#ffffff');
       ctx.globalAlpha = 1;
     }
@@ -526,7 +531,7 @@ export class HighScoreMode extends ModeBase {
   }
 
   private drawBullet(ctx: CanvasRenderingContext2D, b: Bullet): void {
-    glow(ctx, b.x, b.y, 7, ['255,207,63', '255,63,210', '63,224,255', '255,63,90'][b.hue], 0.5);
+    glow(ctx, b.x, b.y, 7, GLOWS[b.hue], 0.5);
     rect(ctx, b.x - 2, b.y - 2, 5, 5, HUES[b.hue]);
     rect(ctx, b.x - 1, b.y - 1, 3, 3, '#ffffff');
   }

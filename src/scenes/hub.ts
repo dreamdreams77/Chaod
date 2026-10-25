@@ -139,6 +139,10 @@ export class HubScene implements Scene {
     return true;
   }
 
+  /** Today's date key and errand, refreshed every half minute rather than every frame. */
+  private dayKey = dateKey();
+  private errandDef = errandFor(this.dayKey);
+  private dayT = 0;
   /** The lobby's season today, if any. */
   private readonly season: Season | null = seasonFor(new Date());
 
@@ -146,6 +150,15 @@ export class HubScene implements Scene {
 
   update(dt: number): void {
     this.t += dt;
+    this.dayT += dt;
+    if (this.dayT > 30) {
+      this.dayT = 0;
+      const k = dateKey();
+      if (k !== this.dayKey) {
+        this.dayKey = k;
+        this.errandDef = errandFor(k);
+      }
+    }
     this.particles.update(dt);
     // The glowing Core sheds sparks once both shards are home (emitted per sim step, not per frame).
     if (this.game.profile.bossesDefeated.filter((b) => b === 'bricklord' || b === 'static').length >= 2 && !this.game.profile.endingSeen) {
@@ -1279,15 +1292,14 @@ export class HubScene implements Scene {
   private drawErrandMarker(ctx: CanvasRenderingContext2D): void {
     if (this.menu || this.game.inDialog) return;
     const p = this.game.profile;
-    const day = dateKey();
-    const e = errandFor(day);
-    const st = errandView(p, day);
-    if (st.asked && !(st.done && !st.thanked)) return;
+    const e = this.errandDef;
+    const st = p.errand.key === this.dayKey ? p.errand : null;
+    if (st?.asked && !(st.done && !st.thanked)) return;
     const id = { rex: 'rex', kevin: 'kevin', polygon: 'shop', manual: 'manual' }[e.giver];
     const th = this.things.find((x) => x.id === id);
     if (!th) return;
     const bob = Math.round(Math.sin(this.t * 4) * 2);
-    drawText(ctx, st.done ? '\u2605' : '!', th.x, th.y - 58 + bob, st.done ? '#7dff6b' : '#9dff3f', { align: 'center', scale: 2 });
+    drawText(ctx, st?.done ? '\u2605' : '!', th.x, th.y - 58 + bob, st?.done ? '#7dff6b' : '#9dff3f', { align: 'center', scale: 2 });
   }
 
   private drawQuestBoard(ctx: CanvasRenderingContext2D): void {
@@ -1393,7 +1405,7 @@ export class EndingScene implements Scene {
       '',
       `LEVEL ${p.level} • ${p.floppies.length}/${TOTAL_FLOPPIES} FLOPPIES • ${p.achievements.length}/${ACHIEVEMENTS.length} TROPHIES`,
       '',
-      'TO BE CONTINUED IN PART 2: THE HIGH SCORE',
+      'ONE PAGE IS STILL MISSING. THE HIGH SCORE WAITS AT THE CORE.',
       '',
       'KEEP PLAYING: REMATCHES, MODIFIERS, SEEDS AND SECRETS AWAIT.',
     ];

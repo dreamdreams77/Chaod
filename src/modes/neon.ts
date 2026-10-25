@@ -265,6 +265,7 @@ export class NeonMode extends ModeBase {
       this.game.audio.sfx('block');
       return;
     }
+    dmg *= this.takenMult;
     this.hp -= dmg;
     this.noteDamage(dmg);
     this.fear += this.fusion.param('lurker_pursuit', 'fearGain', 0.06);

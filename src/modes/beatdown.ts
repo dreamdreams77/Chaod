@@ -304,6 +304,7 @@ export class BeatdownMode extends ModeBase {
       this.director.feed(3);
       return;
     }
+    n *= this.takenMult;
     this.hp -= n;
     this.iframes = 1;
     this.hitstun = 0.3;

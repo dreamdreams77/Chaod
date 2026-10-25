@@ -418,7 +418,7 @@ export class CommandMode extends ModeBase {
     for (const e of this.enemies) {
       if (e.pos < last) continue;
       const leak = ENEMIES[e.kind].leak;
-      const dmg = leak * this.damageMult;
+      const dmg = leak * this.takenMult;
       e.hp = 0;
       this.leaks += leak;
       this.leakedThisWave = true;

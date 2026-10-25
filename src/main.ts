@@ -61,7 +61,7 @@ function boot(): void {
   game.titleFactory = () => new TitleScene(game);
   game.perkFactory = (mode, opts, pick) => {
     const held = perkTotals(opts.perks).defs;
-    const offers = offerPerks(game.rng, mode, held.map((p) => p.id));
+    const offers = offerPerks(game.rng, mode, held.map((p) => p.id), opts.endless !== undefined);
     // Nothing left to offer (every perk held): go straight in.
     if (!offers.length) return game.modeFactory(mode, opts);
     return new PerkScene(game, mode, offers, held, opts.endless?.round ?? 1, pick);
@@ -228,7 +228,13 @@ function boot(): void {
   // Lightweight automation hook used by the smoke tests and handy for debugging.
   (window as unknown as { __chaos: unknown }).__chaos = {
     game,
-    start: (m: ModeId) => game.startMode(m),
+    // The automation hook goes straight into the world, skipping the perk pick.
+    start: (m: ModeId) => {
+      const perks = game.settings.perks;
+      game.settings.perks = false;
+      game.startMode(m);
+      game.settings.perks = perks;
+    },
     hub: () => game.toHub(),
     press: (a: Parameters<Input['setVirtual']>[0], down: boolean) => input.setVirtual(a, down),
     scene: () => game.scene.id,

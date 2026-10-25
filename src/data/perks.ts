@@ -29,6 +29,8 @@ export interface PerkDef {
   heal?: number;
   /** Only offered in these worlds. */
   modes?: ModeId[];
+  /** Only offered in an ENDLESS RUN. */
+  endlessOnly?: boolean;
 }
 
 export const PERKS: PerkDef[] = [
@@ -37,7 +39,7 @@ export const PERKS: PerkDef[] = [
   { id: 'scholar', name: 'QUICK STUDY', desc: '+50% XP from this run.', rarity: 'common', xp: 1.5 },
   { id: 'gentle', name: 'GENTLE WORLD', desc: 'Enemies and bullets are 12% weaker.', rarity: 'common', diff: 0.88 },
   { id: 'slowmo', name: 'SLOW-MO', desc: 'Everything runs 10% slower.', rarity: 'common', speed: 0.9 },
-  { id: 'medic', name: 'FIELD MEDIC', desc: 'ENDLESS RUN: heal 1 extra heart between rounds.', rarity: 'common', heal: 1 },
+  { id: 'medic', name: 'FIELD MEDIC', desc: 'ENDLESS RUN: heal 1 extra heart between rounds.', rarity: 'common', heal: 1, endlessOnly: true },
   { id: 'twin', name: 'DOUBLE HEART', desc: '+2 max hearts for this run.', rarity: 'rare', hp: 2 },
   { id: 'jackpot', name: 'JACKPOT', desc: '+60% bits and +25% XP.', rarity: 'rare', bits: 0.6, xp: 1.25 },
   { id: 'crackshot', name: 'CRACK SHOT', desc: 'PENALTY STORM: the keeper reacts 30% slower.', rarity: 'rare', modes: ['penalty'] },
@@ -52,8 +54,8 @@ export const PERK_BY_ID = new Map(PERKS.map((p) => [p.id, p]));
 const WEIGHT: Record<PerkRarity, number> = { common: 6, rare: 3, cursed: 2 };
 
 /** Three different perks for this world, none you already hold. */
-export function offerPerks(rng: Rng, mode: ModeId, held: readonly string[], n = 3): PerkDef[] {
-  const pool = PERKS.filter((p) => !held.includes(p.id) && (!p.modes || p.modes.includes(mode)));
+export function offerPerks(rng: Rng, mode: ModeId, held: readonly string[], endless = false, n = 3): PerkDef[] {
+  const pool = PERKS.filter((p) => !held.includes(p.id) && (!p.modes || p.modes.includes(mode)) && (!p.endlessOnly || endless));
   const out: PerkDef[] = [];
   while (out.length < n && pool.length) {
     const pick = rng.weighted(pool, (p) => WEIGHT[p.rarity]);

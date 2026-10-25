@@ -37,7 +37,7 @@ The **Cartridge Core** is an ancient machine that kept every gaming reality in i
 | **DJ STATIC**, the glitch selector | GLITCH RHYTHM | Playable |
 | **THE LURKER**, the thing in the rear-view | NEON PANIC | Appears as the midnight pursuer; full encounter in Part 2 |
 | **THE CLOSING-TIME MANAGER**, mini-boss retired | NIGHTMARE MALL | Appears as the stalker; full encounter in Part 2 |
-| **THE HIGH SCORE** | Final boss | Part 2 |
+| **THE HIGH SCORE** | Final boss | Playable (from the Core after the reboot) |
 
 NPC archetypes: arcade cabinets that talk through their attract screens, the freed bosses as lobby residents, the stalker, the rival, the shopkeeper, the QA tester.
 

@@ -39,7 +39,7 @@ export class TitleScene implements Scene {
 
   private saveSummary(): string {
     const p = this.game.store.loadProfile();
-    const clears = Object.values(p.cleared).filter((c) => c.clears > 0).length;
+    const clears = MODE_IDS.filter((m) => p.cleared[m].clears > 0).length;
     return `LV ${p.level} • ${clears}/${MODE_IDS.length} WORLDS • ${p.floppies.length}/${TOTAL_FLOPPIES} DISKS • ${p.bits} BITS`;
   }
 

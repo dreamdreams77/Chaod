@@ -496,6 +496,7 @@ export class RampageMode extends ModeBase {
 
   private hurt(n: number, knock: boolean): void {
     if (this.iframes > 0 || this.dead > 0) return;
+    n *= this.takenMult;
     this.hp -= n;
     this.iframes = 1.2;
     this.noteDamage(n);

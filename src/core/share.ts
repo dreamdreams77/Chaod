@@ -8,7 +8,7 @@ import { MODE_IDS, ModeId, Profile } from './save.ts';
 import { formatSeed } from './rng.ts';
 import { challengeUrl } from '../data/daily.ts';
 import { starCount } from '../data/mastery.ts';
-import { H, W, backdrop, frame, glow, rect } from '../render/gfx.ts';
+import { H, W, backdrop, glow, rect } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 
 export interface Card {
@@ -54,7 +54,11 @@ export function drawCard(ctx: CanvasRenderingContext2D, c: Card, level: number):
   backdrop(ctx, '#05020d', '#1d0f33');
   glow(ctx, W / 2, 40, 220, '255,63,164', 0.16);
   for (let i = 0; i < 30; i++) rect(ctx, (i * 53) % W, (i * 31) % H, 2, 2, '#ffffff22');
-  frame(ctx, 8, 8, W - 16, H - 16, '#00000000', c.color);
+  // A plain border: frame() fills its box, which would paint over the backdrop.
+  rect(ctx, 8, 8, W - 16, 2, c.color);
+  rect(ctx, 8, H - 10, W - 16, 2, c.color);
+  rect(ctx, 8, 8, 2, H - 16, c.color);
+  rect(ctx, W - 10, 8, 2, H - 16, c.color);
   drawText(ctx, 'CHAOS.EXE', 20, 18, '#ff3fa4', { scale: 2 });
   drawText(ctx, `PLAYER LV ${level}`, W - 20, 22, '#9a9ab8', { align: 'right' });
   drawText(ctx, c.title, W / 2, 52, c.color, { align: 'center', scale: 3 });
@@ -65,7 +69,7 @@ export function drawCard(ctx: CanvasRenderingContext2D, c: Card, level: number):
     drawText(ctx, k, 120, 166 + i * 13, '#9a9ab8');
     drawText(ctx, v, 250, 166 + i * 13, '#fff');
   });
-  drawText(ctx, c.link ? 'PLAY THE SAME SEED: ?seed= LINK IN THE POST' : 'A GAME ABOUT EVERY GENRE AT ONCE', W / 2, H - 22, '#3fe0ff', { align: 'center' });
+  drawText(ctx, c.link ? 'THE POST CARRIES A LINK TO PLAY THIS EXACT SEED' : 'A GAME ABOUT EVERY GENRE AT ONCE', W / 2, H - 22, '#3fe0ff', { align: 'center' });
 }
 
 export type ShareResult = 'shared' | 'saved' | 'failed';
@@ -86,8 +90,13 @@ export async function shareCard(c: Card, level: number): Promise<ShareResult> {
     const file = new File([blob], 'chaos-exe-run.png', { type: 'image/png' });
     const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
     if (nav.share && nav.canShare?.({ files: [file] })) {
-      await nav.share({ files: [file], title: 'CHAOS.EXE', text: c.text });
-      return 'shared';
+      try {
+        await nav.share({ files: [file], title: 'CHAOS.EXE', text: c.text });
+        return 'shared';
+      } catch (err) {
+        // Cancelling the sheet is fine; anything else (an expired tap, a blocked share) falls back to saving the picture.
+        if ((err as Error)?.name === 'AbortError') return 'shared';
+      }
     }
     // No share sheet (most desktops): copy the text and save the picture.
     try {
