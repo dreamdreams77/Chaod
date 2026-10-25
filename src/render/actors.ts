@@ -1,5 +1,5 @@
 /** Pixel-art characters and pickups, drawn from rectangles. */
-import { rect as r } from './gfx.ts';
+import { rect as r, glow } from './gfx.ts';
 import type { Look } from '../data/cosmetics.ts';
 
 /** The player's chosen outfit and hat; set by the game whenever the wardrobe changes. */
@@ -203,11 +203,11 @@ export function drawByte(ctx: CanvasRenderingContext2D, x: number, y: number, t:
   }
   // antenna / crest
   if (st >= 3) {
-    r(ctx, -1, -bh - 6, 3, 5, '#ffcf3f');
-    r(ctx, -2, -bh - 7, 5, 2, '#fff7a8');
-    ctx.globalAlpha = 0.18 + Math.sin(t * 4) * 0.06;
-    r(ctx, -hw - 3, -bh - 4, bw + 6, bh + 6, '#ffcf3f');
-    ctx.globalAlpha = 1;
+    if (!form.head) {
+      r(ctx, -1, -bh - 6, 3, 5, '#ffcf3f');
+      r(ctx, -2, -bh - 7, 5, 2, '#fff7a8');
+    }
+    glow(ctx, 0, -bh / 2, 18, '255,207,63', 0.3 + Math.sin(t * 4) * 0.08);
   } else {
     r(ctx, 0, -bh - 4, 1, 3, '#fff');
     r(ctx, -1, -bh - 5, 3, 2, bond >= 4 ? '#ffcf3f' : '#ff3fa4');
