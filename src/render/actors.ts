@@ -1,5 +1,14 @@
 /** Pixel-art characters and pickups, drawn from rectangles. */
 import { rect as r } from './gfx.ts';
+import type { Look } from '../data/cosmetics.ts';
+
+/** The player's chosen outfit and hat; set by the game whenever the wardrobe changes. */
+let look: Look = { hair: '#ff3fa4', shirt: '#20c4b0', pants: '#3346a8' };
+let hat = 'none';
+export function setLook(l: Look, h: string): void {
+  look = l;
+  hat = h;
+}
 
 export type Pose = 'idle' | 'run' | 'jump' | 'attack' | 'special' | 'block' | 'hurt' | 'dizzy';
 export type PortraitId = 'cass' | 'demo' | 'manual' | 'kevin' | 'rex' | 'polygon' | 'byte' | 'brick' | 'static' | 'manager' | 'core';
@@ -42,9 +51,9 @@ export function drawCass(ctx: CanvasRenderingContext2D, a: Actor, who: 'cass' | 
   if (who === 'demo') return drawDemo(ctx, a);
   const f = a.flash;
   const skin = f ? '#fff' : '#f2c49b';
-  const hair = f ? '#fff' : '#ff3fa4';
-  const shirt = f ? '#fff' : '#20c4b0';
-  const pants = f ? '#fff' : '#3346a8';
+  const hair = f ? '#fff' : look.hair;
+  const shirt = f ? '#fff' : look.shirt;
+  const pants = f ? '#fff' : look.pants;
   const shoe = '#ffffff';
   withActor(ctx, a, () => {
     const running = a.pose === 'run';
@@ -88,8 +97,36 @@ export function drawCass(ctx: CanvasRenderingContext2D, a: Actor, who: 'cass' | 
     r(ctx, 1, -18 + bob, 2, 2, a.pose === 'hurt' || a.pose === 'dizzy' ? '#000' : '#1a1a2e');
     r(ctx, -5, -23 + bob, 10, 1, '#222');
     r(ctx, -6, -19 + bob, 2, 4, '#ffcf3f');
+    // Hat sits on top of the hair; it is skipped on the hit-flash frame so the flash stays solid white.
+    if (!f) drawHat(ctx, bob, a.t);
     if (a.pose === 'dizzy') r(ctx, -3, -26 + bob + Math.sin(a.t * 10), 2, 2, '#ffcf3f');
   });
+}
+
+function drawHat(ctx: CanvasRenderingContext2D, bob: number, t: number): void {
+  switch (hat) {
+    case 'cap':
+      r(ctx, -5, -25 + bob, 10, 3, '#ff3f3f');
+      r(ctx, 3, -23 + bob, 5, 1, '#b02020');
+      r(ctx, -1, -26 + bob, 3, 1, '#ff3f3f');
+      break;
+    case 'antenna':
+      r(ctx, 0, -29 + bob, 1, 6, '#9a9ab8');
+      r(ctx, -1, -31 + bob, 3, 2, Math.floor(t * 3) % 2 ? '#3fe0ff' : '#ff3fa4');
+      break;
+    case 'halo':
+      r(ctx, -4, -28 + bob + Math.round(Math.sin(t * 3)), 8, 1, '#fff3a0');
+      r(ctx, -5, -27 + bob + Math.round(Math.sin(t * 3)), 1, 1, '#ffcf3f');
+      r(ctx, 4, -27 + bob + Math.round(Math.sin(t * 3)), 1, 1, '#ffcf3f');
+      break;
+    case 'crown':
+      r(ctx, -4, -27 + bob, 8, 4, '#ffd23f');
+      r(ctx, -4, -29 + bob, 2, 2, '#ffd23f');
+      r(ctx, -1, -30 + bob, 2, 3, '#ffd23f');
+      r(ctx, 2, -29 + bob, 2, 2, '#ffd23f');
+      r(ctx, -1, -25 + bob, 2, 2, '#ff3f6b');
+      break;
+  }
 }
 
 /** The secret character: a small dog. */

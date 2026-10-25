@@ -13,6 +13,7 @@ import { MODE_IDS, ModeId, ChaosCategory, xpForLevel } from '../core/save.ts';
 import { SHOP, ACHIEVEMENTS, unlockAchievement } from '../data/progression.ts';
 import { QUESTS, MINIS, MiniId } from '../data/quests.ts';
 import { STARS, starCount } from '../data/mastery.ts';
+import { COSMETICS, buyOrEquip } from '../data/cosmetics.ts';
 import { dateKey, dailyFor, currentStreak, challengeUrl, DAILY_BONUS } from '../data/daily.ts';
 import { MODIFIERS } from '../data/progression.ts';
 import { Rng, formatSeed } from '../core/rng.ts';
@@ -383,10 +384,47 @@ export class HubScene implements Scene {
     } else if (tr.t > 1.2) this.train = null;
   }
 
+  private wardrobeMenu(keep?: number): void {
+    const p = this.game.profile;
+    const w = p.wardrobe;
+    const row = (c: (typeof COSMETICS)[number]): MenuItem => {
+      const owned = w.owned.includes(c.id);
+      const on = c.kind === 'palette' ? w.palette === c.id : w.hat === c.id;
+      return {
+        label: c.name,
+        value: () => (on ? 'WORN' : owned ? 'OWNED' : `${c.cost} BITS`),
+        color: on ? '#ffcf3f' : undefined,
+        sub: owned ? 'Press to wear it.' : `Buy for ${c.cost} bits and wear it.`,
+        onSelect: () => {
+          const res = buyOrEquip(p, c.id);
+          if (res === 'poor') {
+            this.game.audio.sfx('miss');
+            this.game.toast('MADAME POLYGON', 'THAT ONE IS A LITTLE OUT OF YOUR BUDGET.', '#b07aff');
+            return;
+          }
+          this.game.audio.sfx(res === 'bought' ? 'powerup' : 'select');
+          if (res === 'bought') this.game.toast('NEW LOOK', c.name, '#b07aff');
+          this.save();
+          this.wardrobeMenu(this.menu?.index);
+        },
+      };
+    };
+    const items: MenuItem[] = [
+      { label: '\u2014 OUTFITS \u2014', disabled: true },
+      ...COSMETICS.filter((c) => c.kind === 'palette').map(row),
+      { label: '\u2014 HATS \u2014', disabled: true },
+      ...COSMETICS.filter((c) => c.kind === 'hat').map(row),
+      { label: 'BACK', onSelect: () => { this.menu = null; this.shopMenu(); } },
+    ];
+    this.menu = new ListMenu(`WARDROBE \u2014 ${p.bits} BITS`, items, () => { this.menu = null; this.shopMenu(); }, { x: 60, y: 24, w: 360, rows: 13, accent: '#b07aff' });
+    this.menu.index = keep ?? 1;
+  }
+
   private shopMenu(): void {
     const p = this.game.profile;
     const keep = this.menu?.index;
-    const items: MenuItem[] = SHOP.map((s) => {
+    const items: MenuItem[] = [{ label: 'WARDROBE', sub: 'Outfits and hats for Cass. Purely for style.', onSelect: () => this.wardrobeMenu() }];
+    items.push(...SHOP.map((s) => {
       const owned = !s.repeatable && p.abilities.includes(s.id);
       const blocked = (s.requires && !p.abilities.includes(s.requires)) || (s.id === 'treats' && p.pet.bond >= 5);
       return {
@@ -409,7 +447,7 @@ export class HubScene implements Scene {
           this.shopMenu();
         },
       };
-    });
+    }));
     items.push({ label: 'BACK', onSelect: () => (this.menu = null) });
     this.menu = new ListMenu(`MADAME POLYGON — ${p.bits} BITS`, items, () => (this.menu = null), { x: 60, y: 30, w: 360, accent: '#b07aff', footer: POLYGON_INTRO });
     if (keep !== undefined) this.menu.index = Math.min(keep, items.length - 1);

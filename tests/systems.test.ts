@@ -502,3 +502,35 @@ test('star data in old or corrupt saves is repaired', () => {
   const p = migrateProfile({ stars: { rampage: ['clean', 'clean', 'bogus', 'fast'], neon: 'x', hacker: ['clean'] } });
   assert.deepEqual(p.stars, { rampage: ['clean', 'fast'] });
 });
+
+// ---- Wardrobe ----------------------------------------------------------------------------
+
+test('wardrobe: buying charges once, equipping owned items is free, poor players are refused', async () => {
+  const { buyOrEquip, COSMETIC_BY_ID } = await import('../src/data/cosmetics.ts');
+  const p = defaultProfile();
+  p.bits = 100;
+  assert.equal(buyOrEquip(p, 'crown'), 'poor');
+  assert.equal(p.bits, 100, 'a refused purchase costs nothing');
+  assert.equal(buyOrEquip(p, 'sunset'), 'bought');
+  assert.equal(p.bits, 100 - COSMETIC_BY_ID.get('sunset')!.cost);
+  assert.equal(p.wardrobe.palette, 'sunset');
+  assert.equal(buyOrEquip(p, 'classic'), 'equipped');
+  assert.equal(buyOrEquip(p, 'classic'), 'equipped');
+  assert.equal(p.bits, 100 - COSMETIC_BY_ID.get('sunset')!.cost, 'switching back is free');
+  p.bits += 100;
+  assert.equal(buyOrEquip(p, 'cap'), 'bought');
+  assert.equal(p.wardrobe.hat, 'cap');
+  assert.equal(p.wardrobe.palette, 'classic', 'a hat does not change the outfit');
+  assert.equal(buyOrEquip(p, 'nonsense'), 'unknown');
+});
+
+test('wardrobe saves are repaired: unknown or unowned items fall back to the defaults', async () => {
+  const { cleanWardrobe, currentLook, COSMETICS } = await import('../src/data/cosmetics.ts');
+  assert.deepEqual(migrateProfile({ version: 2 }).wardrobe, { owned: ['classic', 'none'], palette: 'classic', hat: 'none' });
+  const w = cleanWardrobe({ owned: ['sunset', 'bogus', 7], palette: 'royal', hat: 'sunset' });
+  assert.equal(w.palette, 'classic', 'wearing something you do not own is refused');
+  assert.equal(w.hat, 'none', 'a palette cannot be worn as a hat');
+  assert.ok(w.owned.includes('sunset') && !w.owned.includes('bogus'));
+  assert.ok(COSMETICS.every((c) => (c.kind === 'palette') === !!c.look), 'only palettes carry colours');
+  assert.equal(currentLook({ owned: [], palette: 'mint', hat: 'crown' }).hat, 'crown');
+});

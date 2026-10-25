@@ -9,7 +9,8 @@ import { Profile, SaveStore, Settings, ModeId } from './core/save.ts';
 import { Rng } from './core/rng.ts';
 import { H, W, ScreenFx, drawCRT, frame, rect } from './render/gfx.ts';
 import { drawText, wrap } from './render/font.ts';
-import { drawPortrait, drawKevin } from './render/actors.ts';
+import { drawPortrait, drawKevin, setLook } from './render/actors.ts';
+import { currentLook } from './data/cosmetics.ts';
 import type { Line } from './data/story.ts';
 import { ACHIEVEMENTS } from './data/progression.ts';
 import type { GestureMode } from './core/gestures.ts';
@@ -405,7 +406,15 @@ export class Game {
   questSeenSig: number | null = null;
   private crtShown = true;
 
+  private lookKey = '';
+
   render(): void {
+    const w = this.profile.wardrobe;
+    if (this.lookKey !== w.palette + '|' + w.hat) {
+      this.lookKey = w.palette + '|' + w.hat;
+      const c = currentLook(w);
+      setLook(c.look, c.hat);
+    }
     const g = this.lctx;
     g.save();
     const [sx, sy] = this.fx.offset();

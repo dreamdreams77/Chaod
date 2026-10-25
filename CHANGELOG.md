@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.10.0 — wardrobe
+- Madame Polygon's shop has a WARDROBE: five outfits (colour schemes for Cass) and four hats (arcade cap, antenna, save-point halo, crown), bought with bits and worn everywhere, including dialogue portraits. Purely cosmetic; unowned or unknown items in a save are repaired.
+
 ## 1.9.0 — Boss Rush and Nightmare mode (after the ending)
 - BOSS RUSH (lobby menu): BRICKLORD MAX straight into DJ STATIC, health carried over, bits +50%. Scores, time and damage are totalled on one results screen. New achievement RUSH HOUR.
 - NIGHTMARE MODE (every cabinet): one less heart, double damage, chaos forced to high (unless you turned it off), bits pay double. New achievement SLEEPLESS.
