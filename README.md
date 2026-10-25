@@ -43,7 +43,7 @@ Eleven fusions total (nine available from the start, two unlocked by play). Ever
 
 **ENDLESS RUN** (any cleared world): round after round on fresh seeds, a little tougher each time, with a heart patched up between rounds; bank your haul from the pause menu. **BYTE** grows through four forms (BYTE, KILOBYTE, MEGABYTE, GIGABYTE) as you care for it, earns small run perks, and can be dressed in hats, shades, scarves and wings.
 
-**Also:** a lobby **Quest Board** (fifteen quests that pay out automatically) and a **Mini-Game Arcade** (CART CATCH, BYTE BREAKOUT, WHACK-A-GLITCH, STACK-A-CART and GLITCH MEMORY); two full bosses with phases, telegraphs, weak points and defeat sequences; a mercy-or-delete choice for each; an ending; 21 floppy disks; 27 achievements; boss rematches; seeded challenge modifiers on replays; a shop; a virtual pet to feed and train; a secret character; an original cast and central mystery.
+**Also:** a lobby **Quest Board** (fifteen quests plus three **weekly goals** that reset every Monday, all paid out automatically), **lobby decor** to buy, an **assist mode** with an extra heart and slower enemies and a **Mini-Game Arcade** (CART CATCH, BYTE BREAKOUT, WHACK-A-GLITCH, STACK-A-CART and GLITCH MEMORY); two full bosses with phases, telegraphs, weak points and defeat sequences; a mercy-or-delete choice for each; an ending; 21 floppy disks; 27 achievements; boss rematches; seeded challenge modifiers on replays; a shop; a virtual pet to feed and train; a secret character; an original cast and central mystery.
 
 ## Controls
 
@@ -91,7 +91,7 @@ Zero runtime dependencies and zero binary assets: every sprite is drawn from rec
 ## Quality checks
 
 ```bash
-npm run check        # typecheck (src + tests) + 89 unit tests + production build
+npm run check        # typecheck (src + tests) + 99 unit tests + production build
 npm run smoke        # headless Chromium: plays every world, then drives the full campaign to the ending
 ```
 

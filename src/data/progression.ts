@@ -7,6 +7,7 @@ import { newlyUnlocked } from '../fusion/engine.ts';
 import { QuestDef, MiniId, MINIS, advanceQuests } from './quests.ts';
 import { applyDailyResult } from './daily.ts';
 import { awardStars } from './mastery.ts';
+import { advanceWeekly, weekKey } from './weekly.ts';
 
 export interface ShopItem {
   id: string;
@@ -99,6 +100,8 @@ export interface RunSummary {
   newStars: string[];
   /** Quest ids completed by this run. */
   quests: string[];
+  /** Weekly goal ids finished by this run ('sweep' for the all-three bonus). */
+  weekly: string[];
 }
 
 export function unlockAchievement(p: Profile, id: string, out: string[]): void {
@@ -108,7 +111,7 @@ export function unlockAchievement(p: Profile, id: string, out: string[]): void {
   }
 }
 
-export function applyRun(profile: Profile, r: RunResult): { profile: Profile; summary: RunSummary } {
+export function applyRun(profile: Profile, r: RunResult, today: string = weekKey()): { profile: Profile; summary: RunSummary } {
   const p: Profile = structuredCloneSafe(profile);
   const achievements: string[] = [];
   const levelBefore = p.level;
@@ -162,14 +165,17 @@ export function applyRun(profile: Profile, r: RunResult): { profile: Profile; su
   let dailyStreak = 0;
   if (r.challenge === 'daily' && r.dailyKey) ({ bonus: dailyBonus, streak: dailyStreak } = applyDailyResult(p, r.dailyKey, r.score, r.cleared));
   p.level = levelForXp(p.xp); // stars and the daily bonus add XP
-  const quests = advanceQuests(p, { kind: 'run', r, newFloppies, paidBits: bits, newStars: newStars.length }).map((q) => q.id);
+  const runEvent = { kind: 'run' as const, r, newFloppies, paidBits: bits, newStars: newStars.length };
+  const quests = advanceQuests(p, runEvent).map((q) => q.id);
+  const weekly = advanceWeekly(p, runEvent, today);
+  p.level = levelForXp(p.xp);
   if (p.level >= 5) unlockAchievement(p, 'level5', achievements);
   // Virtual-pet care loop: BYTE gets hungry and ready to play again after every adventure.
   p.pet.hunger = Math.min(3, p.pet.hunger + 1);
   p.pet.trainedToday = 0;
   const muts = newlyUnlocked(p).map((m) => m.id);
   for (const m of muts) p.mutationsUnlocked.push(m);
-  return { profile: p, summary: { bits, xp, levelBefore, levelAfter: p.level, newFloppies, achievements, mutations: muts, firstClear, dailyBonus, dailyStreak, newStars, quests } };
+  return { profile: p, summary: { bits, xp, levelBefore, levelAfter: p.level, newFloppies, achievements, mutations: muts, firstClear, dailyBonus, dailyStreak, newStars, quests, weekly } };
 }
 
 export function structuredCloneSafe<T>(v: T): T {
@@ -198,11 +204,13 @@ export interface MiniOutcome {
   bits: number;
   best: boolean;
   quests: QuestDef[];
+  /** Weekly goal ids finished by this round. */
+  weekly: string[];
   achievements: string[];
 }
 
 /** Records a finished mini-game: pays bits, tracks the personal best, advances quests. Pure. */
-export function applyMini(profile: Profile, game: MiniId, rawScore: number): { profile: Profile; outcome: MiniOutcome } {
+export function applyMini(profile: Profile, game: MiniId, rawScore: number, today: string = weekKey()): { profile: Profile; outcome: MiniOutcome } {
   const p: Profile = structuredCloneSafe(profile);
   const score = Number.isFinite(rawScore) ? Math.max(0, Math.floor(rawScore)) : 0;
   const info = MINIS.find((m) => m.id === game)!;
@@ -211,8 +219,11 @@ export function applyMini(profile: Profile, game: MiniId, rawScore: number): { p
   const rec = p.mini[game] ?? { best: 0, plays: 0 };
   const best = score > rec.best;
   p.mini[game] = { best: Math.max(rec.best, score), plays: rec.plays + 1 };
-  const quests = advanceQuests(p, { kind: 'mini', game, score });
+  const miniEvent = { kind: 'mini' as const, game, score };
+  const quests = advanceQuests(p, miniEvent);
+  const weekly = advanceWeekly(p, miniEvent, today);
+  p.level = levelForXp(p.xp);
   const achievements: string[] = [];
   if (p.level >= 5) unlockAchievement(p, 'level5', achievements);
-  return { profile: p, outcome: { bits, best, quests, achievements } };
+  return { profile: p, outcome: { bits, best, quests, weekly, achievements } };
 }

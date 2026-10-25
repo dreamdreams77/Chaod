@@ -37,6 +37,7 @@ export class SettingsScene implements Scene {
       { label: 'SFX VOLUME', value: () => pct(s.sfx), onAdjust: (d) => { s.sfx = clamp01(s.sfx + d * 0.1); this.save(); this.game.audio.sfx('coin'); } },
       { label: 'MUTE ALL', value: () => (s.muted ? 'ON' : 'OFF'), onAdjust: () => { s.muted = !s.muted; this.save(); } },
       { label: 'DIFFICULTY', value: () => s.difficulty.toUpperCase(), sub: 'Easy: weaker enemies, gentler chaos. Hard: faster bosses, more chaos.', onAdjust: (d) => { s.difficulty = cyc(DIFFS, s.difficulty, d); this.save(); } },
+      { label: 'ASSIST MODE', value: () => (s.assist ? 'ON' : 'OFF'), sub: 'One extra heart in every world and slightly slower enemies and bullets. Rewards stay the same.', onAdjust: () => { s.assist = !s.assist; this.save(); } },
       { label: 'GAME SPEED', value: () => pct(s.gameSpeed), sub: 'Slows the whole simulation for more reaction time. Rhythm songs slow down to match.', onAdjust: (d) => { s.gameSpeed = Math.min(1, Math.max(0.5, Math.round((s.gameSpeed + d * 0.1) * 10) / 10)); this.save(); } },
       { label: 'CHAOS DIRECTOR', value: () => s.chaos.toUpperCase(), sub: 'How often surprise events happen. OFF disables them entirely.', onAdjust: (d) => { s.chaos = cyc(CHAOS, s.chaos, d); this.save(); } },
       { label: 'SCREEN SHAKE', value: () => pct(s.shake), onAdjust: (d) => { s.shake = clamp01(s.shake + d * 0.25); this.save(); } },

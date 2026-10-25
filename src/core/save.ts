@@ -1,6 +1,8 @@
 import { ACTIONS, Bindings, DEFAULT_BINDINGS, cloneBindings } from './input.ts';
 import { Wardrobe, defaultWardrobe, cleanWardrobe } from '../data/cosmetics.ts';
 import { PetOutfit, defaultOutfit, cleanOutfit } from '../data/pet.ts';
+import { LobbyDecor, defaultDecor, cleanDecor } from '../data/decor.ts';
+import { WeeklyState, emptyWeekly, WEEKLY_BY_ID } from '../data/weekly.ts';
 
 export type ModeId = 'rampage' | 'neon' | 'mall' | 'beatdown' | 'rhythm' | 'command' | 'penalty';
 export const MODE_IDS: ModeId[] = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm', 'command', 'penalty'];
@@ -52,6 +54,10 @@ export interface Profile {
   stars: Partial<Record<ModeId, string[]>>;
   /** ENDLESS RUN personal bests per world: rounds survived and best total score. */
   endless: Partial<Record<ModeId, { rounds: number; score: number }>>;
+  /** Lobby decorations bought from Madame Polygon (see data/decor.ts). */
+  decor: LobbyDecor;
+  /** This week's goals (see data/weekly.ts). */
+  weekly: WeeklyState;
   /** Daily challenge record (see data/daily.ts). */
   daily: { key: string; best: number; cleared: boolean; streak: number; lastClear: string };
 }
@@ -73,6 +79,8 @@ export interface Settings {
   bindings: Bindings;
   fixedSeed: number | null;
   hints: boolean;
+  /** ASSIST MODE: one extra heart in every world and slower enemies and bullets. */
+  assist: boolean;
 }
 
 export const PROFILE_VERSION = 2;
@@ -110,6 +118,8 @@ export function defaultProfile(): Profile {
     wardrobe: defaultWardrobe(),
     stars: {},
     endless: {},
+    decor: defaultDecor(),
+    weekly: emptyWeekly(),
     daily: { key: '', best: 0, cleared: false, streak: 0, lastClear: '' },
   };
 }
@@ -131,6 +141,7 @@ export function defaultSettings(): Settings {
     bindings: cloneBindings(DEFAULT_BINDINGS),
     fixedSeed: null,
     hints: true,
+    assist: false,
   };
 }
 
@@ -180,6 +191,17 @@ export function migrateProfile(raw: unknown): Profile {
       if (e && Number.isFinite(e.rounds) && Number.isFinite(e.score)) p.endless[m] = { rounds: Math.max(0, Math.floor(e.rounds as number)), score: Math.max(0, e.score as number) };
     }
   }
+  p.decor = cleanDecor(r.decor);
+  const wk = (r.weekly ?? {}) as Partial<WeeklyState>;
+  p.weekly = emptyWeekly();
+  if (typeof wk.key === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(wk.key)) {
+    p.weekly.key = wk.key;
+    p.weekly.swept = wk.swept === true;
+    if (Array.isArray(wk.done)) p.weekly.done = wk.done.filter((id, i, a): id is string => typeof id === 'string' && WEEKLY_BY_ID.has(id) && a.indexOf(id) === i);
+    if (wk.progress && typeof wk.progress === 'object' && !Array.isArray(wk.progress)) {
+      for (const [k, v] of Object.entries(wk.progress)) if (WEEKLY_BY_ID.has(k) && Number.isFinite(v) && (v as number) >= 0) p.weekly.progress[k] = v as number;
+    }
+  }
   const dr = (r.daily ?? {}) as Partial<Profile['daily']>;
   p.daily = {
     key: typeof dr.key === 'string' ? dr.key.slice(0, 10) : '',
@@ -218,6 +240,7 @@ export function migrateSettings(raw: unknown): Settings {
     cleanBind[a] = Array.isArray(v) && v.every((k) => typeof k === 'string') ? (v as string[]).slice() : DEFAULT_BINDINGS[a].slice();
   }
   s.bindings = cloneBindings(cleanBind);
+  s.assist = s.assist === true;
   if (s.fixedSeed !== null && !(typeof s.fixedSeed === 'number' && Number.isInteger(s.fixedSeed) && s.fixedSeed >= 0 && s.fixedSeed <= 999999)) s.fixedSeed = null;
   s.master = clamp01(s.master);
   s.music = clamp01(s.music);

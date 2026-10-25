@@ -113,6 +113,7 @@ export abstract class ModeBase implements Scene {
     });
     const st = playerStats(p);
     if (this.modifier?.id === 'glass' || this.modifier?.id === 'nightmare') st.maxHp = Math.max(2, st.maxHp - 1);
+    if (game.settings.assist) st.maxHp += 1;
     this.stats = st;
     // A chained run carries disks, flags and chaos events forward, so nothing is found (or paid for) twice.
     const carry = opts.endless ?? opts.rush;
@@ -132,7 +133,7 @@ export abstract class ModeBase implements Scene {
     return this.endlessRound ? Math.min(2, 1 + 0.12 * (this.endlessRound - 1)) : 1;
   }
   get diffMult(): number {
-    return { easy: 0.6, normal: 1, hard: 1.4 }[this.game.settings.difficulty] * this.tier;
+    return { easy: 0.6, normal: 1, hard: 1.4 }[this.game.settings.difficulty] * this.tier * (this.game.settings.assist ? 0.85 : 1);
   }
   get damageMult(): number {
     return this.modifier?.id === 'glass' || this.modifier?.id === 'nightmare' || this.endlessRound >= 5 ? 2 : 1;

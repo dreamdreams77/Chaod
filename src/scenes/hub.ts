@@ -15,6 +15,8 @@ import { QUESTS, MINIS, MiniId } from '../data/quests.ts';
 import { STARS, STAR_BITS, starCount } from '../data/mastery.ts';
 import { COSMETICS, buyOrEquip } from '../data/cosmetics.ts';
 import { PET_ITEMS, PET_STAGES, buyOrWearPet, petForm, petStage } from '../data/pet.ts';
+import { DECOR, DECOR_SLOTS, buyOrWearDecor } from '../data/decor.ts';
+import { SWEEP_BITS, weekKey, weeklyFor, weeklyView } from '../data/weekly.ts';
 import { dateKey, dailyFor, currentStreak, challengeUrl, DAILY_BONUS } from '../data/daily.ts';
 import { MODIFIERS } from '../data/progression.ts';
 import { Rng, formatSeed } from '../core/rng.ts';
@@ -344,36 +346,46 @@ export class HubScene implements Scene {
     if (keep !== undefined) this.menu.index = Math.min(keep, items.length - 1);
   }
 
+  /** One buy-or-wear row, shared by BYTE's DRESS UP and the lobby DECOR menus. */
+  private wearRow(o: { name: string; cost: number; owned: boolean; worn: boolean; lock?: string; act: () => string; poor: string; reopen: () => void }): MenuItem {
+    return {
+      label: o.name,
+      value: () => (o.worn ? 'WORN' : o.owned ? 'OWNED' : o.lock ?? `${o.cost} BITS`),
+      color: o.worn ? '#ffcf3f' : undefined,
+      disabled: !!o.lock && !o.owned,
+      sub: o.worn ? 'Press to take it off.' : o.owned ? 'Press to put it on.' : o.lock ? o.lock : `Buy for ${o.cost} bits and put it on.`,
+      onSelect: () => {
+        const res = o.act();
+        if (res === 'poor') {
+          this.game.audio.sfx('miss');
+          this.game.toast('MADAME POLYGON', o.poor, '#b07aff');
+          return;
+        }
+        this.game.audio.sfx(res === 'bought' ? 'powerup' : 'select');
+        if (res === 'bought') {
+          this.particles.burst(60, 190, ['#9dff3f', '#ffcf3f', '#fff'], 14, 60);
+          this.game.toast('NEW PURCHASE', o.name, '#b07aff');
+        }
+        this.save();
+        o.reopen();
+      },
+    };
+  }
+
   private petDressMenu(keep?: number): void {
     const p = this.game.profile;
     const o = p.pet.outfit;
     const stage = petStage(p.pet.care);
     const row = (it: (typeof PET_ITEMS)[number]): MenuItem => {
       const owned = o.owned.includes(it.id);
-      const on = o[it.slot] === it.id;
       const locked = !owned && stage < (it.minStage ?? 0);
-      return {
-        label: it.name,
-        value: () => (on ? 'WORN' : owned ? 'OWNED' : locked ? `NEEDS ${PET_STAGES[it.minStage!].name}` : `${it.cost} BITS`),
-        color: on ? '#ffcf3f' : undefined,
-        disabled: locked,
-        sub: on ? 'Press to take it off.' : owned ? 'Press to wear it.' : locked ? `BYTE has to grow into ${PET_STAGES[it.minStage!].name} first.` : `Buy for ${it.cost} bits and put it on BYTE.`,
-        onSelect: () => {
-          const res = buyOrWearPet(p, it.id);
-          if (res === 'poor') {
-            this.game.audio.sfx('miss');
-            this.game.toast('MADAME POLYGON', 'BYTE LOVES IT. YOUR WALLET DOES NOT.', '#b07aff');
-            return;
-          }
-          this.game.audio.sfx(res === 'bought' ? 'powerup' : 'select');
-          if (res === 'bought') {
-            this.particles.burst(60, 190, ['#9dff3f', '#ffcf3f', '#fff'], 14, 60);
-            this.game.toast('NEW OUTFIT', `BYTE: ${it.name}`, '#9dff3f');
-          }
-          this.save();
-          this.petDressMenu(this.menu?.index);
-        },
-      };
+      return this.wearRow({
+        name: it.name, cost: it.cost, owned, worn: o[it.slot] === it.id,
+        lock: locked ? `NEEDS ${PET_STAGES[it.minStage!].name}` : undefined,
+        act: () => buyOrWearPet(p, it.id),
+        poor: 'BYTE LOVES IT. YOUR WALLET DOES NOT.',
+        reopen: () => this.petDressMenu(this.menu?.index),
+      });
     };
     const items: MenuItem[] = [
       { label: '\u2014 HEAD \u2014', disabled: true },
@@ -385,6 +397,27 @@ export class HubScene implements Scene {
       { label: 'BACK', onSelect: () => this.leaveDressUp() },
     ];
     this.menu = new ListMenu(`DRESS UP BYTE \u2014 ${p.bits} BITS`, items, () => this.leaveDressUp(), { x: 60, y: 20, w: 360, rows: 13, accent: '#9dff3f' });
+    this.menu.index = keep ?? 1;
+  }
+
+  private decorMenu(keep?: number): void {
+    const p = this.game.profile;
+    const d = p.decor;
+    const heads = { floor: 'FLOOR', wall: 'WALL', corner: 'CORNERS' } as const;
+    const items: MenuItem[] = [];
+    for (const slot of DECOR_SLOTS) {
+      items.push({ label: `\u2014 ${heads[slot]} \u2014`, disabled: true });
+      for (const it of DECOR.filter((x) => x.slot === slot)) {
+        items.push(this.wearRow({
+          name: it.name, cost: it.cost, owned: d.owned.includes(it.id), worn: d[slot] === it.id,
+          act: () => buyOrWearDecor(p, it.id),
+          poor: 'LOVELY TASTE. NOT ENOUGH BITS, DEAR.',
+          reopen: () => this.decorMenu(this.menu?.index),
+        }));
+      }
+    }
+    items.push({ label: 'BACK', onSelect: () => { this.menu = null; this.shopMenu(); } });
+    this.menu = new ListMenu(`LOBBY DECOR \u2014 ${p.bits} BITS`, items, () => { this.menu = null; this.shopMenu(); }, { x: 60, y: 20, w: 360, rows: 13, accent: '#b07aff' });
     this.menu.index = keep ?? 1;
   }
 
@@ -506,7 +539,10 @@ export class HubScene implements Scene {
   private shopMenu(): void {
     const p = this.game.profile;
     const keep = this.menu?.index;
-    const items: MenuItem[] = [{ label: 'WARDROBE', sub: 'Outfits and hats for Cass. Purely for style.', onSelect: () => this.wardrobeMenu() }];
+    const items: MenuItem[] = [
+      { label: 'WARDROBE', sub: 'Outfits and hats for Cass. Purely for style.', onSelect: () => this.wardrobeMenu() },
+      { label: 'LOBBY DECOR', sub: 'Floors, wall lights and corner pieces for the Lobby of Lost Saves.', onSelect: () => this.decorMenu() },
+    ];
     items.push(...SHOP.map((s) => {
       const owned = !s.repeatable && p.abilities.includes(s.id);
       const blocked = !!(s.requires && !p.abilities.includes(s.requires));
@@ -618,7 +654,8 @@ export class HubScene implements Scene {
   /** Changes whenever any quest advances, so the board only flags real news. */
   private questSig(): number {
     const p = this.game.profile;
-    return p.questsDone.length * 100000 + Object.values(p.questProgress).reduce((a, b) => a + b, 0);
+    const w = weeklyView(p);
+    return p.questsDone.length * 100000 + Object.values(p.questProgress).reduce((a, b) => a + b, 0) + w.done.length * 1000 + Object.values(w.progress).reduce((a, b) => a + b, 0);
   }
 
   /** The world a world-quest should start: the fastest one for speed runs, else the first you have not cleared. */
@@ -650,6 +687,24 @@ export class HubScene implements Scene {
     this.game.questSeenSig = this.questSig();
     const done = p.questsDone.length;
     const items: MenuItem[] = [
+      { label: '\u2014 THIS WEEK (RESETS MONDAY) \u2014', disabled: true },
+      ...weeklyFor(weekKey()).map((w) => {
+        const st = weeklyView(p);
+        const ok = st.done.includes(w.id);
+        const prog = Math.min(w.goal, st.progress[w.id] ?? 0);
+        return {
+          label: (ok ? '\u2605 ' : '\u2606 ') + w.title,
+          value: () => (ok ? 'DONE' : `${prog}/${w.goal}`),
+          sub: `${w.desc} Reward: ${w.bits} bits + ${w.xp} XP.`,
+          color: ok ? '#3fe0ff' : '#9fe8ff',
+          onSelect: () => this.card(w.title, w.desc, (at) => this.questMenu(at), [
+            ['STATUS', ok ? 'COMPLETE' : `${prog} / ${w.goal}`],
+            ['REWARD', `${w.bits} BITS + ${w.xp} XP`],
+          ], this.questActions(w.id, w.play, ok)),
+        };
+      }),
+      { label: 'WEEKLY SWEEP', value: () => (weeklyView(p).swept ? 'PAID' : `ALL THREE: +${SWEEP_BITS} BITS`), disabled: true, sub: 'Finish all three weekly goals for a bonus.' },
+      { label: '\u2014 QUESTS \u2014', disabled: true },
       { label: `COMPLETED ${done}/${QUESTS.length}`, value: () => (done === QUESTS.length ? 'ALL DONE!' : ''), disabled: true },
       ...QUESTS.slice().sort((a, b) => Number(p.questsDone.includes(a.id)) - Number(p.questsDone.includes(b.id))).map((q) => {
         const ok = p.questsDone.includes(q.id);
@@ -749,6 +804,7 @@ export class HubScene implements Scene {
         if (k === 4) rect(ctx, x + 3, y + 10, 3, 3, '#ffcf3f44');
       }
     }
+    this.drawDecor(ctx, 'floor');
     // Back wall with neon trim: darker toward the ceiling, glow spilling onto the floor
     const wall = ctx.createLinearGradient(0, 0, 0, CAB_Y + 30);
     wall.addColorStop(0, '#0a0518');
@@ -769,6 +825,8 @@ export class HubScene implements Scene {
       rect(ctx, cx - 2, CAB_Y + 38, 36, 3, on ? MODE_INFO[MODE_IDS[i]].color : '#8a7aa0');
       ctx.globalAlpha = 1;
     });
+    this.drawDecor(ctx, 'wall');
+    this.drawDecor(ctx, 'corner');
     // Contact shadows for the big props
     for (const [sx, sy, sw] of [[214, 160, 52], [316, 243, 28], [40, 213, 40], [404, 215, 34]]) rect(ctx, sx + 2, sy, sw, 4, 'rgba(0,0,0,0.35)');
     drawText(ctx, 'THE LOBBY OF LOST SAVES', W / 2, 8, pal.accent2, { align: 'center', scale: 2 });
@@ -835,6 +893,86 @@ export class HubScene implements Scene {
       ctx.globalCompositeOperation = 'difference';
       rect(ctx, 0, 0, W, H, '#ffffff');
       ctx.globalCompositeOperation = 'source-over';
+    }
+  }
+
+  /** Bought lobby decorations (see data/decor.ts), drawn in three layers. */
+  private drawDecor(ctx: CanvasRenderingContext2D, layer: 'floor' | 'wall' | 'corner'): void {
+    const d = this.game.profile.decor;
+    const t = this.t;
+    if (layer === 'floor') {
+      const top = CAB_Y + 30;
+      if (d.floor === 'checker') {
+        for (let y = top; y < H; y += 32) for (let x = 0; x < W; x += 32) rect(ctx, x + ((y / 32) % 2 ? 16 : 0), y, 16, 16, 'rgba(255,255,255,0.05)');
+      } else if (d.floor === 'grid') {
+        for (let x = 0; x < W; x += 24) rect(ctx, x, top, 1, H - top, 'rgba(63,224,255,0.16)');
+        for (let y = top; y < H; y += 24) rect(ctx, 0, y, W, 1, 'rgba(63,224,255,0.16)');
+        const sweep = (t * 30) % (H - top);
+        rect(ctx, 0, top + sweep, W, 1, 'rgba(63,224,255,0.3)');
+      } else if (d.floor === 'confetti') {
+        const cols = ['#ff3fa4', '#3fe0ff', '#ffcf3f', '#7dff6b', '#b07aff'];
+        for (let i = 0; i < 90; i++) rect(ctx, (i * 53) % W, top + 4 + ((i * 37) % (H - top - 8)), 3, 2, cols[i % 5] + '88');
+      }
+      return;
+    }
+    if (layer === 'wall') {
+      if (d.wall === 'pennants') {
+        const cols = ['#ff3fa4', '#3fe0ff', '#ffcf3f', '#7dff6b'];
+        for (let x = 0; x < W; x += 12) {
+          const y = 26 + Math.round(Math.sin(x / 40) * 2);
+          rect(ctx, x, y, 12, 1, '#ffffff88');
+          rect(ctx, x + 1, y + 1, 9, 3, cols[(x / 12) % 4]);
+          rect(ctx, x + 3, y + 4, 5, 2, cols[(x / 12) % 4]);
+          rect(ctx, x + 5, y + 6, 1, 1, cols[(x / 12) % 4]);
+        }
+      } else if (d.wall === 'lights') {
+        const cols = ['#ff3fa4', '#3fe0ff', '#ffcf3f', '#7dff6b'];
+        for (let x = 4; x < W; x += 14) {
+          const y = 28 + Math.round(Math.sin(x / 30) * 3);
+          const on = (Math.floor(t * 1.2) + x / 14) % 4;
+          rect(ctx, x, y - 1, 14, 1, '#ffffff33');
+          glow(ctx, x + 7, y + 3, 7, '255,223,128', on === 0 ? 0.5 : 0.22);
+          rect(ctx, x + 6, y + 1, 3, 3, cols[(x / 14) % 4]);
+        }
+      } else if (d.wall === 'stars') {
+        for (let i = 0; i < 26; i++) {
+          const x = (i * 61 + 13) % W;
+          const y = 28 + ((i * 29) % 58);
+          ctx.globalAlpha = 0.35 + Math.sin(t * 0.8 + i) * 0.25;
+          rect(ctx, x, y, 3, 1, '#ffe9a8');
+          rect(ctx, x + 1, y - 1, 1, 3, '#ffe9a8');
+          ctx.globalAlpha = 1;
+        }
+      }
+      return;
+    }
+    // corner pieces, mirrored left and right
+    if (!d.corner) return;
+    for (const [x, dir] of [[20, 1], [W - 20, -1]] as const) {
+      const y = 252;
+      if (d.corner === 'plants') {
+        rect(ctx, x - 5, y - 8, 10, 8, '#8a4a2a');
+        rect(ctx, x - 6, y - 9, 12, 2, '#a85a32');
+        const sway = Math.round(Math.sin(t * 1.5 + x) * 1);
+        for (const [lx, ly, lw] of [[-6, -18, 4], [-2, -23, 4], [2, -18, 4], [-4, -14, 8]] as const) rect(ctx, x + lx + sway, y + ly, lw, 5, '#4fe07a');
+        rect(ctx, x - 1, y - 20, 2, 12, '#2a8a4a');
+      } else if (d.corner === 'lamps') {
+        rect(ctx, x - 4, y - 4, 8, 4, '#444458');
+        rect(ctx, x - 3, y - 20, 6, 16, '#ff3fa4aa');
+        rect(ctx, x - 2, y - 22, 4, 2, '#444458');
+        const b = Math.sin(t * 0.7 + x) * 5;
+        glow(ctx, x, y - 12 + b, 9, '255,159,63', 0.6);
+        rect(ctx, x - 2, y - 14 + Math.round(b), 4, 4, '#ffcf3f');
+        glow(ctx, x, y - 12, 18, '255,63,164', 0.12);
+      } else if (d.corner === 'speakers') {
+        const pump = Math.floor(t * 4) % 2;
+        for (const [oy, h] of [[-16, 16], [-30, 14]] as const) {
+          rect(ctx, x - 7, y + oy, 14, h, '#15101f');
+          rect(ctx, x - 6, y + oy + 1, 12, h - 2, '#241a38');
+          rect(ctx, x - 3 + dir * 0, y + oy + h / 2 - 3, 6, 6, '#0b0716');
+          rect(ctx, x - 2, y + oy + h / 2 - 2, 4, 4, pump && oy === -16 ? '#ff3fa4' : '#3a2a58');
+        }
+      }
     }
   }
 

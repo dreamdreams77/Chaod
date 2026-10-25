@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.0 — weekly goals, lobby decor, assist mode and a big bug check
+- **Weekly goals** on the Quest Board: three goals drawn from a pool of nine by the UTC week (the same for everyone, never two of a kind, reset every Monday), each paying bits and XP, plus a WEEKLY SWEEP bonus for finishing all three. They count runs, ENDLESS rounds, disks, stars, chaos events and mini-game rounds and points.
+- **Lobby decor** at Madame Polygon: three floors (checkerboard, neon grid, confetti), three wall pieces (pennant bunting, fairy lights, glow stars) and three corner pairs (plants, lava lamps, speaker stacks). One item per slot; owned items swap for free.
+- **ASSIST MODE** (Settings): one extra heart in every world and enemies and bullets 15% slower. Rewards are unchanged.
+- Big bug check, with these fixes: ENDLESS RUN now keeps every round's bits, XP, time and damage (before, only the last two rounds counted) and no longer pays the new-disk reward again for a disk found in an earlier round; NEON PANIC and GLITCH RHYTHM get tougher in later endless rounds as promised; a PENALTY STORM shot still in the air when your last heart goes can no longer turn a loss into a win; volleys in PENALTY STORM no longer depend on what you do, so a seed is the same match for everyone; the keeper's pattern set can no longer repeat itself back to back; old saves with a very high pet counter no longer jump straight to GIGABYTE, and anyone already grown gets the evolution trophies; the BYTE menu cursor and BOND readout are right; the endless "best" reads the same everywhere; fewer per-frame allocations in PENALTY STORM, the pause menu and BYTE's sprite.
+
 ## 2.1.1 — touch detection
 - Phones and tablets that only send pointer events (pen input, "desktop site" mode) are now recognised as touch on the first tap, so the on-screen pad appears and help text says A / B / C instead of Z / X / C. Before, those devices showed keyboard wording such as "HOLD X" with no X anywhere.
 

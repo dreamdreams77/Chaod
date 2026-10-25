@@ -8,6 +8,7 @@ import { drawText } from '../render/font.ts';
 import { xpForLevel } from '../core/save.ts';
 import { QUEST_BY_ID } from '../data/quests.ts';
 import { STARS, STAR_BITS } from '../data/mastery.ts';
+import { WEEKLY_BY_ID } from '../data/weekly.ts';
 
 export function showResults(game: Game, result: RunResult, seed: number): void {
   const before = game.profile;
@@ -52,6 +53,7 @@ class ResultsScene implements Scene {
       }
       for (const st of this.s.newStars) g.toast('MASTERY STAR', `${STARS.find((x) => x.id === st)?.name ?? st}  +${STAR_BITS} BITS`, '#ffcf3f');
       for (const q of this.s.quests) g.toast('QUEST COMPLETE', QUEST_BY_ID.get(q)?.title ?? q, '#ffcf3f');
+      for (const id of this.s.weekly) g.toast('WEEKLY GOAL', id === 'sweep' ? 'ALL THREE DONE! BONUS PAID' : WEEKLY_BY_ID.get(id)?.title ?? id, '#3fe0ff');
       for (const m of this.s.mutations) g.toast('NEW MUTATION', MUTATION_BY_ID.get(m)?.name ?? m, '#ff3fd2');
     }
     if (this.t < 0.5) return;

@@ -624,3 +624,81 @@ test('old saves keep their growth: care is rebuilt from bond, and a grown BYTE b
   const { summary } = applyRun(grown, { ...base, bitMultiplier: 1 + petBitBonus(petStage(grown.pet.care)) });
   assert.equal(summary.bits, 112);
 });
+
+// ---- weekly goals, lobby decor and assist mode -------------------------------------------
+
+import { WEEKLY_POOL, advanceWeekly, weekKey, weeklyFor, weeklyView, SWEEP_BITS } from '../src/data/weekly.ts';
+import { DECOR, buyOrWearDecor, cleanDecor } from '../src/data/decor.ts';
+import { migrateSettings } from '../src/core/save.ts';
+
+test('weekKey is the Monday of the UTC week', () => {
+  assert.equal(weekKey(new Date('2026-10-26T12:00:00Z')), '2026-10-26'); // a Monday
+  assert.equal(weekKey(new Date('2026-10-25T23:59:00Z')), '2026-10-19'); // the Sunday before
+  assert.equal(weekKey(new Date('2026-10-28T03:00:00Z')), '2026-10-26');
+  assert.equal(weekKey(new Date('2027-01-01T00:00:00Z')), '2026-12-28');
+});
+
+test('weekly goals: three different kinds, the same for everyone, reset each week', () => {
+  for (let i = 0; i < 60; i++) {
+    const key = weekKey(new Date(Date.UTC(2026, 0, 5 + 7 * i)));
+    const goals = weeklyFor(key);
+    assert.equal(goals.length, 3);
+    assert.equal(new Set(goals.map((g) => g.metric)).size, 3, 'no two goals of one kind');
+  }
+  assert.deepEqual(weeklyFor('2026-10-19').map((g) => g.id), weeklyFor('2026-10-19').map((g) => g.id));
+  const seen = new Set<string>();
+  for (let i = 0; i < 60; i++) for (const g of weeklyFor(weekKey(new Date(Date.UTC(2026, 0, 5 + 7 * i))))) seen.add(g.id);
+  assert.equal(seen.size, WEEKLY_POOL.length, 'every goal turns up over a year');
+});
+
+test('weekly goals pay when finished, the sweep pays once, and a new week starts fresh', () => {
+  const week = '2026-10-19';
+  const p = defaultProfile();
+  const goals = weeklyFor(week);
+  const mini = (score: number) => ({ kind: 'mini' as const, game: 'catch' as const, score });
+  const base = (): RunResult => ({ mode: 'rampage', cleared: true, score: 1, time: 100, bits: 0, xp: 0, floppies: [], damageTaken: 0, flags: [], chaosSeen: [], bitMultiplier: 1 });
+  const run = (extra: Partial<RunResult> = {}, newFloppies = 0, paidBits = 0, newStars = 0) => ({ kind: 'run' as const, r: { ...base(), ...extra }, newFloppies, paidBits, newStars });
+  // Pump every kind of event until all three finish.
+  const bitsBefore = p.bits;
+  const events = [run({ cleared: true }, 3, 800, 3), run({ endless: { rounds: 9 }, chaosSeen: new Array(30).fill('x') }), mini(300), mini(300), mini(300), mini(300), mini(300), mini(300), mini(300), mini(300), mini(300), mini(300), run({ cleared: true }), run({ cleared: true }), run({ cleared: true }), run({ cleared: true })];
+  const finished: string[] = [];
+  for (const ev of events) finished.push(...advanceWeekly(p, ev, week));
+  assert.deepEqual(finished.filter((f) => f !== 'sweep').sort(), goals.map((g) => g.id).sort());
+  assert.equal(finished.filter((f) => f === 'sweep').length, 1, 'the sweep pays once');
+  const reward = goals.reduce((a, g) => a + g.bits, 0) + SWEEP_BITS;
+  assert.equal(p.bits - bitsBefore, reward);
+  assert.deepEqual(advanceWeekly(p, mini(300), week), [], 'finished goals do not pay twice');
+  // next week: the old progress is gone
+  assert.equal(weeklyView(p, '2026-10-26').done.length, 0);
+  advanceWeekly(p, run({ cleared: true }), '2026-10-26');
+  assert.equal(p.weekly.key, '2026-10-26');
+  assert.ok(!p.weekly.swept);
+});
+
+test('lobby decor: buy puts it up, again takes it down, one item per slot, bad saves repaired', () => {
+  const p = defaultProfile();
+  p.bits = 500;
+  assert.equal(buyOrWearDecor(p, 'nope'), 'unknown');
+  assert.equal(buyOrWearDecor(p, 'checker'), 'bought');
+  assert.equal(p.decor.floor, 'checker');
+  assert.equal(buyOrWearDecor(p, 'grid'), 'bought');
+  assert.equal(p.decor.floor, 'grid', 'one floor at a time');
+  assert.equal(buyOrWearDecor(p, 'checker'), 'worn', 'owned items are free to swap back');
+  assert.equal(buyOrWearDecor(p, 'checker'), 'removed');
+  assert.equal(p.decor.floor, '');
+  p.bits = 1;
+  assert.equal(buyOrWearDecor(p, 'speakers'), 'poor');
+  assert.deepEqual(cleanDecor({ owned: ['plants', 'plants', 'zzz'], floor: 'plants', corner: 'plants', wall: 'lights' }), { owned: ['plants'], floor: '', wall: '', corner: 'plants' });
+  assert.equal(new Set(DECOR.map((d) => d.id)).size, DECOR.length);
+});
+
+test('weekly and decor saves are validated, and ASSIST MODE defaults off and survives bad values', () => {
+  const p = migrateProfile({ weekly: { key: 'soon', progress: { w_tour: -3, zzz: 4 }, done: ['w_tour', 'w_tour', 'q'] }, decor: 5 });
+  assert.deepEqual(p.weekly, { key: '', progress: {}, done: [], swept: false });
+  assert.deepEqual(p.decor, { owned: [], floor: '', wall: '', corner: '' });
+  const ok = migrateProfile({ weekly: { key: '2026-10-19', progress: { w_tour: 2, zzz: 4, w_baron: -1 }, done: ['w_tour', 'w_tour', 'q'], swept: true } });
+  assert.deepEqual(ok.weekly, { key: '2026-10-19', progress: { w_tour: 2 }, done: ['w_tour'], swept: true });
+  assert.equal(migrateSettings({}).assist, false);
+  assert.equal(migrateSettings({ assist: 'yes' }).assist, false);
+  assert.equal(migrateSettings({ assist: true }).assist, true);
+});

@@ -4,6 +4,7 @@
  * Small self-contained scenes; results flow through applyMini so bits, personal
  * bests and quests are handled (and tested) in one place.
  */
+import { WEEKLY_BY_ID } from '../data/weekly.ts';
 import type { Game, Scene } from '../game.ts';
 import { H, W, PAL, Particles, Popups, backdrop, glow, rect, frame, bar, clamp, approach } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
@@ -52,6 +53,7 @@ abstract class MiniBase implements Scene {
     this.outcome = outcome;
     this.game.announceAchievements(outcome.achievements);
     for (const q of outcome.quests) this.game.toast('QUEST COMPLETE', q.title, '#ffcf3f');
+    for (const id of outcome.weekly) this.game.toast('WEEKLY GOAL', id === 'sweep' ? 'ALL THREE DONE! BONUS PAID' : WEEKLY_BY_ID.get(id)?.title ?? id, '#3fe0ff');
     this.game.audio.sfx(outcome.best ? 'levelup' : 'powerup');
   }
 

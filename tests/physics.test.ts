@@ -488,3 +488,14 @@ test('PENALTY STORM: the volleys are the same for a seed whatever the player doe
   };
   assert.equal(first(true), first(false));
 });
+
+test('ASSIST MODE adds a heart and slows the world a little, without touching rewards', () => {
+  const plain = new RampageMode(spyGame().game);
+  const { game } = spyGame();
+  game.settings.assist = true;
+  const a = new RampageMode(game);
+  assert.equal(a.stats.maxHp, plain.stats.maxHp + 1);
+  assert.equal(a.hp, plain.hp + 1);
+  assert.ok(a.diffMult < plain.diffMult);
+  assert.equal(a.damageMult, plain.damageMult);
+});
