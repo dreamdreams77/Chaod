@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#0b0716" />
+<meta name="description" content="CHAOS.exe: The 90s Gaming Multiverse — an original browser game where every genre collides." />
+<title>CHAOS.exe</title>
+<meta name="claude:viewport-fit-sides" content="cover" />
+<style>
+  /* Single-look arcade cabinet: one deliberately dark theme. */
+  :root { --bg: #0b0716; --fg: #f4eefe; --accent: #ff3fa4; --edge: #1d1233; --err-bg: #2a0010; --err-fg: #ffd0dc; color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); overflow: hidden; box-sizing: border-box; }
+  body { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; align-items: center; justify-content: center; font-family: ui-monospace, monospace; touch-action: none; -webkit-user-select: none; user-select: none; }
+  #game { image-rendering: pixelated; image-rendering: crisp-edges; display: block; outline: none; background: #000; box-shadow: 0 0 0 2px var(--edge), 0 0 60px #ff3fa422; max-width: 100%; }
+  #game:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+  #touch { position: fixed; inset: 0; pointer-events: none; display: none; }
+  #touch.on { display: block; }
+  #touch button { position: absolute; pointer-events: auto; width: 56px; height: 56px; border-radius: 12px; border: 2px solid #ffffff55; background: #ffffff18; color: #fff; font: bold 14px ui-monospace, monospace; touch-action: none; }
+  #touch button.active { background: #ff3fa466; }
+  #err { position: fixed; left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); padding: 10px; background: var(--err-bg); border: 1px solid var(--accent); color: var(--err-fg); font: 12px ui-monospace, monospace; display: none; white-space: pre-wrap; z-index: 10; }
+  noscript { padding: 24px; }
+</style>
+</head>
+<body>
+<canvas id="game" width="480" height="270" tabindex="0" aria-label="CHAOS.exe game canvas"></canvas>
+<div id="touch" aria-hidden="true"></div>
+<div id="err" role="alert"></div>
+<noscript>CHAOS.exe needs JavaScript to run.</noscript>
+<script type="module" src="/dev-out/src/main.js"></script>
+</body>
+</html>
