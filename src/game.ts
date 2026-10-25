@@ -343,6 +343,8 @@ export class Game {
   // ---- drawing -----------------------------------------------------------------
   /** Keeps the song frozen while Settings is open from the pause menu. */
   holdAudio = false;
+  /** Cabinets the lobby has already shown as powered this session, so unlocks from a run get announced once. */
+  cabinetsSeen: Set<ModeId> | null = null;
   private crtShown = true;
 
   render(): void {

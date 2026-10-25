@@ -40,7 +40,7 @@ export class HubScene implements Scene {
   private kevinDir = 1;
   private paletteFlip = 0;
   private train: { cursor: number; dir: number; zone: number; done: boolean; result: string; t: number } | null = null;
-  private cabinetAnnounced = new Set<ModeId>();
+  private cabinetAnnounced: Set<ModeId>;
 
   constructor(private game: Game) {
     const cabX = [56, 136, 216, 296, 376];
@@ -57,7 +57,11 @@ export class HubScene implements Scene {
     this.things.push({ id: 'demo', x: 220, y: 240, label: 'DEMO (SECRET)', r: 14, visible: () => this.game.profile.secretUnlocked });
     this.things.push({ id: 'brick', x: 380, y: 160, label: 'BRICKLORD (FREED)', r: 16, visible: () => this.game.profile.bossChoices.bricklord === 'mercy' });
     this.things.push({ id: 'static', x: 100, y: 160, label: 'DJ STATIC (FREED)', r: 16, visible: () => this.game.profile.bossChoices.static === 'mercy' });
-    for (const m of MODE_IDS) if (isModeUnlocked(m, game.profile.cleared)) this.cabinetAnnounced.add(m);
+    // The first lobby of a session treats everything already unlocked as known; later lobbies announce new unlocks.
+    if (!game.cabinetsSeen) {
+      game.cabinetsSeen = new Set(MODE_IDS.filter((m) => isModeUnlocked(m, game.profile.cleared)));
+    }
+    this.cabinetAnnounced = game.cabinetsSeen;
   }
 
   enter(): void {
