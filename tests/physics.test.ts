@@ -74,3 +74,63 @@ test('player never falls through solid ground over a long idle', () => {
   assert.ok(m.onGround);
   assert.equal(m.py, 14 * TILE - m.ph);
 });
+
+// ---- NIGHTMARE mode and BOSS RUSH --------------------------------------------------------
+
+import { BeatdownMode } from '../src/modes/beatdown.ts';
+import { RhythmMode } from '../src/modes/rhythm.ts';
+
+function spyGame() {
+  const g = fakeGame() as unknown as Record<string, unknown>;
+  const started: Array<[string, Record<string, unknown>]> = [];
+  g.startMode = (m: string, o: Record<string, unknown>) => started.push([m, o]);
+  g.goto = () => {};
+  g.saveProfile = () => {};
+  g.rng = { int: () => 1, next: () => 0.5, pick: <T,>(a: T[]) => a[0] };
+  return { game: g as unknown as Game, started };
+}
+
+test('NIGHTMARE mode: one less heart, double damage, bits pay double, chaos forced high unless off', () => {
+  const base = new RampageMode(fakeGame());
+  const { game } = spyGame();
+  game.settings.chaos = 'normal';
+  const n = new RampageMode(game, { nightmare: true });
+  assert.equal(n.modifier?.id, 'nightmare');
+  assert.equal(n.damageMult, 2);
+  assert.equal(n.stats.maxHp, base.stats.maxHp - 1);
+  assert.equal(n.director['cfg'].intensity, 'high');
+  const { game: off } = spyGame();
+  off.settings.chaos = 'off';
+  assert.equal(new RampageMode(off, { nightmare: true }).director['cfg'].intensity, 'off', 'the accessibility setting still wins');
+});
+
+test('BOSS RUSH hands health and the running tally from Bricklord to DJ Static and pays once at the end', () => {
+  const { game, started } = spyGame();
+  const b = new BeatdownMode(game, { rematch: true, rush: { leg: 1 } });
+  b.hp = 2;
+  b.runBits = 40;
+  b.time = 55;
+  b.finish(true, 1000, { boss: 'bricklord' });
+  assert.equal(started.length, 1, 'no results screen between the legs');
+  const [mode, opts] = started[0] as [string, { rush: { leg: number; carryHp: number; bits: number; time: number; score: number } }];
+  assert.equal(mode, 'rhythm');
+  assert.equal(opts.rush.leg, 2);
+  assert.equal(opts.rush.carryHp, 2);
+  assert.equal(opts.rush.bits, 40);
+  assert.equal(opts.rush.score, 1000);
+
+  const r = new RhythmMode(game, { rematch: true, rush: { leg: 2, carryHp: 2, bits: 40, xp: 50, time: 55, damage: 1, score: 1000 } });
+  assert.equal(r.hp, 2, 'health carries over');
+  r.runBits = 30;
+  r.time = 70;
+  r.finish(true, 800, { boss: 'static' });
+  assert.equal(started.length, 1, 'the second leg goes to results, not another run');
+  assert.ok(game.profile.achievements.includes('boss_rush'), 'RUSH HOUR unlocked');
+  assert.equal(game.profile.cleared.rhythm.bestScore, 1800, 'scores add up');
+
+  const { game: g2 } = spyGame();
+  const lost = new BeatdownMode(g2, { rematch: true, rush: { leg: 1 } });
+  lost.finish(false, 10, { boss: 'bricklord' });
+  assert.equal(started.length, 1, 'a loss in leg 1 ends the rush with normal results');
+  assert.ok(!g2.profile.achievements.includes('boss_rush'));
+});

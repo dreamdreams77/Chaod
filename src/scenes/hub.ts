@@ -205,6 +205,7 @@ export class HubScene implements Scene {
   private openPauseMenu(): void {
     this.menu = new ListMenu('LOBBY MENU', [
       { label: 'PLAY A WORLD', sub: 'Pick a world to play right now, without walking to its cabinet.', onSelect: () => this.worldPicker() },
+      ...(this.game.profile.endingSeen ? [{ label: 'BOSS RUSH', sub: 'BRICKLORD MAX then DJ STATIC, back to back. Health carries over, no healing in between. Pays +50% bits.', onSelect: () => { this.menu = null; this.game.startMode('beatdown', { rematch: true, rush: { leg: 1 as const } }); } }] : []),
       { label: 'DAILY CHALLENGE', sub: 'A new seeded run every day, with a streak bonus and a shareable link.', onSelect: () => this.dailyMenu() },
       { label: 'QUEST BOARD', sub: 'Your quests and rewards.', onSelect: () => this.questMenu() },
       { label: 'MINI-GAME ARCADE', sub: 'Five quick games that pay bits.', onSelect: () => this.arcadeMenu() },
@@ -283,6 +284,7 @@ export class HubScene implements Scene {
     ];
     if (isBoss && p.bossesDefeated.includes(bossId)) items.push({ label: 'BOSS REMATCH (HARDER)', sub: 'Tougher boss, faster patterns, a rematch trophy.', onSelect: () => { this.menu = null; this.game.startMode(mode, { rematch: true }); } });
     const floppies = [0, 1, 2].map((i) => (p.floppies.includes(`${mode}-${i}`) ? '■' : '□')).join(' ');
+    if (p.endingSeen) items.push({ label: 'NIGHTMARE MODE', sub: 'One less heart, double damage, chaos cranked, bits pay double. For those who rebooted the Core.', color: '#ff3f6b', onSelect: () => { this.menu = null; this.game.startMode(mode, { nightmare: true }); } });
     items.push({ label: `BEST ${rec.bestScore}  CLEARS ${rec.clears}`, value: () => `DISKS ${floppies}`, disabled: true });
     const have = new Set(p.stars[mode] ?? []);
     for (const s of STARS) {

@@ -51,6 +51,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'rematch', name: 'BACK FOR MORE', desc: 'Win a boss rematch.' },
   { id: 'beat_rex', name: 'NEW LAP RECORD', desc: 'Beat REX TURBO in NEON PANIC.' },
   { id: 'level5', name: 'LEVELED UP', desc: 'Reach level 5.' },
+  { id: 'boss_rush', name: 'RUSH HOUR', desc: 'Beat BRICKLORD MAX and DJ STATIC back to back in BOSS RUSH.' },
+  { id: 'nightmare', name: 'SLEEPLESS', desc: 'Clear a world in NIGHTMARE mode.' },
   { id: 'ending', name: 'REBOOT', desc: 'Restore the Cartridge Core.' },
   { id: 'secret', name: 'GOOD BOY', desc: 'Find the secret character.' },
 ];
@@ -173,6 +175,9 @@ export const MODIFIERS: Modifier[] = [
   { id: 'chaotic', name: 'CHAOS CRANKED', desc: 'The Chaos Director works overtime.', bitBonus: 0.3 },
   { id: 'calm', name: 'SUNDAY DRIVE', desc: 'No chaos events. Fewer rewards.', bitBonus: -0.3 },
 ];
+
+/** NIGHTMARE mode (unlocked by the ending): a synthetic modifier the base mode understands. */
+export const NIGHTMARE: Modifier = { id: 'nightmare', name: 'NIGHTMARE', desc: 'One less heart, double damage taken, chaos cranked. Bits pay double.', bitBonus: 1 };
 
 export interface MiniOutcome {
   bits: number;

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.0 — Boss Rush and Nightmare mode (after the ending)
+- BOSS RUSH (lobby menu): BRICKLORD MAX straight into DJ STATIC, health carried over, bits +50%. Scores, time and damage are totalled on one results screen. New achievement RUSH HOUR.
+- NIGHTMARE MODE (every cabinet): one less heart, double damage, chaos forced to high (unless you turned it off), bits pay double. New achievement SLEEPLESS.
+- Both unlock when you restore the Cartridge Core.
+
 ## 1.8.0 — mastery stars
 - Each world has three optional goals — UNTOUCHED (clear without damage), SPEEDY (beat the par time) and COLLECTOR (all three floppies) — shown as pips under its cabinet and listed in the cabinet menu. Each star pays 40 bits and XP once; new quest STAR COLLECTOR (6 stars).
 

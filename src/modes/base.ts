@@ -8,7 +8,7 @@ import { ChaosDirector, DirectorContext, ActiveEvent } from '../chaos/director.t
 import { FusionEngine } from '../fusion/engine.ts';
 import { Rng, formatSeed } from '../core/rng.ts';
 import { ChaosIntensity, ModeId, playerStats } from '../core/save.ts';
-import { MODIFIERS, Modifier, RunResult } from '../data/progression.ts';
+import { MODIFIERS, NIGHTMARE, Modifier, RunResult } from '../data/progression.ts';
 import { Particles, Popups, W, H, frame, rect, bar } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { showResults } from '../scenes/results.ts';
@@ -23,10 +23,16 @@ export interface ModeOpts {
   seed?: number;
   /** UTC date key when this is the daily challenge. */
   daily?: string;
+  /** NIGHTMARE mode (unlocked by the ending): harder, but bits pay double. */
+  nightmare?: boolean;
+  /** BOSS RUSH: Bricklord (leg 1) straight into DJ Static (leg 2) with health carried over. */
+  rush?: { leg: 1 | 2; carryHp?: number; bits?: number; xp?: number; time?: number; damage?: number; score?: number; chaos?: string[] };
 }
 
 export abstract class ModeBase implements Scene {
   abstract id: string;
+  /** Current hearts; every mode keeps its own, the base reads it for BOSS RUSH hand-over. */
+  abstract hp: number;
   pausable = true;
   crt = 0.3;
   /** Touchscreen gesture scheme and its on-screen help; subclasses set both. */
@@ -62,9 +68,10 @@ export abstract class ModeBase implements Scene {
     // Replays of cleared worlds roll a seeded challenge modifier for variety.
     const replay = p.cleared[mode].clears > 0;
     // Shared and daily runs always roll their modifier from the seed, so everyone plays the same run.
-    this.modifier = (replay || opts.seed !== undefined) && !opts.rematch ? this.rng.fork(77).pick(MODIFIERS) : null;
+    this.modifier = opts.nightmare ? NIGHTMARE : (replay || opts.seed !== undefined) && !opts.rematch ? this.rng.fork(77).pick(MODIFIERS) : null;
     let intensity = game.settings.chaos;
     if (this.modifier?.id === 'chaotic') intensity = BUMP[intensity];
+    if (this.modifier?.id === 'nightmare' && intensity !== 'off') intensity = 'high';
     if (this.modifier?.id === 'calm') intensity = 'off';
     this.director = new ChaosDirector({
       mode,
@@ -75,7 +82,7 @@ export abstract class ModeBase implements Scene {
       seed: this.seed,
     });
     const st = playerStats(p);
-    if (this.modifier?.id === 'glass') st.maxHp = Math.max(2, st.maxHp - 1);
+    if (this.modifier?.id === 'glass' || this.modifier?.id === 'nightmare') st.maxHp = Math.max(2, st.maxHp - 1);
     this.stats = st;
   }
 
@@ -83,7 +90,7 @@ export abstract class ModeBase implements Scene {
     return { easy: 0.6, normal: 1, hard: 1.4 }[this.game.settings.difficulty];
   }
   get damageMult(): number {
-    return this.modifier?.id === 'glass' ? 2 : 1;
+    return this.modifier?.id === 'glass' || this.modifier?.id === 'nightmare' ? 2 : 1;
   }
   get speedMult(): number {
     return this.modifier?.id === 'turbo' ? 1.15 : 1;
@@ -162,6 +169,16 @@ export abstract class ModeBase implements Scene {
   finish(cleared: boolean, score: number, extra: Partial<RunResult> = {}): void {
     if (this.ended) return;
     this.ended = true;
+    const rush = this.opts.rush;
+    if (this.opts.nightmare && cleared) this.runFlags.add('nightmare');
+    if (rush?.leg === 1 && cleared) {
+      // BOSS RUSH: no results yet. DJ Static is next, with this health and the tally so far.
+      this.game.startMode('rhythm', {
+        rematch: true,
+        rush: { leg: 2, carryHp: this.hp, bits: this.runBits, xp: this.runXp + 40, time: this.time, damage: this.damageTaken, score, chaos: [...this.chaosSeen] },
+      });
+      return;
+    }
     const result: RunResult = {
       mode: this.mode,
       cleared,
@@ -179,6 +196,16 @@ export abstract class ModeBase implements Scene {
       dailyKey: this.opts.daily,
       ...extra,
     };
+    if (rush?.leg === 2) {
+      result.bits += rush.bits ?? 0;
+      result.xp += rush.xp ?? 0;
+      result.time += rush.time ?? 0;
+      result.damageTaken += rush.damage ?? 0;
+      result.score += rush.score ?? 0;
+      result.chaosSeen = [...new Set([...(rush.chaos ?? []), ...result.chaosSeen])];
+      result.bitMultiplier += 0.5;
+      if (cleared) result.flags = [...result.flags, 'boss_rush'];
+    }
     showResults(this.game, result, this.seed);
   }
 

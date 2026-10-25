@@ -68,6 +68,8 @@ export class RhythmMode extends ModeBase {
   constructor(game: Game, opts: ModeOpts = {}) {
     super(game, 'rhythm', opts);
     this.hp = this.stats.maxHp;
+    // BOSS RUSH leg 2 inherits whatever health the player had left (never less than one heart).
+    if (opts.rush?.carryHp !== undefined) this.hp = Math.max(1, Math.min(this.stats.maxHp, opts.rush.carryHp));
     this.bMaxHp = Math.round(110 * { easy: 0.8, normal: 1, hard: 1.25 }[game.settings.difficulty] * (opts.rematch ? 1.25 : 1));
     this.bHp = this.bMaxHp;
     this.chartRng = this.rng.fork(0xbeef);
