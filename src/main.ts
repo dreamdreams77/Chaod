@@ -74,15 +74,16 @@ function boot(): void {
 
   // Fit the screen inside the page. On touch devices the pad gets its own gutter
   // (below the screen in portrait, beside it in landscape) so nothing overlaps the game.
-  const PAD = 196;
+  const PAD = 174;
   const screen = document.getElementById('screen')!;
   const resize = () => {
     const body = document.body;
     const portrait = window.innerHeight > window.innerWidth;
     const touch = input.usingTouch;
-    body.style.paddingBottom = touch && portrait ? `calc(${PAD}px + env(safe-area-inset-bottom, 0px))` : '';
-    body.style.paddingLeft = touch && !portrait ? `max(${PAD}px, env(safe-area-inset-left, 0px))` : '';
-    body.style.paddingRight = touch && !portrait ? `max(${PAD}px, env(safe-area-inset-right, 0px))` : '';
+    // Portrait: tighter side margins so the screen can use nearly the full phone width.
+    body.style.paddingBottom = touch && portrait ? `calc(${PAD + 8}px + env(safe-area-inset-bottom, 0px))` : '';
+    body.style.paddingLeft = touch ? (portrait ? 'max(4px, env(safe-area-inset-left, 0px))' : `max(${PAD}px, env(safe-area-inset-left, 0px))`) : '';
+    body.style.paddingRight = touch ? (portrait ? 'max(4px, env(safe-area-inset-right, 0px))' : `max(${PAD}px, env(safe-area-inset-right, 0px))`) : '';
     const bs = getComputedStyle(body);
     const availW = body.clientWidth - parseFloat(bs.paddingLeft) - parseFloat(bs.paddingRight);
     const availH = window.innerHeight - parseFloat(bs.paddingTop) - parseFloat(bs.paddingBottom);

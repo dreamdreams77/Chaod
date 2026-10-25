@@ -23,12 +23,12 @@
   /* Touch pad sits OUTSIDE the game screen: below it in portrait, in the side gutters in landscape. */
   #touch { position: fixed; inset: 0; pointer-events: none; display: none; }
   #touch.on { display: block; }
-  #touch .zone { position: absolute; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); width: 176px; height: 176px; }
+  #touch .zone { position: absolute; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); width: 164px; height: 164px; }
   #touch .dpad { left: max(10px, env(safe-area-inset-left, 0px)); }
   #touch .acts { right: max(10px, env(safe-area-inset-right, 0px)); }
-  #touch button { position: absolute; pointer-events: auto; width: 56px; height: 56px; border-radius: 14px; border: 2px solid #ffffff44; background: #ffffff14; color: #fff; font: bold 15px ui-monospace, monospace; touch-action: none; -webkit-tap-highlight-color: transparent; }
+  #touch button { position: absolute; pointer-events: auto; width: 52px; height: 52px; border-radius: 14px; border: 2px solid #ffffff44; background: #ffffff14; color: #fff; font: bold 15px ui-monospace, monospace; touch-action: none; -webkit-tap-highlight-color: transparent; }
   #touch .acts button { border-radius: 50%; }
-  #touch button.small { width: 44px; height: 32px; border-radius: 8px; font-size: 12px; }
+  #touch button.small { width: 42px; height: 30px; border-radius: 8px; font-size: 12px; }
   #touch button.active { background: #ff3fa477; border-color: #ff3fa4; }
   #err { position: fixed; left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); padding: 10px; background: var(--err-bg); border: 1px solid var(--accent); color: var(--err-fg); font: 12px ui-monospace, monospace; display: none; white-space: pre-wrap; z-index: 10; }
   noscript { padding: 24px; }

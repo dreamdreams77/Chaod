@@ -192,16 +192,16 @@ function isGameKey(code: string): boolean {
 
 /** Builds a minimal on-screen gamepad for touch devices. */
 export function setupTouch(root: HTMLElement, input: Input, onEnable: () => void = () => {}): void {
-  // [action, label, zone, left, top, extra class]; coordinates are inside a 176x176 zone.
+  // [action, label, zone, left, top, extra class]; coordinates are inside a 164x164 zone.
   const layout: Array<[Action, string, 'dpad' | 'acts', number, number, string]> = [
-    ['up', '▲', 'dpad', 60, 0, ''],
-    ['left', '◀', 'dpad', 0, 60, ''],
-    ['right', '▶', 'dpad', 120, 60, ''],
-    ['down', '▼', 'dpad', 60, 120, ''],
-    ['jump', 'A', 'acts', 120, 70, ''],
-    ['attack', 'B', 'acts', 62, 100, ''],
-    ['special', 'C', 'acts', 4, 120, ''],
-    ['pause', 'II', 'acts', 130, 0, 'small'],
+    ['up', '▲', 'dpad', 56, 0, ''],
+    ['left', '◀', 'dpad', 0, 56, ''],
+    ['right', '▶', 'dpad', 112, 56, ''],
+    ['down', '▼', 'dpad', 56, 112, ''],
+    ['jump', 'A', 'acts', 112, 62, ''],
+    ['attack', 'B', 'acts', 58, 90, ''],
+    ['special', 'C', 'acts', 4, 112, ''],
+    ['pause', 'II', 'acts', 120, 0, 'small'],
   ];
   const zones = {
     dpad: document.createElement('div'),
