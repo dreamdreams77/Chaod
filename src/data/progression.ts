@@ -4,6 +4,7 @@
  */
 import { MODE_IDS, ModeId, Profile, levelForXp } from '../core/save.ts';
 import { newlyUnlocked } from '../fusion/engine.ts';
+import { QuestDef, MiniId, MINIS, advanceQuests } from './quests.ts';
 
 export interface ShopItem {
   id: string;
@@ -77,6 +78,8 @@ export interface RunSummary {
   achievements: string[];
   mutations: string[];
   firstClear: boolean;
+  /** Quest ids completed by this run. */
+  quests: string[];
 }
 
 export function unlockAchievement(p: Profile, id: string, out: string[]): void {
@@ -127,13 +130,15 @@ export function applyRun(profile: Profile, r: RunResult): { profile: Profile; su
       unlockAchievement(p, 'secret', achievements);
     }
   }
+  // Quest rewards count toward level-based achievements, so settle them first.
+  const quests = advanceQuests(p, { kind: 'run', r, newFloppies, paidBits: bits }).map((q) => q.id);
   if (p.level >= 5) unlockAchievement(p, 'level5', achievements);
   // Virtual-pet care loop: BYTE gets hungry and ready to play again after every adventure.
   p.pet.hunger = Math.min(3, p.pet.hunger + 1);
   p.pet.trainedToday = 0;
   const muts = newlyUnlocked(p).map((m) => m.id);
   for (const m of muts) p.mutationsUnlocked.push(m);
-  return { profile: p, summary: { bits, xp, levelBefore, levelAfter: p.level, newFloppies, achievements, mutations: muts, firstClear } };
+  return { profile: p, summary: { bits, xp, levelBefore, levelAfter: p.level, newFloppies, achievements, mutations: muts, firstClear, quests } };
 }
 
 export function structuredCloneSafe<T>(v: T): T {
@@ -154,3 +159,26 @@ export const MODIFIERS: Modifier[] = [
   { id: 'chaotic', name: 'CHAOS CRANKED', desc: 'The Chaos Director works overtime.', bitBonus: 0.3 },
   { id: 'calm', name: 'SUNDAY DRIVE', desc: 'No chaos events. Fewer rewards.', bitBonus: -0.3 },
 ];
+
+export interface MiniOutcome {
+  bits: number;
+  best: boolean;
+  quests: QuestDef[];
+  achievements: string[];
+}
+
+/** Records a finished mini-game: pays bits, tracks the personal best, advances quests. Pure. */
+export function applyMini(profile: Profile, game: MiniId, rawScore: number): { profile: Profile; outcome: MiniOutcome } {
+  const p: Profile = structuredCloneSafe(profile);
+  const score = Number.isFinite(rawScore) ? Math.max(0, Math.floor(rawScore)) : 0;
+  const info = MINIS.find((m) => m.id === game)!;
+  const bits = score * info.bitsPerPoint;
+  p.bits += bits;
+  const rec = p.mini[game] ?? { best: 0, plays: 0 };
+  const best = score > rec.best;
+  p.mini[game] = { best: Math.max(rec.best, score), plays: rec.plays + 1 };
+  const quests = advanceQuests(p, { kind: 'mini', game, score });
+  const achievements: string[] = [];
+  if (p.level >= 5) unlockAchievement(p, 'level5', achievements);
+  return { profile: p, outcome: { bits, best, quests, achievements } };
+}

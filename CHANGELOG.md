@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.0 — quests and mini-games
+- QUEST BOARD in the lobby: nine quests (clear without damage, speed clears, floppy hunting, chaos watching and more) that pay bits and XP automatically when finished. Progress is saved; a blinking "!" shows when something advanced.
+- MINI-GAME ARCADE in the lobby: CART CATCH (30-second reflex game) and GLITCH MEMORY (growing arrow patterns). Both pay bits, track personal bests and feed the arcade quests. ESC ends a round early and banks your score.
+- Review fixes: mini-games ignore the fixed-seed setting so patterns cannot be farmed; BIT HOARDER counts bits actually paid; quest rewards settle before level achievements; corrupt mini/quest save data is repaired.
+
 ## 1.2.0 — music switch
 - Music can be turned on and off without touching volume: Settings → MUSIC, the pause menu, or the M key anywhere. Sound effects stay on. A ♪ button on the touch pad toggles it in one tap. The choice is saved.
 - Depth: soft glow on bullet-hell bullets and light shading on the main character.

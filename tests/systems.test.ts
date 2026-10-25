@@ -6,8 +6,10 @@ import { FusionEngine, newlyUnlocked } from '../src/fusion/engine.ts';
 import { ChaosDirector, DirectorConfig, DirectorContext } from '../src/chaos/director.ts';
 import { CHAOS_EVENTS, MIN_TELEGRAPH } from '../src/chaos/events.ts';
 import { defaultProfile, MODE_IDS, ModeId } from '../src/core/save.ts';
-import { applyRun, RunResult } from '../src/data/progression.ts';
+import { applyRun, applyMini, RunResult } from '../src/data/progression.ts';
 import { isModeUnlocked } from '../src/data/story.ts';
+import { QUESTS, MINIS } from '../src/data/quests.ts';
+import { migrateProfile } from '../src/core/save.ts';
 
 // ---- Genre Fusion -------------------------------------------------------------
 
@@ -192,7 +194,9 @@ test('applyRun is pure and rewards clears', () => {
   const snapshot = JSON.stringify(p);
   const { profile, summary } = applyRun(p, run({ floppies: ['rampage-0'] }));
   assert.equal(JSON.stringify(p), snapshot, 'input profile untouched');
-  assert.equal(profile.bits, 100);
+  assert.equal(summary.bits, 100);
+  const questBits = QUESTS.filter((q) => summary.quests.includes(q.id)).reduce((n, q) => n + q.bits, 0);
+  assert.equal(profile.bits, summary.bits + questBits, 'run bits plus exactly the finished quests');
   assert.equal(profile.cleared.rampage.clears, 1);
   assert.equal(summary.newFloppies, 1);
   assert.ok(summary.achievements.includes('first_clear'));
@@ -239,4 +243,67 @@ test('clearAll reports cut-short events on the next update so end hooks still ru
   d.clearAll();
   d.update(1 / 60, ctx());
   for (const a of live) assert.ok(d.ended.includes(a), `${a.def.id} reported as ended`);
+});
+
+// ---- Quests and mini-games ----------------------------------------------------------
+
+test('quest ids are unique, rewards positive, and every quest can be advanced by some event', () => {
+  assert.equal(new Set(QUESTS.map((q) => q.id)).size, QUESTS.length);
+  for (const q of QUESTS) assert.ok(q.goal > 0 && q.bits > 0 && q.xp > 0, q.id);
+});
+
+test('a clean fast clear completes quests once and pays rewards', () => {
+  const p = defaultProfile();
+  const { profile, summary } = applyRun(p, run({ cleared: true, damageTaken: 0, time: 90, bits: 200, floppies: ['rampage-0'] }));
+  for (const id of ['bit_hoard', 'untouchable', 'speed_demon']) assert.ok(summary.quests.includes(id), id);
+  assert.ok(profile.questsDone.includes('untouchable'));
+  const paid = QUESTS.filter((q) => summary.quests.includes(q.id)).reduce((n, q) => n + q.bits, 0);
+  assert.ok(profile.bits >= paid + summary.bits, 'quest bits were added on top of run bits');
+  // Running the same thing again must not pay twice.
+  const again = applyRun(profile, run({ cleared: true, damageTaken: 0, time: 90, bits: 200 }));
+  assert.ok(!again.summary.quests.includes('untouchable'));
+});
+
+test('boss clears do not count for SPEED DEMON; failed runs do not clear quests', () => {
+  const { summary } = applyRun(defaultProfile(), run({ cleared: true, boss: 'bricklord', time: 60 }));
+  assert.ok(!summary.quests.includes('speed_demon'));
+  const lost = applyRun(defaultProfile(), run({ cleared: false, damageTaken: 0, time: 20 }));
+  assert.ok(!lost.summary.quests.includes('untouchable'));
+});
+
+test('mini-games pay bits, keep personal bests, and complete arcade quests', () => {
+  let p = defaultProfile();
+  const a = applyMini(p, 'catch', 70);
+  assert.equal(a.outcome.bits, 70 * MINIS.find((m) => m.id === 'catch')!.bitsPerPoint);
+  assert.ok(a.outcome.best);
+  assert.ok(a.outcome.quests.some((q) => q.id === 'arcade_ace'));
+  p = a.profile;
+  const b = applyMini(p, 'catch', 10);
+  assert.ok(!b.outcome.best);
+  assert.equal(b.profile.mini.catch.best, 70);
+  assert.equal(b.profile.mini.catch.plays, 2);
+  const m = applyMini(b.profile, 'memory', 7);
+  assert.ok(m.outcome.quests.some((q) => q.id === 'memory_master'));
+});
+
+test('old saves without quest fields migrate cleanly', () => {
+  const p = migrateProfile({ version: 2, bits: 5 });
+  assert.deepEqual(p.questProgress, {});
+  assert.deepEqual(p.questsDone, []);
+  assert.deepEqual(p.mini, {});
+  assert.equal(migrateProfile({ questProgress: 'junk', mini: 7, questsDone: 3 }).questsDone.length, 0);
+});
+
+test('BIT HOARDER counts bits actually paid, and failed runs pay half', () => {
+  const lost = applyRun(defaultProfile(), run({ cleared: false, bits: 100, bitMultiplier: 1.5 }));
+  assert.equal(lost.profile.questProgress.bit_hoard, lost.summary.bits);
+});
+
+test('mini-game scores are sanitised and corrupt saves cannot poison bests', () => {
+  const bad = applyMini(defaultProfile(), 'catch', Number.NaN);
+  assert.equal(bad.outcome.bits, 0);
+  assert.equal(bad.profile.mini.catch.best, 0);
+  const p = migrateProfile({ mini: { catch: 5, memory: { best: 'x', plays: 1 }, ok: { best: 3, plays: 2 } }, questProgress: ['a'] });
+  assert.deepEqual(p.mini, { ok: { best: 3, plays: 2 } });
+  assert.deepEqual(p.questProgress, {});
 });

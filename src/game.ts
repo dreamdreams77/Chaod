@@ -346,6 +346,8 @@ export class Game {
   holdAudio = false;
   /** Cabinets the lobby has already shown as powered this session, so unlocks from a run get announced once. */
   cabinetsSeen: Set<ModeId> | null = null;
+  /** Quest-board progress signature the player last looked at (drives the board's "!" marker). */
+  questSeenSig: number | null = null;
   private crtShown = true;
 
   render(): void {

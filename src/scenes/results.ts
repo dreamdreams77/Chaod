@@ -6,6 +6,7 @@ import { formatSeed } from '../core/rng.ts';
 import { H, W, PAL, frame, rect, bar, backdrop, glow } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { xpForLevel } from '../core/save.ts';
+import { QUEST_BY_ID } from '../data/quests.ts';
 
 export function showResults(game: Game, result: RunResult, seed: number): void {
   const before = game.profile;
@@ -38,6 +39,7 @@ class ResultsScene implements Scene {
         g.toast('LEVEL UP!', `LEVEL ${this.s.levelAfter}: MORE HP & POWER`, '#7dff6b');
         g.audio.sfx('levelup');
       }
+      for (const q of this.s.quests) g.toast('QUEST COMPLETE', QUEST_BY_ID.get(q)?.title ?? q, '#ffcf3f');
       for (const m of this.s.mutations) g.toast('NEW MUTATION', MUTATION_BY_ID.get(m)?.name ?? m, '#ff3fd2');
     }
     if (this.t < 0.5) return;

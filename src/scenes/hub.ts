@@ -5,12 +5,14 @@
  */
 import type { Game, Scene } from '../game.ts';
 import { ListMenu, MenuItem } from './menu.ts';
-import { H, W, PAL, rect, frame, clamp, Particles, bar } from '../render/gfx.ts';
+import { H, W, PAL, rect, frame, clamp, Particles, bar, glow } from '../render/gfx.ts';
 import { drawText, wrap } from '../render/font.ts';
 import { drawByte, drawCass, drawCoreIcon, drawKevin, drawManual, drawPolygon, drawRex, drawDemo, PortraitId } from '../render/actors.ts';
 import { INTRO, KEVIN_LINES, MODE_INFO, POLYGON_INTRO, REX_LINES, manualLines, isModeUnlocked, ENDING, CAST, BOSSES } from '../data/story.ts';
 import { MODE_IDS, ModeId, ChaosCategory, xpForLevel } from '../core/save.ts';
 import { SHOP, ACHIEVEMENTS, unlockAchievement } from '../data/progression.ts';
+import { QUESTS, MINIS } from '../data/quests.ts';
+import { startMini } from './arcade.ts';
 import { MUTATIONS, GENRES, describeUnlock, isUnlockSatisfied } from '../fusion/registry.ts';
 
 interface Thing {
@@ -51,12 +53,15 @@ export class HubScene implements Scene {
     this.things.push({ id: 'shop', x: 420, y: 200, label: 'MADAME POLYGON (SHOP)', r: 18 });
     this.things.push({ id: 'lab', x: 440, y: 120, label: 'MUTATION LAB', r: 16 });
     this.things.push({ id: 'shrine', x: 40, y: 120, label: 'CHAOS SHRINE', r: 16 });
+    this.things.push({ id: 'quests', x: 188, y: 182, label: 'QUEST BOARD', r: 18 });
+    this.things.push({ id: 'arcade', x: 292, y: 186, label: 'MINI-GAME ARCADE', r: 18 });
     this.things.push({ id: 'trophy', x: 330, y: 236, label: 'TROPHY CASE', r: 16 });
     this.things.push({ id: 'rex', x: 150, y: 236, label: 'REX TURBO', r: 14 });
     this.things.push({ id: 'kevin', x: 0, y: 112, label: 'KEVIN FROM QA', r: 14 });
     this.things.push({ id: 'demo', x: 220, y: 240, label: 'DEMO (SECRET)', r: 14, visible: () => this.game.profile.secretUnlocked });
     this.things.push({ id: 'brick', x: 380, y: 160, label: 'BRICKLORD (FREED)', r: 16, visible: () => this.game.profile.bossChoices.bricklord === 'mercy' });
     this.things.push({ id: 'static', x: 100, y: 160, label: 'DJ STATIC (FREED)', r: 16, visible: () => this.game.profile.bossChoices.static === 'mercy' });
+    if (game.questSeenSig === null) game.questSeenSig = this.questSig();
     // The first lobby of a session treats everything already unlocked as known; later lobbies announce new unlocks.
     if (!game.cabinetsSeen) {
       game.cabinetsSeen = new Set(MODE_IDS.filter((m) => isModeUnlocked(m, game.profile.cleared)));
@@ -163,6 +168,8 @@ export class HubScene implements Scene {
       case 'lab': return this.labMenu();
       case 'shrine': return this.shrineMenu();
       case 'trophy': return this.trophyMenu();
+      case 'quests': return this.questMenu();
+      case 'arcade': return this.arcadeMenu();
       case 'rex': return this.say('rex', 'REX TURBO', REX_LINES(p.achievements.includes('beat_rex')));
       case 'kevin': {
         const line = KEVIN_LINES[Math.floor(this.t * 7) % KEVIN_LINES.length];
@@ -388,6 +395,48 @@ export class HubScene implements Scene {
     this.menu = new ListMenu('TROPHY CASE & ARCHIVES', items, () => (this.menu = null), { x: 40, y: 20, w: 400, rows: 13, accent: '#ffcf3f' });
   }
 
+  /** Changes whenever any quest advances, so the board only flags real news. */
+  private questSig(): number {
+    const p = this.game.profile;
+    return p.questsDone.length * 100000 + Object.values(p.questProgress).reduce((a, b) => a + b, 0);
+  }
+
+  private questMenu(): void {
+    const p = this.game.profile;
+    this.game.questSeenSig = this.questSig();
+    const done = p.questsDone.length;
+    const items: MenuItem[] = [
+      { label: `COMPLETED ${done}/${QUESTS.length}`, value: () => (done === QUESTS.length ? 'ALL DONE!' : ''), disabled: true },
+      ...QUESTS.slice().sort((a, b) => Number(p.questsDone.includes(a.id)) - Number(p.questsDone.includes(b.id))).map((q) => {
+        const ok = p.questsDone.includes(q.id);
+        const prog = Math.min(q.goal, p.questProgress[q.id] ?? 0);
+        return {
+          label: (ok ? '\u2605 ' : '\u2606 ') + q.title,
+          value: () => (ok ? 'DONE' : `${prog}/${q.goal}`),
+          sub: `${q.desc} Reward: ${q.bits} bits + ${q.xp} XP.`,
+          color: ok ? '#ffcf3f' : undefined,
+          onSelect: () => {},
+        };
+      }),
+      { label: 'BACK', onSelect: () => (this.menu = null) },
+    ];
+    this.menu = new ListMenu('QUEST BOARD \u2014 PAID AUTOMATICALLY WHEN DONE', items, () => (this.menu = null), { x: 50, y: 24, w: 380, rows: 11, accent: '#ffcf3f' });
+  }
+
+  private arcadeMenu(): void {
+    const p = this.game.profile;
+    const items: MenuItem[] = [
+      ...MINIS.map((m) => ({
+        label: m.title,
+        value: () => `BEST ${p.mini[m.id]?.best ?? 0}`,
+        sub: `${m.blurb} Pays ${m.bitsPerPoint} bit${m.bitsPerPoint === 1 ? '' : 's'} per ${m.unit === 'ROUNDS' ? 'round' : 'point'}.`,
+        onSelect: () => { this.menu = null; startMini(this.game, m.id); },
+      })),
+      { label: 'BACK', onSelect: () => (this.menu = null) },
+    ];
+    this.menu = new ListMenu('MINI-GAME ARCADE', items, () => (this.menu = null), { x: 60, y: 60, w: 360, accent: '#3fe0ff' });
+  }
+
   // ---- drawing -------------------------------------------------------------------------
   draw(ctx: CanvasRenderingContext2D): void {
     const p = this.game.profile;
@@ -437,6 +486,8 @@ export class HubScene implements Scene {
     for (let i = 0; i < 2; i++) rect(ctx, 226 + i * 22, 156, 6, 6, i < shards ? (i ? '#ff3fd2' : '#ff6f3f') : '#444');
     drawManual(ctx, 270, 130, t);
     // Stations
+    this.drawQuestBoard(ctx);
+    this.drawMiniCabinet(ctx);
     this.drawStation(ctx, 440, 120, 'LAB', '#ff3fd2');
     this.drawStation(ctx, 40, 120, 'SHRINE', '#ff3fa4');
     rect(ctx, 316, 222, 28, 22, '#3a2a10');
@@ -507,6 +558,41 @@ export class HubScene implements Scene {
     const cleared = this.game.profile.cleared[m].clears > 0;
     if (cleared) drawText(ctx, '★', x + 16, y + 40, '#ffcf3f', { align: 'center', shadow: null });
     drawText(ctx, info.title.split(' ')[0], x + 16, y + 56, on ? info.color : '#555', { align: 'center' });
+  }
+
+  private drawQuestBoard(ctx: CanvasRenderingContext2D): void {
+    const x = 188, y = 182;
+    const p = this.game.profile;
+    rect(ctx, x - 14, y - 2, 30, 4, 'rgba(0,0,0,0.35)');
+    rect(ctx, x - 16, y - 34, 4, 34, '#3a2410');
+    rect(ctx, x + 12, y - 34, 4, 34, '#3a2410');
+    rect(ctx, x - 18, y - 40, 36, 26, '#6b4a2a');
+    rect(ctx, x - 16, y - 38, 32, 22, '#8a6238');
+    const notes = ['#ffe9a0', '#9dffcf', '#ffb3d1'];
+    for (let i = 0; i < 3; i++) {
+      rect(ctx, x - 13 + i * 10, y - 35 + (i % 2) * 4, 8, 10, notes[i]);
+      rect(ctx, x - 12 + i * 10, y - 33 + (i % 2) * 4, 6, 1, '#7a5a20');
+      rect(ctx, x - 12 + i * 10, y - 30 + (i % 2) * 4, 5, 1, '#7a5a20');
+      rect(ctx, x - 10 + i * 10, y - 36 + (i % 2) * 4, 2, 2, '#ff3f3f');
+    }
+    drawText(ctx, 'QUESTS', x, y + 4, '#ffcf3f', { align: 'center' });
+    if (this.questSig() !== this.game.questSeenSig && p.questsDone.length < QUESTS.length && Math.floor(this.t * 2) % 2) drawText(ctx, '!', x, y - 54, '#ffcf3f', { align: 'center', scale: 2 });
+  }
+
+  private drawMiniCabinet(ctx: CanvasRenderingContext2D): void {
+    const x = 292, y = 186;
+    rect(ctx, x - 14, y - 2, 30, 4, 'rgba(0,0,0,0.35)');
+    rect(ctx, x - 12, y - 38, 24, 38, '#1a1030');
+    rect(ctx, x - 11, y - 38, 22, 5, '#3fe0ff');
+    rect(ctx, x - 9, y - 31, 18, 14, '#000');
+    const blink = Math.floor(this.t * 3) % 3;
+    rect(ctx, x - 7 + ((this.t * 14) % 10), y - 26, 3, 3, blink ? '#ffcf3f' : '#ff3fa4');
+    rect(ctx, x - 7, y - 20, 14, 1, '#3fe0ff');
+    rect(ctx, x - 7, y - 14, 14, 3, '#333');
+    rect(ctx, x - 5, y - 15, 2, 2, '#ff3f3f');
+    rect(ctx, x + 2, y - 15, 2, 2, '#3fe0ff');
+    glow(ctx, x, y - 20, 34, '63,224,255', 0.22 + Math.sin(this.t * 3) * 0.05);
+    drawText(ctx, 'MINI', x, y + 4, '#3fe0ff', { align: 'center' });
   }
 
   private drawStation(ctx: CanvasRenderingContext2D, x: number, y: number, label: string, color: string): void {

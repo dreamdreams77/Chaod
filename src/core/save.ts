@@ -36,6 +36,11 @@ export interface Profile {
   playTime: number;
   runsStarted: number;
   chaosEventsSeen: string[];
+  /** Quest board progress by quest id, and the quests already paid out. */
+  questProgress: Record<string, number>;
+  questsDone: string[];
+  /** Lobby mini-game personal bests and play counts. */
+  mini: Record<string, { best: number; plays: number }>;
 }
 
 export interface Settings {
@@ -86,6 +91,9 @@ export function defaultProfile(): Profile {
     playTime: 0,
     runsStarted: 0,
     chaosEventsSeen: [],
+    questProgress: {},
+    questsDone: [],
+    mini: {},
   };
 }
 
@@ -122,7 +130,19 @@ export function migrateProfile(raw: unknown): Profile {
   }
   p.cleared = { ...base.cleared, ...(r.cleared ?? {}) };
   p.pet = { ...base.pet, ...(r.pet ?? {}) };
-  for (const k of ['floppies', 'bossesDefeated', 'abilities', 'mutationsUnlocked', 'mutationsDisabled', 'achievements', 'lore', 'chaosEventsSeen'] as const) {
+  p.questProgress = {};
+  if (r.questProgress && typeof r.questProgress === 'object' && !Array.isArray(r.questProgress)) {
+    for (const [k, v] of Object.entries(r.questProgress)) if (Number.isFinite(v) && v >= 0) p.questProgress[k] = v;
+  }
+  p.mini = {};
+  if (r.mini && typeof r.mini === 'object' && !Array.isArray(r.mini)) {
+    for (const [k, v] of Object.entries(r.mini)) {
+      const best = (v as { best?: unknown } | null)?.best;
+      const plays = (v as { plays?: unknown } | null)?.plays;
+      if (Number.isFinite(best) && Number.isFinite(plays)) p.mini[k] = { best: Math.max(0, best as number), plays: Math.max(0, plays as number) };
+    }
+  }
+  for (const k of ['floppies', 'bossesDefeated', 'abilities', 'mutationsUnlocked', 'mutationsDisabled', 'achievements', 'lore', 'chaosEventsSeen', 'questsDone'] as const) {
     if (!Array.isArray(p[k])) p[k] = base[k].slice();
   }
   for (const m of base.mutationsUnlocked) if (!p.mutationsUnlocked.includes(m)) p.mutationsUnlocked.push(m);
