@@ -60,6 +60,18 @@ export class Input {
   private anyBuf = false;
   usingTouch = false;
 
+  /** Rewrites keyboard names in on-screen help to the touch pad's buttons when touch is in use. */
+  label(text: string): string {
+    if (!this.usingTouch) return text;
+    return text
+      .replace(/\bARROWS( \(OR WASD\))?/g, 'D-PAD')
+      .replace(/\bARROW KEYS( \(OR WASD\))?/g, 'D-PAD')
+      .replace(/\bZ\b/g, 'A')
+      .replace(/\bX\b/g, 'B')
+      .replace(/\bESC\b/g, 'II')
+      .replace(/\bUP\+C\b/g, 'UP+C');
+  }
+
   constructor(bindings: Bindings) {
     this.bindings = cloneBindings(bindings);
   }

@@ -199,7 +199,7 @@ export abstract class ModeBase implements Scene {
     const a = this.hintT > 6 ? 7 - this.hintT : 1;
     ctx.globalAlpha = Math.max(0, a);
     rect(ctx, 0, H - 14, W, 14, '#000c');
-    drawText(ctx, text, W / 2, H - 11, '#fff', { align: 'center' });
+    drawText(ctx, this.game.input.label(text), W / 2, H - 11, '#fff', { align: 'center' });
     ctx.globalAlpha = 1;
   }
 

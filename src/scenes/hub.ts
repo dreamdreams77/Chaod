@@ -451,7 +451,7 @@ export class HubScene implements Scene {
     if (this.near && !this.menu && !this.game.inDialog) {
       const w = this.near.label.length * 6 + 40;
       frame(ctx, this.near.x - w / 2, this.near.y - 52, w, 14, '#0b0716ee', '#ffcf3f');
-      drawText(ctx, `Z: ${this.near.label}`, this.near.x, this.near.y - 48, '#ffcf3f', { align: 'center' });
+      drawText(ctx, this.game.input.label(`Z: ${this.near.label}`), this.near.x, this.near.y - 48, '#ffcf3f', { align: 'center' });
     }
     // HUD
     rect(ctx, 0, H - 12, W, 12, '#000a');
@@ -460,7 +460,7 @@ export class HubScene implements Scene {
     drawText(ctx, `${p.bits} BITS`, 86, H - 10, '#ffcf3f');
     drawText(ctx, `DISKS ${p.floppies.length}/15`, 160, H - 10, '#3fe0ff');
     drawText(ctx, `SHARDS ${shards}/2`, 248, H - 10, '#ff6f3f');
-    drawText(ctx, 'Z INTERACT • ESC MENU', W - 6, H - 10, '#9a9ab8', { align: 'right' });
+    drawText(ctx, this.game.input.label('Z INTERACT • ESC MENU'), W - 6, H - 10, '#9a9ab8', { align: 'right' });
     if (this.menu) {
       rect(ctx, 0, 0, W, H, '#0006');
       this.menu.draw(ctx, t);

@@ -116,3 +116,11 @@ test('procedural songs are deterministic, loop-length and in a playable range', 
     assert.ok(a.lead.some((n) => n !== null), `${id} has a melody`);
   }
 });
+
+test('help text switches to touch button names only when touch is in use', () => {
+  const inp = new Input(DEFAULT_BINDINGS);
+  const text = 'ARROWS MOVE • Z JUMP • X ATTACK • ESC PAUSE';
+  assert.equal(inp.label(text), text);
+  inp.usingTouch = true;
+  assert.equal(inp.label(text), 'D-PAD MOVE • A JUMP • B ATTACK • II PAUSE');
+});
