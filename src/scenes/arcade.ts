@@ -29,6 +29,8 @@ abstract class MiniBase implements Scene {
   protected t = 0;
   protected over = false;
   protected overT = 0;
+  /** Highlighted result button: 0 = PLAY AGAIN, 1 = LOBBY. */
+  protected sel = 0;
   protected score = 0;
   protected outcome: MiniOutcome | null = null;
   protected readonly particles = new Particles(200);
@@ -73,8 +75,16 @@ abstract class MiniBase implements Scene {
     this.particles.update(dt);
     this.popups.update(dt);
     const inp = this.game.input;
-    if (this.overT > 0.5 && (inp.pressed('confirm') || inp.pressed('jump'))) startMini(this.game, this.miniId);
-    else if (this.overT > 0.5 && (inp.pressed('back') || inp.pressed('attack'))) this.game.toHub();
+    if (this.overT <= 0.5) return true;
+    // D-pad switches between PLAY AGAIN and LOBBY; A (or confirm) uses the highlighted one; B / back always goes to the lobby.
+    if (inp.pressed('left') || inp.pressed('right') || inp.pressed('up') || inp.pressed('down')) {
+      this.sel = 1 - this.sel;
+      this.game.audio.sfx('select');
+    }
+    if (inp.pressed('confirm') || inp.pressed('jump')) {
+      if (this.sel === 0) startMini(this.game, this.miniId);
+      else this.game.toHub();
+    } else if (inp.pressed('back') || inp.pressed('attack')) this.game.toHub();
     return true;
   }
 
@@ -92,8 +102,9 @@ abstract class MiniBase implements Scene {
     // Touchable buttons (keys still work: confirm = again, back = lobby).
     for (const [i, label] of ['PLAY AGAIN', 'LOBBY'].entries()) {
       const bx = i === 0 ? W / 2 - 100 : W / 2 + 6;
-      frame(ctx, bx, 166, 94, 20, i === 0 ? '#0f3a2a' : '#1d1233', i === 0 ? '#7dff6b' : '#9a9ab8');
-      drawText(ctx, label, bx + 47, 172, '#fff', { align: 'center' });
+      const on = i === this.sel;
+      frame(ctx, bx, 166, 94, 20, on ? (i === 0 ? '#0f3a2a' : '#2a2050') : '#0b0716', on ? (i === 0 ? '#7dff6b' : '#3fe0ff') : '#3a3050');
+      drawText(ctx, (on ? '\u25B6 ' : '') + label, bx + 47, 172, on ? '#fff' : '#9a9ab8', { align: 'center' });
     }
   }
 

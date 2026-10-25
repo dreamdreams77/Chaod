@@ -535,3 +535,41 @@ test('wardrobe saves are repaired: unknown or unowned items fall back to the def
   assert.ok(COSMETICS.every((c) => (c.kind === 'palette') === !!c.look), 'only palettes carry colours');
   assert.equal(currentLook({ owned: [], palette: 'mint', hat: 'crown' }).hat, 'crown');
 });
+
+test('mini-game result panel: the D-pad moves between PLAY AGAIN and LOBBY and A uses the highlighted one', async () => {
+  const { CatchScene } = await import('../src/scenes/arcade.ts');
+  const { Rng } = await import('../src/core/rng.ts');
+  const { defaultProfile: dp } = await import('../src/core/save.ts');
+  const calls: string[] = [];
+  let down = new Set<string>();
+  const game = {
+    rng: new Rng(3), profile: dp(), newSeed: () => 3,
+    input: { axisX: () => 0, pressed: (a: string) => down.has(a), label: (t: string) => t },
+    audio: { sfx() {} }, fx: { shake() {} }, music() {}, saveProfile() {}, toast() {}, announceAchievements() {},
+    toHub: () => calls.push('lobby'), goto: () => calls.push('again'),
+  };
+  const press = (s: { update(dt: number): void }, ...keys: string[]) => { down = new Set(keys); s.update(1 / 60); down = new Set(); s.update(1 / 60); };
+  const fresh = () => {
+    const s = new CatchScene(game as never) as unknown as { finish(): void; update(dt: number): void; sel: number };
+    s.finish();
+    for (let i = 0; i < 40; i++) s.update(1 / 60);
+    return s;
+  };
+  let s = fresh();
+  assert.equal(s.sel, 0, 'PLAY AGAIN starts highlighted');
+  press(s, 'jump');
+  assert.deepEqual(calls, ['again'], 'A on PLAY AGAIN restarts');
+  calls.length = 0;
+  s = fresh();
+  press(s, 'right');
+  assert.equal(s.sel, 1, 'the D-pad moves the highlight');
+  press(s, 'jump');
+  assert.deepEqual(calls, ['lobby'], 'A on LOBBY returns to the lobby');
+  calls.length = 0;
+  s = fresh();
+  press(s, 'left');
+  press(s, 'left');
+  assert.equal(s.sel, 0, 'it toggles back');
+  press(s, 'attack');
+  assert.deepEqual(calls, ['lobby'], 'B always returns to the lobby');
+});

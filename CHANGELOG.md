@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.0.1 — result panel works with the D-pad
+- The mini-game result panel now has a highlighted button: the D-pad (or arrow keys) switches between PLAY AGAIN and LOBBY, A uses the highlighted one, B or II still returns to the lobby, and tapping a button still works. Before, only A (always PLAY AGAIN), B and II did anything, so the arrows seemed dead.
+
 ## 2.0.0 — sixth world: CORE COMMAND
 - A new cabinet in the lobby (opens after you clear three worlds; the daily challenge now uses one shared pool of worlds so everyone gets the same one each day): defend the Cartridge Core with BLASTER, WAVE and LASER towers along a seeded winding road, across eight waves ending in a boss glitch. From wave 5, SPITTERS fire stun shots at your towers (the bullet-hell turn). Cursor and keys, or tap a cell to aim and again to build; pick towers and send waves from a tappable bar.
 - New fusion VETERAN TOWERS (strategy + RPG): towers earn XP from kills and level up by themselves. New mastery stars, quest and mini-profile entries apply to it like any world; the lobby now holds six cabinets.
