@@ -8,11 +8,11 @@ import { ListMenu, MenuItem } from './menu.ts';
 import { H, W, PAL, rect, frame, clamp, Particles, bar, glow } from '../render/gfx.ts';
 import { drawText, wrap } from '../render/font.ts';
 import { drawByte, drawCass, drawCoreIcon, drawKevin, drawManual, drawPolygon, drawRex, drawDemo, PortraitId } from '../render/actors.ts';
-import { INTRO, KEVIN_LINES, MODE_INFO, POLYGON_INTRO, REX_LINES, manualLines, isModeUnlocked, ENDING, CAST, BOSSES } from '../data/story.ts';
+import { INTRO, KEVIN_LINES, MODE_INFO, lockHint, POLYGON_INTRO, REX_LINES, manualLines, isModeUnlocked, ENDING, CAST, BOSSES } from '../data/story.ts';
 import { MODE_IDS, ModeId, ChaosCategory, xpForLevel } from '../core/save.ts';
 import { SHOP, ACHIEVEMENTS, unlockAchievement } from '../data/progression.ts';
 import { QUESTS, MINIS, MiniId } from '../data/quests.ts';
-import { STARS, starCount } from '../data/mastery.ts';
+import { STARS, STAR_BITS, starCount } from '../data/mastery.ts';
 import { COSMETICS, buyOrEquip } from '../data/cosmetics.ts';
 import { dateKey, dailyFor, currentStreak, challengeUrl, DAILY_BONUS } from '../data/daily.ts';
 import { MODIFIERS } from '../data/progression.ts';
@@ -190,7 +190,7 @@ export class HubScene implements Scene {
     const items: MenuItem[] = MODE_IDS.map((m) => {
       const open = isModeUnlocked(m, p.cleared);
       const info = MODE_INFO[m];
-      const need = m === 'neon' || m === 'mall' ? 'Clear RETRO RAMPAGE first.' : m === 'command' ? 'Clear any three worlds to unlock.' : 'Clear any two worlds to unlock.';
+      const need = lockHint(m);
       return {
         label: info.title,
         value: () => (open ? (p.cleared[m].clears ? `CLEARED x${p.cleared[m].clears}` : 'NEW') : 'LOCKED'),
@@ -274,7 +274,7 @@ export class HubScene implements Scene {
     const p = this.game.profile;
     const info = MODE_INFO[mode];
     if (!isModeUnlocked(mode, p.cleared)) {
-      const need = mode === 'neon' || mode === 'mall' ? 'Clear RETRO RAMPAGE first.' : mode === 'command' ? 'Clear any three worlds to power this cabinet.' : 'Clear any two worlds to power this cabinet.';
+      const need = lockHint(mode);
       this.say('kevin', 'KEVIN FROM QA', `This cabinet is OUT OF ORDER. ${need} I filed a ticket.`);
       return;
     }
@@ -290,7 +290,7 @@ export class HubScene implements Scene {
     items.push({ label: `BEST ${rec.bestScore}  CLEARS ${rec.clears}`, value: () => `DISKS ${floppies}`, disabled: true });
     const have = new Set(p.stars[mode] ?? []);
     for (const s of STARS) {
-      items.push({ label: `${have.has(s.id) ? '\u2605' : '\u2606'} ${s.name}`, value: () => (have.has(s.id) ? 'EARNED' : 'TODO'), sub: `${s.desc(mode)} Worth 40 bits.`, color: have.has(s.id) ? '#ffcf3f' : '#9a9ab8', onSelect: () => {} });
+      items.push({ label: `${have.has(s.id) ? '\u2605' : '\u2606'} ${s.name}`, value: () => (have.has(s.id) ? 'EARNED' : 'TODO'), sub: `${s.desc(mode)} Worth ${STAR_BITS} bits.`, color: have.has(s.id) ? '#ffcf3f' : '#9a9ab8', onSelect: () => {} });
     }
     const muts = MUTATIONS.filter((m) => m.modes.includes(mode));
     for (const m of muts) {
@@ -598,13 +598,6 @@ export class HubScene implements Scene {
     return { ...d, modifier: new Rng(d.seed).fork(77).pick(MODIFIERS).name, open: isModeUnlocked(d.mode, p.cleared) };
   }
 
-  /** What the player still has to do to open a cabinet. */
-  private lockHint(mode: ModeId): string {
-    if (mode === 'neon' || mode === 'mall') return 'CLEAR RETRO RAMPAGE FIRST';
-    if (mode === 'command') return 'CLEAR ANY THREE WORLDS';
-    return 'CLEAR ANY TWO WORLDS';
-  }
-
   private copyLink(mode: ModeId, seed: number): void {
     const url = challengeUrl(`${location.origin}${location.pathname}`, { mode, seed });
     const done = () => this.game.toast('LINK COPIED', 'SEND IT TO A FRIEND', '#3fe0ff');
@@ -624,7 +617,7 @@ export class HubScene implements Scene {
       { label: 'BEST TODAY', value: () => (rec ? `${rec.best}${rec.cleared ? '  \u2605 CLEARED' : ''}` : '\u2014'), disabled: true },
       { label: 'STREAK', value: () => `${streak} DAY${streak === 1 ? '' : 'S'}`, disabled: true },
       {
-        label: !t.open ? `LOCKED: ${this.lockHint(t.mode)}` : rec?.cleared ? 'PLAY AGAIN (NO BONUS)' : `PLAY TODAY'S RUN  +${DAILY_BONUS + 10 * Math.min(streak + 1, 7)} BITS`,
+        label: !t.open ? `LOCKED: ${lockHint(t.mode).toUpperCase().replace(/\.$/, '')}` : rec?.cleared ? 'PLAY AGAIN (NO BONUS)' : `PLAY TODAY'S RUN  +${DAILY_BONUS + 10 * Math.min(streak + 1, 7)} BITS`,
         disabled: !t.open,
         sub: 'Same world, seed and modifier for everyone today. One clear per day pays the bonus.',
         onSelect: () => { this.menu = null; this.game.startMode(t.mode, { seed: t.seed, daily: t.key }); },
@@ -641,7 +634,7 @@ export class HubScene implements Scene {
     }
     items.push({ label: 'BACK', onSelect: () => (this.menu = null) });
     this.menu = new ListMenu(`DAILY CHALLENGE \u2014 ${t.key}`, items, () => (this.menu = null), { x: 40, y: 40, w: 400, accent: '#ffcf3f' });
-    this.menu.index = keep ?? 4;
+    this.menu.index = keep ?? (t.open ? 4 : 5);
   }
 
   private arcadeMenu(): void {

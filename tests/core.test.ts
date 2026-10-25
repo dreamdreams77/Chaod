@@ -231,3 +231,23 @@ test('touch wording: keys become pad buttons, but "RED X" and words like XP stay
   assert.equal(inp.label('PRESS ANY KEY'), 'PRESS ANY BUTTON');
   assert.equal(inp.label('XP'), 'XP');
 });
+
+test('migration rejects malformed nested save fields', () => {
+  const p = migrateProfile({
+    cleared: { rampage: { clears: 'x', bestScore: NaN, bestTime: -4 }, neon: null },
+    pet: { bond: 'lots', hunger: Infinity },
+    bossChoices: { a: 'mercy', b: 'banana', c: 7 },
+  });
+  assert.equal(p.cleared.rampage.clears, 0);
+  assert.equal(p.cleared.rampage.bestScore, 0);
+  assert.equal(p.cleared.rampage.bestTime, 0);
+  assert.equal(p.cleared.neon.clears, 0);
+  assert.ok(Number.isFinite(p.pet.bond) && Number.isFinite(p.pet.hunger));
+  assert.deepEqual(p.bossChoices, { a: 'mercy' });
+  const s = migrateSettings({ bindings: { jump: 'KeyQ', attack: [1, 2], special: ['KeyE'] }, fixedSeed: 'abc' });
+  assert.deepEqual(s.bindings.special, ['KeyE']);
+  assert.deepEqual(s.bindings.jump, defaultSettings().bindings.jump);
+  assert.deepEqual(s.bindings.attack, defaultSettings().bindings.attack);
+  assert.equal(s.fixedSeed, null);
+  assert.equal(migrateSettings({ fixedSeed: 123456 }).fixedSeed, 123456);
+});

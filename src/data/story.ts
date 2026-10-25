@@ -119,6 +119,13 @@ export const MODE_INFO: Record<ModeId, { title: string; genre: string; blurb: st
   command: { title: 'CORE COMMAND', genre: 'STRATEGY → BULLET HELL', blurb: 'Build towers along the glitch road. Eight waves. Defend the Cartridge Core.', color: '#7dff6b' },
 };
 
+/** What a player still has to do to open a cabinet (one wording, used everywhere). */
+export function lockHint(mode: ModeId): string {
+  if (mode === 'neon' || mode === 'mall') return 'Clear RETRO RAMPAGE first.';
+  if (mode === 'command') return 'Clear any three worlds first.';
+  return 'Clear any two worlds first.';
+}
+
 /** Which cabinets are open. Curiosity-gated, never grind-gated. */
 export function isModeUnlocked(mode: ModeId, cleared: Record<ModeId, { clears: number }>): boolean {
   const c = (m: ModeId) => cleared[m].clears > 0;

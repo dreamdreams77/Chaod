@@ -1,4 +1,4 @@
-import { Bindings, DEFAULT_BINDINGS, cloneBindings } from './input.ts';
+import { ACTIONS, Bindings, DEFAULT_BINDINGS, cloneBindings } from './input.ts';
 import { Wardrobe, defaultWardrobe, cleanWardrobe } from '../data/cosmetics.ts';
 
 export type ModeId = 'rampage' | 'neon' | 'mall' | 'beatdown' | 'rhythm' | 'command';
@@ -138,8 +138,19 @@ export function migrateProfile(raw: unknown): Profile {
     p.mutationsDisabled = p.mutationsUnlocked.filter((m) => !r.mutationsEnabled!.includes(m));
     delete (p as unknown as Record<string, unknown>).mutationsEnabled;
   }
-  p.cleared = { ...base.cleared, ...(r.cleared ?? {}) };
-  p.pet = { ...base.pet, ...(r.pet ?? {}) };
+  // Field-by-field checks so a hand-edited or half-written save can never crash a run or poison a score with NaN.
+  const num = (v: unknown, fallback: number, min = 0): number => (typeof v === 'number' && Number.isFinite(v) ? Math.max(min, v) : fallback);
+  p.cleared = { ...base.cleared };
+  for (const m of MODE_IDS) {
+    const c = ((r.cleared ?? {}) as Record<string, Partial<ModeRecord> | null>)[m];
+    p.cleared[m] = { clears: Math.floor(num(c?.clears, 0)), bestScore: num(c?.bestScore, 0), bestTime: num(c?.bestTime, 0) };
+  }
+  const pt = (r.pet ?? {}) as Partial<Profile['pet']>;
+  p.pet = { bond: num(pt.bond, base.pet.bond), hunger: num(pt.hunger, base.pet.hunger), fedToday: num(pt.fedToday, 0), trainedToday: num(pt.trainedToday, 0), xp: num(pt.xp, 0) };
+  p.bossChoices = {};
+  if (r.bossChoices && typeof r.bossChoices === 'object' && !Array.isArray(r.bossChoices)) {
+    for (const [k, v] of Object.entries(r.bossChoices)) if (v === 'mercy' || v === 'purge') p.bossChoices[k] = v;
+  }
   p.questProgress = {};
   if (r.questProgress && typeof r.questProgress === 'object' && !Array.isArray(r.questProgress)) {
     for (const [k, v] of Object.entries(r.questProgress)) if (Number.isFinite(v) && v >= 0) p.questProgress[k] = v;
@@ -182,7 +193,15 @@ export function migrateSettings(raw: unknown): Settings {
   const base = defaultSettings();
   if (!raw || typeof raw !== 'object') return base;
   const s = { ...base, ...(raw as Partial<Settings>) };
-  s.bindings = cloneBindings(s.bindings ?? base.bindings);
+  // Each action needs a list of key-code strings; anything else falls back to that action's defaults.
+  const rawBind = (s.bindings && typeof s.bindings === 'object' ? s.bindings : {}) as Record<string, unknown>;
+  const cleanBind = {} as Bindings;
+  for (const a of ACTIONS) {
+    const v = rawBind[a];
+    cleanBind[a] = Array.isArray(v) && v.every((k) => typeof k === 'string') ? (v as string[]).slice() : DEFAULT_BINDINGS[a].slice();
+  }
+  s.bindings = cloneBindings(cleanBind);
+  if (s.fixedSeed !== null && !(typeof s.fixedSeed === 'number' && Number.isInteger(s.fixedSeed) && s.fixedSeed >= 0 && s.fixedSeed <= 999999)) s.fixedSeed = null;
   s.master = clamp01(s.master);
   s.music = clamp01(s.music);
   if (typeof s.musicOn !== 'boolean') s.musicOn = true;

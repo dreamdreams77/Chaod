@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.2 — bug-check fixes
+- Title screen: tapping no longer slips past the ERASE confirmation (only the YES button erases; anywhere else keeps your save), the first tap just starts the music, and the save summary counts all six worlds. Starting a new game also clears the lobby's cached quest/cabinet notices.
+- Boss Rush: retrying after a loss in leg 2 restarts at leg 1, and floppies and flags earned in leg 1 carry through to the results.
+- Results screen can be dismissed by tap or B; toasts age one at a time so none vanish unseen; level is recalculated after mastery-star and daily-challenge XP.
+- Saves are validated field by field (records, pet, boss choices, key bindings, fixed seed) so a damaged save cannot poison scores with NaN.
+- Wording: ARCADE REGULAR explains a score above zero is needed; one shared cabinet-lock hint; the daily menu cursor lands on a sensible row.
+
 ## 2.0.1 — result panel works with the D-pad
 - The mini-game result panel now has a highlighted button: the D-pad (or arrow keys) switches between PLAY AGAIN and LOBBY, A uses the highlighted one, B or II still returns to the lobby, and tapping a button still works. Before, only A (always PLAY AGAIN), B and II did anything, so the arrows seemed dead.
 

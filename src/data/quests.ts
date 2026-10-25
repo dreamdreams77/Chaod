@@ -46,7 +46,7 @@ export const QUESTS: QuestDef[] = [
   { id: 'disk_diver', title: 'DISK DIVER', desc: 'Find 4 new floppy disks.', goal: 4, bits: 60, xp: 30, play: 'worlds' },
   { id: 'star_collector', title: 'STAR COLLECTOR', desc: 'Earn 6 mastery stars (clean, fast and collector goals on the cabinets).', goal: 6, bits: 100, xp: 50, play: 'worlds' },
   { id: 'daily_grinder', title: 'DAILY GRINDER', desc: 'Clear 3 daily challenges (any days).', goal: 3, bits: 90, xp: 40, play: 'daily' },
-  { id: 'arcade_regular', title: 'ARCADE REGULAR', desc: 'Play 5 lobby mini-games and score in each.', goal: 5, bits: 50, xp: 20, play: 'arcade' },
+  { id: 'arcade_regular', title: 'ARCADE REGULAR', desc: 'Finish 5 lobby mini-game rounds with a score above zero.', goal: 5, bits: 50, xp: 20, play: 'arcade' },
   { id: 'arcade_ace', title: 'ARCADE ACE', desc: 'Score 50+ in CART CATCH.', goal: 1, bits: 70, xp: 30, play: 'catch' },
   { id: 'brick_boss', title: 'BRICK BOSS', desc: 'Score 52+ in BYTE BREAKOUT (the wall has 60 points).', goal: 1, bits: 70, xp: 30, play: 'breakout' },
   { id: 'whack_ace', title: 'GLITCH EXTERMINATOR', desc: 'Score 55+ in WHACK-A-GLITCH.', goal: 1, bits: 70, xp: 30, play: 'whack' },

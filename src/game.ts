@@ -151,10 +151,12 @@ export class Game {
     }
     this.transition = { t: 0, next, banner };
   }
-  startMode(mode: ModeId, opts: ModeOpts = {}): void {
-    this.lastStart = () => this.modeFactory(mode, opts);
+  startMode(mode: ModeId, opts: ModeOpts = {}, restart?: { mode: ModeId; opts: ModeOpts }): void {
+    // `restart` lets a chained run (BOSS RUSH leg 2) retry from its beginning instead of from the middle.
+    const again = restart ?? { mode, opts };
+    this.lastStart = () => this.modeFactory(again.mode, again.opts);
     this.profile.runsStarted++;
-    this.goto(this.lastStart());
+    this.goto(this.modeFactory(mode, opts));
   }
   restart(): void {
     if (this.lastStart) {
@@ -214,7 +216,8 @@ export class Game {
     const inp = this.input;
     this.audio.hold(this.paused || this.holdAudio);
     this.fx.update(dt);
-    for (const t of this.toasts) t.t += dt;
+    // Only the toasts on screen (the first three) age, so a long queue is shown in full rather than expiring unseen.
+    for (const t of this.toasts.slice(0, 3)) t.t += dt;
     this.toasts = this.toasts.filter((t) => t.t < 3.2);
     if (this.shiftBanner && (this.shiftBanner.t += dt) > 1.8) this.shiftBanner = null;
 
@@ -398,6 +401,11 @@ export class Game {
   // ---- drawing -----------------------------------------------------------------
   /** Keeps the song frozen while Settings is open from the pause menu. */
   holdAudio = false;
+  /** Call when the profile is replaced (new game, erase): forgets the per-session lobby caches. */
+  resetSessionCaches(): void {
+    this.cabinetsSeen = null;
+    this.questSeenSig = null;
+  }
   /** A run from a shared link (?seed=&mode=), offered in the lobby's daily menu. */
   sharedChallenge: { mode: ModeId; seed: number } | null = null;
   /** Cabinets the lobby has already shown as powered this session, so unlocks from a run get announced once. */

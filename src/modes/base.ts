@@ -26,7 +26,7 @@ export interface ModeOpts {
   /** NIGHTMARE mode (unlocked by the ending): harder, but bits pay double. */
   nightmare?: boolean;
   /** BOSS RUSH: Bricklord (leg 1) straight into DJ Static (leg 2) with health carried over. */
-  rush?: { leg: 1 | 2; carryHp?: number; bits?: number; xp?: number; time?: number; damage?: number; score?: number; chaos?: string[] };
+  rush?: { leg: 1 | 2; carryHp?: number; bits?: number; xp?: number; time?: number; damage?: number; score?: number; chaos?: string[]; floppies?: string[]; flags?: string[] };
 }
 
 export abstract class ModeBase implements Scene {
@@ -173,10 +173,12 @@ export abstract class ModeBase implements Scene {
     if (this.opts.nightmare && cleared) this.runFlags.add('nightmare');
     if (rush?.leg === 1 && cleared) {
       // BOSS RUSH: no results yet. DJ Static is next, with this health and the tally so far.
-      this.game.startMode('rhythm', {
-        rematch: true,
-        rush: { leg: 2, carryHp: this.hp, bits: this.runBits, xp: this.runXp + 40, time: this.time, damage: this.damageTaken, score, chaos: [...this.chaosSeen] },
-      });
+      this.game.startMode(
+        'rhythm',
+        { rematch: true, rush: { leg: 2, carryHp: this.hp, bits: this.runBits, xp: this.runXp + 40, time: this.time, damage: this.damageTaken, score, chaos: [...this.chaosSeen], floppies: [...this.foundFloppies], flags: [...this.runFlags] } },
+        // RETRY after a loss in leg 2 starts the whole rush again, so the leg-1 tally can never be paid twice.
+        { mode: 'beatdown', opts: { rematch: true, rush: { leg: 1 } } },
+      );
       return;
     }
     const result: RunResult = {
@@ -203,6 +205,8 @@ export abstract class ModeBase implements Scene {
       result.damageTaken += rush.damage ?? 0;
       result.score += rush.score ?? 0;
       result.chaosSeen = [...new Set([...(rush.chaos ?? []), ...result.chaosSeen])];
+      result.floppies = [...new Set([...(rush.floppies ?? []), ...result.floppies])];
+      result.flags = [...new Set([...(rush.flags ?? []), ...result.flags])];
       result.bitMultiplier += 0.5;
       if (cleared) result.flags = [...result.flags, 'boss_rush'];
     }

@@ -4,7 +4,7 @@ import { ListMenu, MenuItem } from './menu.ts';
 import { H, W, rect, frame, backdrop, glow } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { drawCass, drawByte, drawManual, drawKevin, drawRex, drawPolygon } from '../render/actors.ts';
-import { defaultProfile } from '../core/save.ts';
+import { defaultProfile, MODE_IDS } from '../core/save.ts';
 import { keyLabel } from '../core/input.ts';
 import { CAST, BOSSES } from '../data/story.ts';
 
@@ -40,7 +40,7 @@ export class TitleScene implements Scene {
   private saveSummary(): string {
     const p = this.game.store.loadProfile();
     const clears = Object.values(p.cleared).filter((c) => c.clears > 0).length;
-    return `LV ${p.level} • ${clears}/5 WORLDS • ${p.floppies.length}/15 DISKS • ${p.bits} BITS`;
+    return `LV ${p.level} • ${clears}/${MODE_IDS.length} WORLDS • ${p.floppies.length}/15 DISKS • ${p.bits} BITS`;
   }
 
   enter(): void {
@@ -49,6 +49,7 @@ export class TitleScene implements Scene {
 
   private newGame(): void {
     this.game.profile = defaultProfile();
+    this.game.resetSessionCaches();
     this.game.saveProfile();
     this.game.goto(this.game.hubFactory(), { title: 'CHAOS.EXE', sub: 'LOADING THE MULTIVERSE...', color: '#ff3fa4' });
   }
@@ -67,7 +68,15 @@ export class TitleScene implements Scene {
       } else this.menu.tap(x, y, this.game);
       return true;
     }
-    return false;
+    if (this.panel === 'confirmNew') {
+      // Only the YES button erases the save; any other tap cancels, so a stray tap can never wipe it.
+      if (x >= W / 2 - 122 && x <= W / 2 - 6 && y >= 184 && y <= 200) this.newGame();
+      else this.panel = 'menu';
+      return true;
+    }
+    this.panel = 'menu';
+    this.game.audio.sfx('back');
+    return true;
   }
 
   update(dt: number): void {
@@ -77,6 +86,7 @@ export class TitleScene implements Scene {
       this.started = true;
       this.game.audio.unlock();
       this.game.music('title');
+      return; // the first press only wakes the title up; it must not also pick a menu entry
     }
     // Secret: type GOODBOY on the title screen.
     if (inp.typed) {
@@ -152,8 +162,12 @@ export class TitleScene implements Scene {
       if (!this.started && Math.floor(t * 2) % 2) drawText(ctx, 'PRESS ANY KEY', W / 2, 136, '#fff', { align: 'center' });
     } else if (this.panel === 'confirmNew') {
       frame(ctx, W / 2 - 130, 150, 260, 54, '#1d1233', '#ff6f3f');
+      drawText(ctx, 'TAP YES TO ERASE; ANYWHERE ELSE KEEPS IT', W / 2, 172, '#9a9ab8', { align: 'center' });
       drawText(ctx, 'START OVER? YOUR SAVE WILL BE ERASED.', W / 2, 162, '#ff6f3f', { align: 'center' });
-      drawText(ctx, 'CONFIRM = YES   BACK = NO', W / 2, 182, '#fff', { align: 'center' });
+      frame(ctx, W / 2 - 122, 184, 116, 16, '#3a1208', '#ff6f3f');
+      drawText(ctx, this.game.input.label('YES, ERASE (Z)'), W / 2 - 64, 188, '#fff', { align: 'center' });
+      frame(ctx, W / 2 + 6, 184, 116, 16, '#0b0716', '#9a9ab8');
+      drawText(ctx, this.game.input.label('NO, KEEP (X)'), W / 2 + 64, 188, '#fff', { align: 'center' });
     } else if (this.panel === 'controls') this.drawControls(ctx);
     else this.drawCredits(ctx);
     drawText(ctx, `V${typeof __VERSION__ === 'string' ? __VERSION__ : 'dev'} • ORIGINAL GAME • MIT LICENSE`, W / 2, H - 10, '#ffffff55', { align: 'center', shadow: null });

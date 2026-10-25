@@ -148,6 +148,7 @@ export function applyRun(profile: Profile, r: RunResult): { profile: Profile; su
   let dailyBonus = 0;
   let dailyStreak = 0;
   if (r.challenge === 'daily' && r.dailyKey) ({ bonus: dailyBonus, streak: dailyStreak } = applyDailyResult(p, r.dailyKey, r.score, r.cleared));
+  p.level = levelForXp(p.xp); // stars and the daily bonus add XP
   const quests = advanceQuests(p, { kind: 'run', r, newFloppies, paidBits: bits, newStars: newStars.length }).map((q) => q.id);
   if (p.level >= 5) unlockAchievement(p, 'level5', achievements);
   // Virtual-pet care loop: BYTE gets hungry and ready to play again after every adventure.

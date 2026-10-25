@@ -79,6 +79,7 @@ export class SettingsScene implements Scene {
     if (this.eraseArmed > 0) {
       this.game.store.deleteProfile();
       this.game.profile = defaultProfile();
+      this.game.resetSessionCaches();
       this.game.toast('SAVE ERASED', 'A FRESH CARTRIDGE.', '#ff6f3f');
       this.eraseArmed = 0;
     } else this.eraseArmed = 3;

@@ -30,6 +30,16 @@ class ResultsScene implements Scene {
     this.game.audio.sfx(this.r.cleared ? 'powerup' : 'back');
   }
 
+  /** Tap an option to choose it: left = back to the lobby, right = retry. */
+  tap(x: number, y: number): boolean {
+    if (this.t < 0.5) return true;
+    if (y >= 226) {
+      this.sel = x < W / 2 + 20 ? 0 : 1;
+      this.game.input.pulse('confirm');
+    }
+    return true;
+  }
+
   update(dt: number): void {
     this.t += dt;
     const g = this.game;
@@ -50,7 +60,10 @@ class ResultsScene implements Scene {
       this.sel = 1 - this.sel;
       g.audio.sfx('select');
     }
-    if (inp.pressed('confirm')) {
+    if (inp.pressed('back') || inp.pressed('attack')) {
+      g.audio.sfx('back');
+      g.toHub();
+    } else if (inp.pressed('confirm')) {
       g.audio.sfx('confirm');
       if (this.sel === 0) g.toHub();
       else g.restart();
