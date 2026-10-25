@@ -4,7 +4,7 @@ import { ListMenu, MenuItem } from './menu.ts';
 import { H, W, rect, frame, backdrop, glow } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { drawCass, drawByte, drawManual, drawKevin, drawRex, drawPolygon } from '../render/actors.ts';
-import { defaultProfile, MODE_IDS } from '../core/save.ts';
+import { defaultProfile, MODE_IDS, TOTAL_FLOPPIES } from '../core/save.ts';
 import { keyLabel } from '../core/input.ts';
 import { CAST, BOSSES } from '../data/story.ts';
 
@@ -40,7 +40,7 @@ export class TitleScene implements Scene {
   private saveSummary(): string {
     const p = this.game.store.loadProfile();
     const clears = Object.values(p.cleared).filter((c) => c.clears > 0).length;
-    return `LV ${p.level} • ${clears}/${MODE_IDS.length} WORLDS • ${p.floppies.length}/15 DISKS • ${p.bits} BITS`;
+    return `LV ${p.level} • ${clears}/${MODE_IDS.length} WORLDS • ${p.floppies.length}/${TOTAL_FLOPPIES} DISKS • ${p.bits} BITS`;
   }
 
   enter(): void {

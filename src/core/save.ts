@@ -4,6 +4,8 @@ import { PetOutfit, defaultOutfit, cleanOutfit } from '../data/pet.ts';
 
 export type ModeId = 'rampage' | 'neon' | 'mall' | 'beatdown' | 'rhythm' | 'command' | 'penalty';
 export const MODE_IDS: ModeId[] = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm', 'command', 'penalty'];
+/** Every world hides three floppy disks. */
+export const TOTAL_FLOPPIES = MODE_IDS.length * 3;
 export type Difficulty = 'easy' | 'normal' | 'hard';
 export type ChaosIntensity = 'off' | 'low' | 'normal' | 'high';
 export type ChaosCategory = 'cosmetic' | 'environmental' | 'combat' | 'genre' | 'legendary';

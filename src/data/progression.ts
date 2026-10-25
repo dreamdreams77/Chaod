@@ -2,7 +2,7 @@
  * Shared progression: shop, achievements and the run-reward pipeline.
  * `applyRun` is pure (profile in → profile out + summary) so it is unit-tested.
  */
-import { MODE_IDS, ModeId, Profile, levelForXp } from '../core/save.ts';
+import { MODE_IDS, ModeId, Profile, TOTAL_FLOPPIES, levelForXp } from '../core/save.ts';
 import { newlyUnlocked } from '../fusion/engine.ts';
 import { QuestDef, MiniId, MINIS, advanceQuests } from './quests.ts';
 import { applyDailyResult } from './daily.ts';
@@ -36,7 +36,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'first_clear', name: 'HELLO WORLD', desc: 'Clear any world.' },
   { id: 'all_modes', name: 'GENRE FLUID', desc: 'Clear all seven worlds.' },
   { id: 'floppy5', name: 'DISK JOCKEY', desc: 'Collect 5 floppy disks.' },
-  { id: 'floppy15', name: 'FULL BACKUP', desc: 'Collect all 15 floppy disks.' },
+  { id: 'floppy15', name: 'FULL BACKUP', desc: `Collect all ${TOTAL_FLOPPIES} floppy disks.` },
   { id: 'boss_bricklord', name: 'LINE CLEAR', desc: 'Defeat BRICKLORD MAX.' },
   { id: 'boss_static', name: 'DROP THE BEAT', desc: 'Defeat DJ STATIC.' },
   { id: 'mercy2', name: 'FREE THE FINAL LEVELS', desc: 'Set both bosses free.' },
@@ -149,7 +149,7 @@ export function applyRun(profile: Profile, r: RunResult): { profile: Profile; su
   for (const f of r.flags) unlockAchievement(p, f, achievements);
   if (MODE_IDS.every((m) => p.cleared[m].clears > 0)) unlockAchievement(p, 'all_modes', achievements);
   if (p.floppies.length >= 5) unlockAchievement(p, 'floppy5', achievements);
-  if (p.floppies.length >= 15) {
+  if (p.floppies.length >= TOTAL_FLOPPIES) {
     unlockAchievement(p, 'floppy15', achievements);
     if (!p.secretUnlocked) {
       p.secretUnlocked = true;

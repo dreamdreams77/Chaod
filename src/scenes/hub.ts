@@ -9,7 +9,7 @@ import { H, W, PAL, rect, frame, clamp, Particles, bar, glow } from '../render/g
 import { drawText, wrap } from '../render/font.ts';
 import { drawByte, drawCass, drawCoreIcon, drawKevin, drawManual, drawPolygon, drawRex, drawDemo, PortraitId } from '../render/actors.ts';
 import { INTRO, KEVIN_LINES, MODE_INFO, lockHint, POLYGON_INTRO, REX_LINES, manualLines, isModeUnlocked, ENDING, CAST, BOSSES } from '../data/story.ts';
-import { MODE_IDS, ModeId, ChaosCategory, xpForLevel } from '../core/save.ts';
+import { MODE_IDS, ModeId, ChaosCategory, TOTAL_FLOPPIES, xpForLevel } from '../core/save.ts';
 import { SHOP, ACHIEVEMENTS, unlockAchievement } from '../data/progression.ts';
 import { QUESTS, MINIS, MiniId } from '../data/quests.ts';
 import { STARS, STAR_BITS, starCount } from '../data/mastery.ts';
@@ -322,7 +322,7 @@ export class HubScene implements Scene {
     }
     const lines = p.endingSeen
       ? ['CORE STATUS: 41% STABLE. ONE PAGE MISSING.', 'NEXT TARGET: THE HIGH SCORE. (PART 2 ON THE ROADMAP)']
-      : [`CORE SHARDS: ${shards}/2. DEFEAT THE BOSSES OF BOSS BEATDOWN AND GLITCH RHYTHM.`, `FLOPPY DISKS BACKED UP: ${p.floppies.length}/15.`];
+      : [`CORE SHARDS: ${shards}/2. DEFEAT THE BOSSES OF BOSS BEATDOWN AND GLITCH RHYTHM.`, `FLOPPY DISKS BACKED UP: ${p.floppies.length}/${TOTAL_FLOPPIES}.`];
     this.say('core', 'CARTRIDGE CORE', lines);
   }
 
@@ -584,7 +584,7 @@ export class HubScene implements Scene {
     const p = this.game.profile;
     const items: MenuItem[] = [
       { label: `LEVEL ${p.level}`, value: () => `${p.xp - xpForLevel(p.level)}/${xpForLevel(p.level + 1) - xpForLevel(p.level)} XP`, disabled: true },
-      { label: `FLOPPIES ${p.floppies.length}/15`, value: () => `${p.achievements.length}/${ACHIEVEMENTS.length} TROPHIES`, disabled: true },
+      { label: `FLOPPIES ${p.floppies.length}/${TOTAL_FLOPPIES}`, value: () => `${p.achievements.length}/${ACHIEVEMENTS.length} TROPHIES`, disabled: true },
       ...ACHIEVEMENTS.map((a) => ({ label: (p.achievements.includes(a.id) ? '★ ' : '☆ ') + a.name, sub: a.desc, color: p.achievements.includes(a.id) ? '#ffcf3f' : '#777', onSelect: () => this.card(a.name, `${a.desc} ${p.achievements.includes(a.id) ? 'Earned!' : 'Not earned yet.'}`, (at) => this.trophyMenu(at)) })),
       { label: '— WHO\'S WHO —', disabled: true },
       ...Object.values(CAST).map((c) => ({ label: c.name, sub: c.bio, onSelect: () => this.card(c.name, c.bio, (at) => this.trophyMenu(at)) })),
@@ -803,7 +803,7 @@ export class HubScene implements Scene {
     drawText(ctx, `LV ${p.level}`, 6, H - 10, '#7dff6b');
     bar(ctx, 36, H - 8, 40, 3, (p.xp - xpForLevel(p.level)) / Math.max(1, xpForLevel(p.level + 1) - xpForLevel(p.level)), '#7dff6b', '#020', '#ffffff44');
     drawText(ctx, `${p.bits} BITS`, 86, H - 10, '#ffcf3f');
-    drawText(ctx, `DISKS ${p.floppies.length}/15`, 160, H - 10, '#3fe0ff');
+    drawText(ctx, `DISKS ${p.floppies.length}/${TOTAL_FLOPPIES}`, 160, H - 10, '#3fe0ff');
     drawText(ctx, `SHARDS ${shards}/2`, 248, H - 10, '#ff6f3f');
     drawText(ctx, this.game.input.label('Z INTERACT • ESC MENU'), W - 6, H - 10, '#9a9ab8', { align: 'right' });
     if (this.menu) {
@@ -948,7 +948,7 @@ export class EndingScene implements Scene {
       freed === 2 ? 'YOU SET EVERY BOSS FREE. THE LOBBY IS NOISIER NOW.' : freed === 1 ? 'ONE BOSS WALKS FREE. ONE IS A MEMORY.' : 'THE BOSSES ARE GONE. THE LOBBY IS VERY QUIET.',
       p.manualTrust > 0 ? 'THE MANUAL WRITES A NEW PAGE: "THANK YOU."' : p.manualTrust < 0 ? 'THE MANUAL KEEPS ITS DISTANCE. FOR NOW.' : 'THE MANUAL IS STILL THINKING ABOUT WHAT YOU SAID.',
       '',
-      `LEVEL ${p.level} • ${p.floppies.length}/15 FLOPPIES • ${p.achievements.length}/${ACHIEVEMENTS.length} TROPHIES`,
+      `LEVEL ${p.level} • ${p.floppies.length}/${TOTAL_FLOPPIES} FLOPPIES • ${p.achievements.length}/${ACHIEVEMENTS.length} TROPHIES`,
       '',
       'TO BE CONTINUED IN PART 2: THE HIGH SCORE',
       '',
