@@ -308,3 +308,52 @@ test('mini-game scores are sanitised and corrupt saves cannot poison bests', () 
   assert.deepEqual(p.mini, { ok: { best: 3, plays: 2 } });
   assert.deepEqual(p.questProgress, {});
 });
+
+test('BYTE BREAKOUT runs headlessly, scores, keeps the ball in play and always ends', async () => {
+  const { BreakoutScene } = await import('../src/scenes/arcade.ts');
+  const { Rng } = await import('../src/core/rng.ts');
+  const { defaultProfile: dp } = await import('../src/core/save.ts');
+  for (let seed = 1; seed <= 20; seed++) {
+    const st = { ax: 0 };
+    const game = {
+      rng: new Rng(seed), profile: dp(), newSeed: () => seed,
+      input: { axisX: () => st.ax, pressed: () => false, label: (t: string) => t },
+      audio: { sfx() {} }, fx: { shake() {} }, music() {}, toHub() {}, saveProfile() {}, toast() {}, announceAchievements() {},
+    };
+    const s = new BreakoutScene(game as never) as unknown as { over: boolean; score: number; bx: number; by: number; px: number; stuck: boolean; t: number; update(dt: number): void };
+    for (let i = 0; i < 60 * 100 && !s.over; i++) {
+      st.ax = s.bx > s.px + 5 ? 1 : s.bx < s.px - 5 ? -1 : 0;
+      s.update(1 / 60);
+      assert.ok(Number.isFinite(s.bx) && Number.isFinite(s.by), 'ball stays finite');
+      assert.ok(s.bx >= 0 && s.bx <= 480, 'ball stays between the walls');
+    }
+    assert.ok(s.over, `seed ${seed} ends within the time limit`);
+    assert.ok(s.score > 0 && s.score <= 60, `seed ${seed} score ${s.score}`);
+  }
+});
+
+test('BYTE BREAKOUT: one missed ball costs exactly one life, and idle rounds do not count as plays', async () => {
+  const { BreakoutScene } = await import('../src/scenes/arcade.ts');
+  const { Rng } = await import('../src/core/rng.ts');
+  const { defaultProfile: dp } = await import('../src/core/save.ts');
+  const game = {
+    rng: new Rng(5), profile: dp(), newSeed: () => 5,
+    input: { axisX: () => 0, pressed: () => false, label: (t: string) => t },
+    audio: { sfx() {} }, fx: { shake() {} }, music() {}, toHub() {}, saveProfile() {}, toast() {}, announceAchievements() {},
+  };
+  const s = new BreakoutScene(game as never) as unknown as { lives: number; stuck: boolean; px: number; bx: number; update(dt: number): void };
+  // Park the paddle in the corner and never move: the first serve is missed.
+  s.px = 28;
+  let missedAt = -1;
+  for (let i = 0; i < 60 * 12 && missedAt < 0; i++) {
+    s.update(1 / 60);
+    if (s.lives < 3) missedAt = i;
+  }
+  assert.ok(missedAt >= 0, 'the ball was eventually missed');
+  assert.equal(s.lives, 2, 'a single miss costs exactly one life');
+  assert.ok(s.stuck, 'the next ball waits on the paddle');
+  const idle = applyMini(defaultProfile(), 'breakout', 0);
+  assert.equal(idle.profile.questProgress.arcade_regular ?? 0, 0, 'a zero-score round is not a play toward ARCADE REGULAR');
+  const real = applyMini(defaultProfile(), 'breakout', 53);
+  assert.ok(real.outcome.quests.some((q) => q.id === 'brick_boss'));
+});

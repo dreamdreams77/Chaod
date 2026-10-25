@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.0 — third mini-game
+- BYTE BREAKOUT joins the arcade: bounce the ball off your cartridge and smash a 10×5 brick wall (top row takes two hits, ball speeds up as the wall thins). Three lives, 90 seconds, 4 bits per 5 points, plus a BRICK BOSS quest (52+ points). Ten quests in total.
+- Simulated players earn about 23-25 bits per minute in BYTE BREAKOUT, in line with the other mini-games.
+- Review fixes found before release: one missed ball could cost several lives; serves now use a private RNG (fixed seed cannot make them repeatable); partial hits no longer speed the ball up; phantom paddle saves removed; a zero-score round no longer counts toward ARCADE REGULAR.
+
 ## 1.3.1 — reward balance
 - Mini-games now pay about 20-27 bits per minute of play (measured with simulated players), below the ~45-60 bits per minute a normal run earns, so the arcade supplements the worlds without replacing them: CART CATCH 2 bits per 5 points, GLITCH MEMORY 4 bits per round.
 - Quest tuning: BIT HOARDER now needs 400 paid bits (150 was one run), CHAOS TOURIST needs 5 events (Chaos NORMAL or HIGH), DISK DIVER pays 60 since floppies already pay, ARCADE ACE needs 50 points (about 1 in 3 for a decent player).

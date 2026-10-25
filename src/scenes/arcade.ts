@@ -12,7 +12,7 @@ import { MiniOutcome, applyMini } from '../data/progression.ts';
 import { Rng } from '../core/rng.ts';
 
 export function startMini(game: Game, id: MiniId): void {
-  game.goto(id === 'catch' ? new CatchScene(game) : new MemoryScene(game));
+  game.goto(id === 'catch' ? new CatchScene(game) : id === 'breakout' ? new BreakoutScene(game) : new MemoryScene(game));
 }
 
 abstract class MiniBase implements Scene {
@@ -219,6 +219,192 @@ export class CatchScene extends MiniBase {
     bar(ctx, W / 2 - 50, 8, 100, 5, left / CATCH_SECONDS, left < 8 ? '#ff3f3f' : '#7dff6b', '#102010', '#ffffff55');
     drawText(ctx, `${Math.ceil(left)}`, W / 2, 16, '#fff', { align: 'center' });
     if (this.t < 3) drawText(ctx, this.game.input.label('ARROWS MOVE • CATCH BITS AND FLOPPIES • DODGE RED BUGS'), W / 2, H - 14, '#fff', { align: 'center' });
+    this.drawOver(ctx, 'PTS');
+  }
+}
+
+// ---- BYTE BREAKOUT -------------------------------------------------------------------
+
+const BR_COLS = 10;
+const BR_ROWS = 5;
+const BR_W = 44;
+const BR_H = 12;
+const BR_X0 = (W - BR_COLS * BR_W) / 2;
+const BR_Y0 = 40;
+const BR_COLORS = ['#ff3fd2', '#ff6f3f', '#ffcf3f', '#7dff6b', '#3fe0ff'];
+const PADDLE_Y = H - 26;
+const BREAKOUT_SECONDS = 90;
+
+interface Brick {
+  hp: number;
+  alive: boolean;
+}
+
+export class BreakoutScene extends MiniBase {
+  id = 'mini-breakout';
+  protected readonly miniId = 'breakout' as const;
+  private px = W / 2;
+  private pw = 56;
+  private bx = W / 2;
+  private by = PADDLE_Y - 6;
+  private bvx = 0;
+  private bvy = 0;
+  private stuck = true;
+  private stuckT = 0;
+  private lives = 3;
+  private speed = 150;
+  private destroyed = 0;
+  private trail: Array<{ x: number; y: number }> = [];
+  private readonly bricks: Brick[][];
+  private readonly rng: Rng;
+
+  constructor(game: Game) {
+    super(game);
+    // Private stream, like the other reward games, so a fixed seed cannot make serves repeatable.
+    this.rng = new Rng(game.rng.int(1, 999999));
+    // Top row takes two hits, so the wall rewards aiming for it.
+    this.bricks = Array.from({ length: BR_ROWS }, (_, r) => Array.from({ length: BR_COLS }, () => ({ hp: r === 0 ? 2 : 1, alive: true })));
+  }
+
+  private launch(): void {
+    this.stuck = false;
+    const a = -Math.PI / 2 + (this.rng.next() - 0.5) * 0.7;
+    // Serves after a lost life restart slower than the ramped-up rally speed.
+    const v = Math.min(this.speed, 185);
+    this.bvx = Math.cos(a) * v;
+    this.bvy = Math.sin(a) * v;
+    this.game.audio.sfx('select', 1.3);
+  }
+
+  update(dt: number): void {
+    this.t += dt;
+    if (this.updateOver(dt)) return;
+    const inp = this.game.input;
+    if (inp.pressed('back') || inp.pressed('pause')) {
+      this.finish();
+      return;
+    }
+    this.particles.update(dt);
+    this.popups.update(dt);
+    this.px = clamp(this.px + inp.axisX() * 270 * dt, this.pw / 2, W - this.pw / 2);
+    if (this.stuck) {
+      this.bx = this.px;
+      this.by = PADDLE_Y - 6;
+      this.stuckT += dt;
+      if (inp.pressed('jump') || inp.pressed('confirm') || inp.pressed('attack') || this.stuckT > 3) this.launch();
+    } else {
+      // Four sub-steps keep a fast ball from tunnelling through a brick.
+      const steps = 4;
+      for (let i = 0; i < steps && !this.over && !this.stuck; i++) this.stepBall(dt / steps);
+      this.trail.push({ x: this.bx, y: this.by });
+      if (this.trail.length > 8) this.trail.shift();
+    }
+    if (this.t >= BREAKOUT_SECONDS || this.remaining() === 0) this.finish();
+  }
+
+  private remaining(): number {
+    let n = 0;
+    for (const row of this.bricks) for (const b of row) if (b.alive) n++;
+    return n;
+  }
+
+  private stepBall(dt: number): void {
+    this.bx += this.bvx * dt;
+    this.by += this.bvy * dt;
+    if (this.bx < 4) { this.bx = 4; this.bvx = Math.abs(this.bvx); }
+    if (this.bx > W - 4) { this.bx = W - 4; this.bvx = -Math.abs(this.bvx); }
+    if (this.by < 4) { this.by = 4; this.bvy = Math.abs(this.bvy); }
+    // Paddle: where the ball lands steers it (edges bounce wide, centre goes straight up).
+    if (this.bvy > 0 && this.by >= PADDLE_Y - 4 && this.by <= PADDLE_Y + 3 && Math.abs(this.bx - this.px) <= this.pw / 2 + 3) {
+      const off = clamp((this.bx - this.px) / (this.pw / 2), -1, 1);
+      const a = -Math.PI / 2 + off * 1.0;
+      this.bvx = Math.cos(a) * this.speed;
+      this.bvy = Math.sin(a) * this.speed;
+      this.by = PADDLE_Y - 5;
+      this.game.audio.sfx('step', 1.2);
+    }
+    // Bricks
+    const col = Math.floor((this.bx - BR_X0) / BR_W);
+    const row = Math.floor((this.by - BR_Y0) / BR_H);
+    if (row >= 0 && row < BR_ROWS && col >= 0 && col < BR_COLS) {
+      const b = this.bricks[row][col];
+      if (b.alive) {
+        // Bounce on the axis the ball is nearer to the brick's edge on.
+        const cx = BR_X0 + col * BR_W + BR_W / 2;
+        const cy = BR_Y0 + row * BR_H + BR_H / 2;
+        const dx = Math.abs(this.bx - cx) / (BR_W / 2);
+        const dy = Math.abs(this.by - cy) / (BR_H / 2);
+        if (dx > dy) this.bvx = (this.bx > cx ? 1 : -1) * Math.abs(this.bvx);
+        else this.bvy = (this.by > cy ? 1 : -1) * Math.abs(this.bvy);
+        b.hp--;
+        const color = BR_COLORS[row];
+        if (b.hp <= 0) {
+          b.alive = false;
+          const gain = row === 0 ? 2 : 1;
+          this.score += gain;
+          this.particles.burst(cx, cy, [color, '#fff'], 10, 80);
+          this.popups.add(cx, cy - 4, `+${gain}`, color);
+          this.game.audio.sfx('coin', 0.8 + row * 0.12);
+          // The ball speeds up as the wall thins, up to a cap.
+          this.destroyed++;
+          this.speed = Math.min(235, 150 + this.destroyed * 2.2);
+          const mag = Math.hypot(this.bvx, this.bvy) || 1;
+          this.bvx = (this.bvx / mag) * this.speed;
+          this.bvy = (this.bvy / mag) * this.speed;
+        } else this.game.audio.sfx('hit', 1.5);
+      }
+    }
+    if (this.by > H + 6) {
+      this.lives--;
+      this.stuck = true;
+      this.stuckT = 0;
+      this.bx = this.px;
+      this.by = PADDLE_Y - 6;
+      this.bvx = 0;
+      this.bvy = 0;
+      this.trail.length = 0;
+      this.game.audio.sfx('hurt');
+      this.game.fx.shake(2);
+      if (this.lives <= 0) this.finish();
+    }
+  }
+
+  draw(ctx: CanvasRenderingContext2D): void {
+    this.drawBackdrop(ctx, '255,111,63');
+    for (let r = 0; r < BR_ROWS; r++) {
+      for (let c = 0; c < BR_COLS; c++) {
+        const b = this.bricks[r][c];
+        if (!b.alive) continue;
+        const x = BR_X0 + c * BR_W, y = BR_Y0 + r * BR_H, color = BR_COLORS[r];
+        rect(ctx, x + 2, y + 3, BR_W - 2, BR_H - 2, 'rgba(0,0,0,0.35)');
+        rect(ctx, x + 1, y + 1, BR_W - 2, BR_H - 2, color);
+        rect(ctx, x + 1, y + 1, BR_W - 2, 2, 'rgba(255,255,255,0.45)');
+        rect(ctx, x + 1, y + BR_H - 3, BR_W - 2, 2, 'rgba(0,0,0,0.25)');
+        if (b.hp > 1) rect(ctx, x + 3, y + 5, BR_W - 6, 2, 'rgba(255,255,255,0.7)');
+      }
+    }
+    // Ball trail and ball
+    for (let i = 0; i < this.trail.length; i++) {
+      ctx.globalAlpha = (i + 1) / this.trail.length * 0.35;
+      rect(ctx, this.trail[i].x - 2, this.trail[i].y - 2, 4, 4, '#3fe0ff');
+    }
+    ctx.globalAlpha = 1;
+    glow(ctx, this.bx, this.by, 14, '63,224,255', 0.45);
+    rect(ctx, this.bx - 3, this.by - 3, 6, 6, '#ffffff');
+    // Paddle shadow + cartridge paddle
+    rect(ctx, this.px - this.pw / 2 + 2, PADDLE_Y + 6, this.pw, 4, 'rgba(0,0,0,0.4)');
+    rect(ctx, this.px - this.pw / 2, PADDLE_Y, this.pw, 7, '#2a2a3a');
+    rect(ctx, this.px - this.pw / 2, PADDLE_Y, this.pw, 2, '#c0c0d0');
+    rect(ctx, this.px - 8, PADDLE_Y + 2, 16, 4, '#ff3fa4');
+    for (let i = 0; i < 5; i++) rect(ctx, this.px - 12 + i * 5, PADDLE_Y + 6, 2, 2, '#ffcf3f');
+    this.particles.draw(ctx);
+    this.popups.draw(ctx);
+    const left = Math.max(0, BREAKOUT_SECONDS - this.t);
+    drawText(ctx, `SCORE ${this.score}`, 8, 8, '#ffcf3f');
+    for (let i = 0; i < 3; i++) drawText(ctx, '\u2665', W - 40 + i * 9, 8, i < this.lives ? '#ff3f6b' : '#40303a');
+    bar(ctx, W / 2 - 50, 8, 100, 5, left / BREAKOUT_SECONDS, left < 15 ? '#ff3f3f' : '#7dff6b', '#102010', '#ffffff55');
+    if (this.stuck && !this.over) drawText(ctx, this.game.input.label('Z LAUNCHES THE BALL (AUTO IN 3S)'), W / 2, PADDLE_Y - 30, '#fff', { align: 'center' });
+    if (this.t < 4) drawText(ctx, this.game.input.label('ARROWS MOVE \u2022 TOP ROW TAKES TWO HITS \u2022 ESC ENDS THE ROUND'), W / 2, H - 12, '#fff', { align: 'center' });
     this.drawOver(ctx, 'PTS');
   }
 }
