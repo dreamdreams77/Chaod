@@ -177,8 +177,31 @@ export class HubScene implements Scene {
     if (inp.pressed('pause')) this.openPauseMenu();
   }
 
+  /** Every world in one list: the easiest path from the lobby to actually playing. */
+  private worldPicker(): void {
+    const p = this.game.profile;
+    const items: MenuItem[] = MODE_IDS.map((m) => {
+      const open = isModeUnlocked(m, p.cleared);
+      const info = MODE_INFO[m];
+      const need = m === 'neon' || m === 'mall' ? 'Clear RETRO RAMPAGE first.' : 'Clear any two worlds to unlock.';
+      return {
+        label: info.title,
+        value: () => (open ? (p.cleared[m].clears ? `CLEARED x${p.cleared[m].clears}` : 'NEW') : 'LOCKED'),
+        sub: open ? info.blurb : need,
+        color: open ? info.color : undefined,
+        disabled: !open,
+        onSelect: () => this.cabinet(m),
+      };
+    });
+    items.push({ label: 'BACK', onSelect: () => this.openPauseMenu() });
+    this.menu = new ListMenu('PLAY A WORLD', items, () => this.openPauseMenu(), { x: 50, y: 40, w: 380, accent: '#7dff6b' });
+  }
+
   private openPauseMenu(): void {
     this.menu = new ListMenu('LOBBY MENU', [
+      { label: 'PLAY A WORLD', sub: 'Pick a world to play right now, without walking to its cabinet.', onSelect: () => this.worldPicker() },
+      { label: 'QUEST BOARD', sub: 'Your quests and rewards.', onSelect: () => this.questMenu() },
+      { label: 'MINI-GAME ARCADE', sub: 'Five quick games that pay bits.', onSelect: () => this.arcadeMenu() },
       { label: 'RESUME', onSelect: () => (this.menu = null) },
       { label: 'SETTINGS', onSelect: () => { this.menu = null; this.game.goto(this.game.settingsFactory(() => this.game.hubFactory())); } },
       { label: 'SAVE & QUIT TO TITLE', onSelect: () => { this.save(); this.menu = null; this.game.goto(this.game.titleFactory()); } },
@@ -552,6 +575,12 @@ export class HubScene implements Scene {
     for (let i = 0; i < 2; i++) rect(ctx, 226 + i * 22, 156, 6, 6, i < shards ? (i ? '#ff3fd2' : '#ff6f3f') : '#444');
     drawManual(ctx, 270, 130, t);
     // Stations
+    // New players: a bouncing arrow over the first cabinet says where to start.
+    if (!this.menu && p.runsStarted === 0) {
+      const bob = Math.round(Math.sin(this.t * 5) * 3);
+      drawText(ctx, 'START HERE', 72, 22 + bob, '#7dff6b', { align: 'center' });
+      drawText(ctx, '\u25BC', 72, 30 + bob, '#7dff6b', { align: 'center' });
+    }
     this.drawQuestBoard(ctx);
     this.drawMiniCabinet(ctx);
     this.drawStation(ctx, 440, 120, 'LAB', '#ff3fd2');

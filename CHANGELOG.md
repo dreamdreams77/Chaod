@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.1 — an easy way into the games
+- The lobby menu (II / Esc) now starts with PLAY A WORLD, a list of every world with its status (NEW, CLEARED, LOCKED); pick one, then PLAY. It also links straight to the Quest Board and the Mini-Game Arcade, so you never have to walk anywhere to start playing.
+- New players see a bouncing "START HERE" arrow over the first cabinet until they have played a run.
+
 ## 1.6.0 — two more mini-games, sturdier quest board
 - WHACK-A-GLITCH (3×3 holes: bonk glitches, gold bugs are worth 3, never hit BYTE; arrows + A, or tap a hole) and STACK-A-CART (drop sliding cartridges onto a tower; perfect drops keep it wide; A or tap). Five arcade games now, twelve quests (new: GLITCH EXTERMINATOR, TOWER BUILDER), all balanced with simulated players to roughly 20-40 bits per minute.
 - Quest Board rows open a detail page inside the menu (status, reward, BACK) instead of a dialogue box, so A, a tap, or II/back always works and returns to the same row. The Trophy Case uses the same pages, with readable text. The board's interact zone now covers the whole sprite.
