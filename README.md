@@ -95,7 +95,7 @@ Zero runtime dependencies and zero binary assets: every sprite is drawn from rec
 ## Quality checks
 
 ```bash
-npm run check        # typecheck (src + tests) + 125 unit tests + production build
+npm run check        # typecheck (src + tests) + 129 unit tests + production build
 npm run smoke        # headless Chromium: plays every world, then drives the full campaign to the ending
 ```
 

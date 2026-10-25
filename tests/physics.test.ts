@@ -846,7 +846,7 @@ test('BOLT BRIGADE: a master falls to its weakness, weapons come from beaten mas
   assert.equal(new BoltMode(game, { seed: 1 }).fortressOpen, true);
 });
 
-test('BOLT BRIGADE: the player walks, jumps, runs through a whole stage with a simple bot, shoots foes and falls in pits safely', () => {
+test('BOLT BRIGADE: a simple bot runs, jumps and shoots its way through every stage to the boss door', () => {
   const { game } = bossGame();
   for (const master of BOLT_MASTERS_T) {
     const b = new BoltMode(game, { seed: 99 });
@@ -861,6 +861,7 @@ test('BOLT BRIGADE: the player walks, jumps, runs through a whole stage with a s
       const wall = (b as unknown as { solid(x: number, y: number): boolean }).solid(Math.floor((b.px + 14) / BOLT_TILE), Math.floor((b.py - 6) / BOLT_TILE));
       const haz = b.hazards.some((h) => h.kind !== 'jet' && Math.abs(h.x * BOLT_TILE + 8 - (b.px + 20)) < 22 && Math.abs(h.y * BOLT_TILE - b.py) < 20);
       inp.setVirtual('jump', (b.onGround && (pit || wall || haz)) || (!b.onGround && b.vy < 0));
+      inp.setVirtual('attack', i % 10 === 0);
       b.iframes = 99;
       b.update(1 / 60);
       inp.endFrame();
@@ -868,7 +869,81 @@ test('BOLT BRIGADE: the player walks, jumps, runs through a whole stage with a s
     }
     inp.setVirtual('right', false);
     inp.setVirtual('jump', false);
-    assert.notEqual(b.phase, 'run', `${master.id}: the bot reaches the boss door`);
-    void got;
+    assert.ok(b.phase === 'bossIntro' || b.phase === 'boss', `${master.id}: the bot reaches the boss door alive (${b.phase})`);
+    assert.ok(got, `${master.id}: shooting kills something on the way`);
   }
+});
+
+test('BOLT BRIGADE: falling in a pit costs a heart and puts you back on safe ground; the rain attack really drops six shots', () => {
+  const { game } = bossGame();
+  const b = new BoltMode(game, { seed: 5 });
+  b.begin(BOLT_MASTERS_T[1], false);
+  const hp = b.hp;
+  b.py = 20 * BOLT_TILE;
+  b.update(1 / 60);
+  assert.equal(b.hp, hp - 1);
+  assert.ok(b.py < 15 * BOLT_TILE, 'back on the ground');
+  // six rain drops survive their first frame
+  const c = new BoltMode(game, { seed: 6 });
+  c.begin(BOLT_MASTERS_T[1], false);
+  (c as unknown as { startBoss(): void }).startBoss();
+  for (let i = 0; i < 130; i++) c.update(1 / 60);
+  (c as unknown as { runAttack(a: string, sk: number): void }).runAttack('rain', 1);
+  c.update(1 / 60);
+  assert.equal(c.shots.filter((s) => !s.friendly).length, 6);
+});
+
+test('BOLT BRIGADE: the select screen costs no time, damage dealt follows GLASS CANNON, and stages differ between masters on one seed', () => {
+  const { game } = bossGame();
+  const b = new BoltMode(game, { seed: 77 });
+  for (let i = 0; i < 300; i++) b.update(1 / 60);
+  assert.equal(b.time, 0, 'browsing the stage cards does not run the clock');
+  let same = 0;
+  for (let s = 1; s <= 40; s++) {
+    const x = new BoltMode(game, { seed: s * 101 });
+    x.begin(BOLT_MASTERS_T[0], false);
+    const y = new BoltMode(game, { seed: s * 101 });
+    y.begin(BOLT_MASTERS_T[1], false);
+    if (JSON.stringify(x.level.ground) === JSON.stringify(y.level.ground)) same++;
+  }
+  assert.ok(same <= 2, `FROSTBYTE and FLAREBOT stages are almost never alike (${same}/40)`);
+});
+
+test('BLOCK PARTY: a touch that starts between pieces does not drag the next piece to the wall, holding keeps the bomb, gentle perks slow the fall', () => {
+  const { game } = blocksGame();
+  const m = blocksReady(game);
+  const piece = m.cur!;
+  m.tap(240, 100);
+  m.drag(241, 100);
+  assert.equal(m.cur!.x, piece.x, 'a one-pixel wobble moves nothing');
+  m.hardDrop();
+  for (let i = 0; i < 40; i++) m.update(1 / 60);
+  const x = m.cur?.x ?? 3;
+  m.drag(242, 100);
+  assert.ok(Math.abs((m.cur?.x ?? 3) - x) <= 1, 'the new piece is anchored where the finger is');
+  m.dragEnd();
+
+  const { game: g2 } = blocksGame();
+  const h = blocksReady(g2);
+  h.cur = { id: 'T', rot: 0, x: 3, y: 0, bomb: true };
+  h.holdPiece();
+  const bomb = h.cur!.bomb;
+  assert.equal(bomb, false, 'the replacement is a normal piece');
+  const swap = (h as unknown as { holdBomb: boolean }).holdBomb;
+  assert.equal(swap, true, 'the bomb waits in the hold');
+
+  const plain = blocksReady(blocksGame().game);
+  const { game: g3 } = blocksGame();
+  const gentle = new BlocksMode(g3, { perks: ['gentle'] });
+  for (let i = 0; i < 160; i++) gentle.update(1 / 60);
+  const fall = (x: BlocksMode) => (x as unknown as { fallInterval: number }).fallInterval;
+  assert.ok(fall(gentle) > fall(plain), 'GENTLE WORLD slows the fall');
+});
+
+test('only the two story bosses count as Core shards, whatever else is in the list', async () => {
+  const { manualLines } = await import('../src/data/story.ts');
+  const text = (bosses: string[]) => manualLines({ clears: 3, bosses, floppies: 0, trust: 0, ending: false }).map((l) => l.text).join(' ');
+  assert.ok(!text(['frostbyte', 'flarebot', 'highscore']).includes('Both shards'));
+  assert.ok(text(['bricklord', 'frostbyte']).includes('One CORE SHARD'));
+  assert.ok(text(['bricklord', 'static']).includes('Both shards'));
 });

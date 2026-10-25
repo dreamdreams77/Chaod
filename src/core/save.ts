@@ -5,7 +5,7 @@ import { LobbyDecor, defaultDecor, cleanDecor } from '../data/decor.ts';
 import { WeeklyState, emptyWeekly, WEEKLY_BY_ID } from '../data/weekly.ts';
 
 export type ModeId = 'rampage' | 'neon' | 'mall' | 'beatdown' | 'rhythm' | 'command' | 'penalty' | 'blocks' | 'bolt' | 'highscore';
-/** The seven worlds that have a lobby cabinet (and three floppy disks each). */
+/** The worlds that have a lobby cabinet (and three floppy disks each). */
 export const MODE_IDS: ModeId[] = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm', 'command', 'penalty', 'blocks', 'bolt'];
 /** Every mode with a record: the worlds plus the final boss, THE HIGH SCORE. */
 export const ALL_MODES: ModeId[] = [...MODE_IDS, 'highscore'];

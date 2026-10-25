@@ -13,7 +13,7 @@ import { ModeBase, ModeOpts } from './base.ts';
 import type { DirectorContext } from '../chaos/director.ts';
 import { Rng } from '../core/rng.ts';
 import {
-  Board, COLS, COLORS, HIDDEN, PieceId, Piece, ROWS, VISIBLE, addGarbage, cellsOf, clearTop, dropDistance, emptyBoard, explode, fallSeconds, fits, fullRows,
+  Board, COLS, COLORS, HIDDEN, PIECE_COLOR, PieceId, Piece, ROWS, VISIBLE, addGarbage, cellsOf, clearTop, dropDistance, emptyBoard, explode, fallSeconds, fits, fullRows,
   lineScore, lock, moved, nextBag, removeRows, rotated, spawn, stackHeight,
 } from '../procgen/blocks.ts';
 import { H, W, PAL, backdrop, glow, rect, frame, bar, hearts, clamp } from '../render/gfx.ts';
@@ -28,7 +28,6 @@ const LOCK_DELAY = 0.5;
 const MAX_LOCK_RESETS = 15;
 const DAS = 0.17;
 const ARR = 0.045;
-const BOMB_EVERY = 9;
 
 export class BlocksMode extends ModeBase {
   id = 'blocks';
@@ -38,6 +37,7 @@ export class BlocksMode extends ModeBase {
   board: Board = emptyBoard();
   cur: Piece | null = null;
   hold: PieceId | null = null;
+  private holdBomb = false;
   private holdUsed = false;
   queue: PieceId[] = [];
   lines = 0;
@@ -59,7 +59,7 @@ export class BlocksMode extends ModeBase {
   endT = 0;
   private banner: { text: string; color: string; t: number } | null = null;
   /** Touch drag state (see the header for the scheme). */
-  private touch: { x0: number; y0: number; t0: number; col0: number; moved: boolean; flicked: boolean } | null = null;
+  private touch: { x0: number; y0: number; t0: number; col0: number; moved: boolean; flicked: boolean; piece: number } | null = null;
   private touchSoft = false;
 
   constructor(game: Game, opts: ModeOpts = {}) {
@@ -94,12 +94,19 @@ export class BlocksMode extends ModeBase {
   }
 
   // ---- numbers ---------------------------------------------------------------------
+  private get bombEvery(): number {
+    return Math.max(3, Math.round(this.fusion.param('bomb_pieces', 'every', 9)));
+  }
   /** Level drives the fall speed: lines, difficulty and ENDLESS rounds. */
   get level(): number {
     return Math.max(1, 1 + Math.floor(this.lines / 10) + { easy: -1, normal: 0, hard: 2 }[this.game.settings.difficulty] + Math.floor((this.tier - 1) * 5));
   }
+  /** Perks and assist mode make everything gentler (below 1); ENDLESS rounds are already in the level. */
+  private get ease(): number {
+    return this.diffMult / ({ easy: 0.6, normal: 1, hard: 1.4 }[this.game.settings.difficulty] * this.tier);
+  }
   private get fallInterval(): number {
-    let s = fallSeconds(this.level);
+    let s = fallSeconds(this.level) / this.ease;
     if (this.director.flag('surge')) s /= 2.2;
     return s;
   }
@@ -120,7 +127,6 @@ export class BlocksMode extends ModeBase {
       this.banner.t += dt;
       if (this.banner.t > 1.6) this.banner = null;
     }
-    this.particles.update(dt);
     if (this.phase === 'won' || this.phase === 'lost') {
       this.endT += dt;
       if (this.phase === 'won' && this.endT > 2.2) {
@@ -246,14 +252,17 @@ export class BlocksMode extends ModeBase {
   holdPiece(): void {
     if (!this.cur || this.holdUsed || this.phase !== 'play') return;
     const id = this.cur.id;
+    const bomb = !!this.cur.bomb;
     if (this.hold) {
-      const swapped = spawn(this.hold);
+      const swapped = spawn(this.hold, this.holdBomb);
       if (!fits(this.board, swapped)) return;
       this.hold = id;
+      this.holdBomb = bomb;
       this.cur = swapped;
       this.resetFall();
     } else {
       this.hold = id;
+      this.holdBomb = bomb;
       this.cur = null;
       this.nextPiece(true);
     }
@@ -272,7 +281,7 @@ export class BlocksMode extends ModeBase {
     this.refillQueue();
     const id = this.queue.shift()!;
     this.pieces++;
-    const bomb = this.fusion.has('bomb_pieces') && this.pieces % BOMB_EVERY === 0;
+    const bomb = this.fusion.has('bomb_pieces') && this.pieces % this.bombEvery === 0;
     const p = spawn(id, bomb);
     if (!fromHold) this.holdUsed = false;
     this.resetFall();
@@ -350,6 +359,7 @@ export class BlocksMode extends ModeBase {
     this.hp = Math.max(0, this.hp - dmg);
     this.noteDamage(dmg);
     this.cur = null;
+    this.director.clearAll();
     if (this.hp <= 0) {
       this.phase = 'lost';
       this.endT = 0;
@@ -370,13 +380,22 @@ export class BlocksMode extends ModeBase {
 
   // ---- touch -----------------------------------------------------------------------
   tap(x: number, y: number): boolean {
-    this.touch = { x0: x, y0: y, t0: this.time, col0: this.cur?.x ?? 0, moved: false, flicked: false };
+    this.touch = { x0: x, y0: y, t0: this.time, col0: this.cur?.x ?? 0, moved: false, flicked: false, piece: this.pieces };
     return true;
   }
 
   drag(x: number, y: number): void {
     const t = this.touch;
     if (!t || !this.cur || this.phase !== 'play') return;
+    // A new piece (or one that arrived while the finger was already down) is anchored where the finger is now.
+    if (t.piece !== this.pieces) {
+      t.piece = this.pieces;
+      t.x0 = x;
+      t.y0 = y;
+      t.col0 = this.cur.x;
+      t.flicked = false;
+      t.moved = true;
+    }
     const dx = x - t.x0;
     const dy = y - t.y0;
     if (Math.abs(dx) > 8 || Math.abs(dy) > 8) t.moved = true;
@@ -456,7 +475,7 @@ export class BlocksMode extends ModeBase {
         const gy = this.ghostY;
         for (const [cx, cy] of cellsOf({ ...this.cur, y: gy })) this.cellRect(ctx, cx, cy, 8, 0.28);
       }
-      const color = this.cur.bomb ? 7 : { I: 1, O: 2, T: 3, S: 4, Z: 5, J: 6, L: 7 }[this.cur.id];
+      const color = this.cur.bomb ? 7 : PIECE_COLOR[this.cur.id];
       for (const [cx, cy] of cellsOf(this.cur)) {
         this.cellRect(ctx, cx, cy, color);
         if (this.cur.bomb && cy >= HIDDEN) rect(ctx, WELL_X + cx * CELL + 3, WELL_Y + (cy - HIDDEN) * CELL + 3, 4, 4, Math.floor(this.time * 6) % 2 ? '#fff' : '#ff3f5a');
@@ -487,7 +506,7 @@ export class BlocksMode extends ModeBase {
     ctx.globalAlpha = alpha;
     for (const [x, y] of cells) {
       const px = ox + (x - minX) * size, py = oy + (y - minY) * size;
-      rect(ctx, px, py, size - 1, size - 1, COLORS[{ I: 1, O: 2, T: 3, S: 4, Z: 5, J: 6, L: 7 }[id]]);
+      rect(ctx, px, py, size - 1, size - 1, COLORS[PIECE_COLOR[id]]);
       rect(ctx, px, py, size - 1, 1, 'rgba(255,255,255,0.4)');
     }
     ctx.globalAlpha = 1;
@@ -515,7 +534,11 @@ export class BlocksMode extends ModeBase {
     drawText(ctx, 'BITS', sx, 178, '#9a9ab8');
     drawText(ctx, `${this.runBits}`, sx, 188, '#ffcf3f');
     if (this.combo >= 1) drawText(ctx, `COMBO ${this.combo}`, sx, 202, '#ffcf3f');
-    if (this.fusion.has('bomb_pieces')) drawText(ctx, `BOMB IN ${BOMB_EVERY - (this.pieces % BOMB_EVERY)}`, WELL_X + COLS * CELL + 20, 160, '#ff9f3f');
+    if (this.fusion.has('bomb_pieces')) {
+      const left = this.bombEvery - (this.pieces % this.bombEvery);
+      const bombNow = this.cur?.bomb || this.hold !== null && this.holdBomb;
+      drawText(ctx, this.cur?.bomb ? 'BOMB NOW!' : `BOMB IN ${left === this.bombEvery ? this.bombEvery : left}`, WELL_X + COLS * CELL + 20, 160, bombNow ? '#ff3f5a' : '#ff9f3f');
+    }
     this.drawRunInfo(ctx, WELL_X + COLS * CELL + 20, 174);
   }
 

@@ -130,7 +130,10 @@ export class BoltMode extends ModeBase {
   private pitFalls = 0;
   private shootAnim = 0;
   private banner: { text: string; color: string; t: number } | null = null;
-  private readonly volleyRng: Rng;
+  /** Separate streams: boss patterns must not depend on kills (drops) or particles (fx). */
+  private readonly bossRng: Rng;
+  private readonly dropRng: Rng;
+  private readonly fxRng: Rng;
   kills = 0;
   private lastFootstep = 0;
 
@@ -138,7 +141,9 @@ export class BoltMode extends ModeBase {
     super(game, 'bolt', opts);
     this.hp = this.stats.maxHp;
     this.applyCarry();
-    this.volleyRng = this.rng.fork(0xb017);
+    this.bossRng = this.rng.fork(0xb055);
+    this.dropRng = this.rng.fork(0xd20b);
+    this.fxRng = this.rng.fork(0xf1e5);
     // ENDLESS and chained runs skip the stage select: the master comes from the seed.
     const owned = this.beaten();
     this.selIndex = Math.max(0, MASTERS.findIndex((m) => !owned.includes(m.id)));
@@ -202,7 +207,7 @@ export class BoltMode extends ModeBase {
     for (const e of l.enemies) {
       const def = { walker: [2, 12, 12], turret: [3, 12, 12], flyer: [1, 12, 10], hopper: [3, 12, 12] }[e.kind];
       const hp = Math.max(1, Math.round(def[0] * scale));
-      this.foes.push({ kind: e.kind, x: e.x * TILE + 8, y: (e.y + 1) * TILE, vx: 0, vy: 0, w: def[1], h: def[2], hp, max: hp, t: this.volleyRng.range(0, 2), dir: -1, frozen: 0, flash: 0, home: (e.y + 1) * TILE, active: false, grounded: false });
+      this.foes.push({ kind: e.kind, x: e.x * TILE + 8, y: (e.y + 1) * TILE, vx: 0, vy: 0, w: def[1], h: def[2], hp, max: hp, t: this.fxRng.range(0, 2), dir: -1, frozen: 0, flash: 0, home: (e.y + 1) * TILE, active: false, grounded: false });
     }
     for (const p of l.pickups) this.items.push({ x: p.x * TILE + 8, y: p.y * TILE + 8, kind: p.kind, taken: false });
     if (l.floppy && master.floppy !== null) this.items.push({ x: l.floppy.x * TILE + 8, y: l.floppy.y * TILE + 8, kind: 'floppy', taken: false });
@@ -250,17 +255,17 @@ export class BoltMode extends ModeBase {
   // ---- simulation ------------------------------------------------------------------
   update(rawDt: number): void {
     const dt = rawDt * this.speedMult;
+    if (this.phase === 'select') {
+      // Browsing the stage cards costs nothing: no clock, no chaos meter.
+      this.updateSelect();
+      return;
+    }
     this.tickShared(dt);
-    this.particles.update(dt);
     this.iframes = Math.max(0, this.iframes - dt);
     this.shootAnim = Math.max(0, this.shootAnim - dt);
     if (this.banner) {
       this.banner.t += dt;
       if (this.banner.t > 1.8) this.banner = null;
-    }
-    if (this.phase === 'select') {
-      this.updateSelect();
-      return;
     }
     if (this.phase === 'won' || this.phase === 'lost') {
       this.endT += dt;
@@ -270,7 +275,7 @@ export class BoltMode extends ModeBase {
     }
     if (this.phase === 'dying') {
       this.endT += dt;
-      if (this.boss && Math.floor(this.endT * 14) !== Math.floor((this.endT - dt) * 14)) this.particles.burst(this.boss.x + (this.volleyRng.next() - 0.5) * 26, this.boss.y - 20 + (this.volleyRng.next() - 0.5) * 30, [this.master.color, '#fff'], 6, 90);
+      if (this.boss && Math.floor(this.endT * 14) !== Math.floor((this.endT - dt) * 14)) this.particles.burst(this.boss.x + (this.fxRng.next() - 0.5) * 26, this.boss.y - 20 + (this.fxRng.next() - 0.5) * 30, [this.master.color, '#fff'], 6, 90);
       this.updateShots(dt);
       if (this.endT > 2) {
         if (this.fortress) {
@@ -461,6 +466,7 @@ export class BoltMode extends ModeBase {
 
   private fallInPit(): void {
     this.pitFalls++;
+    this.director.clearAll();
     this.hurt(1, this.px, true);
     this.px = this.spawnX;
     this.py = this.spawnY;
@@ -514,7 +520,7 @@ export class BoltMode extends ModeBase {
     const jam = this.director.flag('jam') ? 0.5 : 1;
     const dmg = [1, 2, 4][level] + this.beatBonus();
     const r = [3, 5, 8][level];
-    this.shots.push({ x: this.px + this.face * 9, y: this.py - 12, vx: this.face * 260 * jam, vy: 0, r, dmg: dmg * this.stats.power, weapon: 'buster', friendly: true, pierce: level === 2, life: 1.2, grav: 0, zig: 0, hit: level === 2 ? [] : null });
+    this.shots.push({ x: this.px + this.face * 9, y: this.py - 12, vx: this.face * 260 * jam, vy: 0, r, dmg: dmg * this.stats.power * this.damageMult, weapon: 'buster', friendly: true, pierce: level === 2, life: 1.2, grav: 0, zig: 0, hit: level === 2 ? [] : null });
     this.shootAnim = 0.2;
     this.game.audio.sfx(level ? 'boost' : 'shoot', level ? 1.4 : 1);
   }
@@ -531,7 +537,7 @@ export class BoltMode extends ModeBase {
     const f = this.face;
     const jam = this.director.flag('jam') ? 0.5 : 1;
     const base = { x: this.px + f * 9, y: this.py - 12, friendly: true, weapon: w, life: 1.2, grav: 0, zig: 0, hit: null as Foe[] | null, pierce: false };
-    const pow = this.stats.power;
+    const pow = this.stats.power * this.damageMult;
     if (w === 'ice') {
       for (const a of [-0.16, 0, 0.16]) this.shots.push({ ...base, vx: f * 210 * jam, vy: a * 210, r: 3, dmg: 2 * pow });
       this.game.audio.sfx('shoot', 1.6);
@@ -638,7 +644,7 @@ export class BoltMode extends ModeBase {
   private leafTouch(f: Foe): void {
     if (this.leafHit > 0) return;
     this.leafHit = 0.35;
-    this.damageFoe(f, 1 * this.stats.power, 'leaf');
+    this.damageFoe(f, 1 * this.stats.power * this.damageMult, 'leaf');
   }
 
   private foeShot(x: number, y: number, vx: number, vy: number, grav = 0, r = 3): void {
@@ -656,7 +662,7 @@ export class BoltMode extends ModeBase {
       }
       s.x += s.vx * dt;
       s.y += s.vy * dt;
-      let alive = s.life > 0 && s.x > this.camX - 40 && s.x < this.camX + W + 40 && s.y < (ROWS + 1) * TILE && s.y > -20;
+      let alive = s.life > 0 && s.x > this.camX - 40 && s.x < this.camX + W + 40 && s.y < (ROWS + 1) * TILE && s.y > -140;
       if (alive && this.solid(Math.floor(s.x / TILE), Math.floor(s.y / TILE)) && !(s.friendly && s.weapon === 'flame')) alive = false;
       if (alive) {
         if (s.friendly) alive = this.friendlyShotHits(s);
@@ -721,12 +727,12 @@ export class BoltMode extends ModeBase {
     this.addBits(f.kind === 'turret' || f.kind === 'hopper' ? 3 : 2, f.x, f.y - f.h);
     this.particles.burst(f.x, f.y - f.h / 2, ['#ffcf3f', '#ff6f3f', '#fff'], 10, 90);
     this.game.audio.sfx('explode', 2);
-    if (this.volleyRng.chance(0.22)) this.items.push({ x: f.x, y: f.y - 8, kind: this.volleyRng.chance(0.5) ? 'we' : 'bit', taken: false });
+    if (this.dropRng.chance(0.22)) this.items.push({ x: f.x, y: f.y - 8, kind: this.dropRng.chance(0.5) ? 'we' : 'bit', taken: false });
   }
 
   /** A heart falls into the arena as a master weakens, so a long fight is not a pure attrition race. */
   private dropHeart(): void {
-    const x = this.level.arenaX * TILE + this.volleyRng.range(60, 360);
+    const x = this.level.arenaX * TILE + this.bossRng.range(60, 360);
     this.items.push({ x, y: 13 * TILE - 40, kind: 'hp', taken: false });
     this.popups.add(x, 13 * TILE - 56, 'HEART!', '#ff3f6b');
   }
@@ -783,6 +789,7 @@ export class BoltMode extends ModeBase {
     this.bossIntroT = 0;
     this.foes = this.foes.filter((f) => Math.abs(f.x - this.px) > 9999);
     this.shots.length = 0;
+    this.director.clearAll();
     this.game.music('bolt_boss');
     this.say(`WARNING: ${this.master.name}`, this.master.color);
     this.game.audio.sfx('warn');
@@ -828,13 +835,13 @@ export class BoltMode extends ModeBase {
     if (this.iframes <= 0 && Math.abs(b.x - this.px) < (b.w + PW) / 2 && b.y > this.py - PH && b.y - b.h < this.py) this.hurt(1, b.x);
     if (this.bossState === 'idle' && this.bossT <= 0) {
       const set = m.attacks;
-      this.bossAtk = set[this.volleyRng.int(0, set.length - 1)];
+      this.bossAtk = set[this.bossRng.int(0, set.length - 1)];
       this.bossState = 'tell';
       this.bossT = this.bossAtk === 'column' ? 1 : 0.6;
       b.dir = Math.sign(this.px - b.x) || -1;
       if (this.bossAtk === 'column') {
-        this.beams = [{ x: clamp(this.px, ax0 + 10, ax1 - 10), t: 0 }, { x: this.volleyRng.range(ax0 + 20, ax1 - 20), t: 0 }];
-        if (this.diffMult > 1.1) this.beams.push({ x: this.volleyRng.range(ax0 + 20, ax1 - 20), t: 0 });
+        this.beams = [{ x: clamp(this.px, ax0 + 10, ax1 - 10), t: 0 }, { x: this.bossRng.range(ax0 + 20, ax1 - 20), t: 0 }];
+        if (this.diffMult > 1.1) this.beams.push({ x: this.bossRng.range(ax0 + 20, ax1 - 20), t: 0 });
         this.game.audio.sfx('warn');
       }
     } else if (this.bossState === 'tell' && this.bossT <= 0) {
@@ -867,7 +874,7 @@ export class BoltMode extends ModeBase {
       b.vx = toward * 110 * sk;
       this.bossT = 0.85;
     } else if (a === 'rain') {
-      for (let i = 0; i < 6; i++) this.foeShot(this.volleyRng.range(this.level.arenaX * TILE + 20, this.level.width * TILE - 20), -10 - i * 18, 0, 90 * sk, 0, 3);
+      for (let i = 0; i < 6; i++) this.foeShot(this.bossRng.range(this.level.arenaX * TILE + 20, this.level.width * TILE - 20), -10 - i * 18, 0, 90 * sk, 0, 3);
       this.bossT = 1.2;
       this.game.audio.sfx('warn');
     } else if (a === 'column') {
@@ -895,7 +902,7 @@ export class BoltMode extends ModeBase {
     if (this.bossT <= 0) {
       this.bossState = 'idle';
       this.beams = [];
-      this.bossT = 1.3 + this.volleyRng.range(0, 0.7);
+      this.bossT = 1.3 + this.bossRng.range(0, 0.7);
     }
   }
 
@@ -903,6 +910,7 @@ export class BoltMode extends ModeBase {
     const b = this.boss!;
     this.phase = 'dying';
     this.endT = 0;
+    this.director.clearAll();
     this.beams = [];
     this.shots.length = 0;
     this.game.audio.sfx('explode');

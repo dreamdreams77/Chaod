@@ -39,7 +39,7 @@ export interface AchievementDef {
 }
 export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'first_clear', name: 'HELLO WORLD', desc: 'Clear any world.' },
-  { id: 'all_modes', name: 'GENRE FLUID', desc: 'Clear all seven worlds.' },
+  { id: 'all_modes', name: 'GENRE FLUID', desc: 'Clear every world.' },
   { id: 'floppy5', name: 'DISK JOCKEY', desc: 'Collect 5 floppy disks.' },
   { id: 'floppy15', name: 'FULL BACKUP', desc: `Collect all ${TOTAL_FLOPPIES} floppy disks.` },
   { id: 'boss_bricklord', name: 'LINE CLEAR', desc: 'Defeat BRICKLORD MAX.' },

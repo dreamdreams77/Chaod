@@ -141,7 +141,6 @@ export class HighScoreMode extends ModeBase {
       this.banner.t += dt;
       if (this.banner.t > 2) this.banner = null;
     }
-    this.particles.update(dt);
 
     if (this.phase === 'won' || this.phase === 'lost') {
       this.endT += dt;

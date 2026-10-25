@@ -44,18 +44,20 @@ export const INTRO: Line[] = [
 
 /** The Manual reveals more of the mystery as the player progresses. */
 export function manualLines(progress: { clears: number; bosses: string[]; floppies: number; trust: number; ending: boolean }): Line[] {
+  // Only the two story bosses are Core shards (robot masters and THE HIGH SCORE also live in the list).
+  const shards = progress.bosses.filter((b) => b === 'bricklord' || b === 'static').length;
   const L = (text: string): Line => ({ who: 'manual', name: 'THE MANUAL', text });
   if (progress.ending) {
     return [L('The Core is humming again. But the page I tore out... I can feel it out there. With THE HIGH SCORE.'), L('Thank you for letting me be more than instructions.')];
   }
-  if (progress.bosses.length >= 2) {
+  if (shards >= 2) {
     return [
       L('Both shards recovered! Bring them to the CARTRIDGE CORE in the middle of the lobby.'),
       L('...Cass. Before you do. I need to confess something.'),
       { who: 'manual', name: 'THE MANUAL', text: 'The Crash was not an accident. I tore out my own pages. The bosses begged me. They were tired of being final levels.', choices: [{ label: 'You did the right thing', effect: 'trust+' }, { label: 'People got hurt', effect: 'trust-' }] },
     ];
   }
-  if (progress.bosses.length === 1) {
+  if (shards === 1) {
     return [
       L('One CORE SHARD. The bosses carry them... almost as if someone handed the shards out on purpose.'),
       L('Did the boss say anything strange before it fell? They never used to talk.'),

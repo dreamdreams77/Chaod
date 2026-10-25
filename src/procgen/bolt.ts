@@ -3,7 +3,7 @@
  * steps, pits, spike rows, platform bridges) ending in a boss door and a fixed arena, built so
  * every gap and step is within what the player's jump can do. Seeded, validated, headless.
  */
-import { Rng } from '../core/rng.ts';
+import { Rng, seedFromString } from '../core/rng.ts';
 
 export const TILE = 16;
 export const ROWS = 17;
@@ -101,7 +101,7 @@ export function solidGrid(l: BoltLevel): boolean[][] {
 
 export function generateBolt(seed: number, master: MasterId): BoltLevel {
   const m = MASTER_BY_ID.get(master)!;
-  const rng = new Rng(seed ^ (master.charCodeAt(0) * 7919) ^ 0xb017);
+  const rng = new Rng(seed ^ seedFromString(master) ^ 0xb017);
   const body = 100 + rng.int(0, 16);
   const width = body + ARENA_TILES;
   const ground: number[] = new Array(width).fill(13);
