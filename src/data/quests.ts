@@ -5,7 +5,7 @@
 import { Profile, levelForXp } from '../core/save.ts';
 import type { RunResult } from './progression.ts';
 
-export type MiniId = 'catch' | 'memory' | 'breakout' | 'whack' | 'stack';
+export type MiniId = 'catch' | 'memory' | 'breakout' | 'whack' | 'stack' | 'dash';
 
 export interface MiniInfo {
   id: MiniId;
@@ -23,8 +23,14 @@ export const MINIS: MiniInfo[] = [
   { id: 'breakout', title: 'BYTE BREAKOUT', blurb: 'Bounce the ball off your cartridge and smash the brick wall. Three lives, 90 seconds.', bitsPerPoint: 0.8, pays: 'Pays 4 bits per 5 points.', unit: 'PTS' },
   { id: 'whack', title: 'WHACK-A-GLITCH', blurb: 'Bonk the glitches popping out of the holes. Golden ones are worth 3. Do not hit BYTE! 30 seconds.', bitsPerPoint: 0.4, pays: 'Pays 2 bits per 5 points.', unit: 'PTS' },
   { id: 'stack', title: 'STACK-A-CART', blurb: 'Drop each sliding cartridge onto the tower. Overhang gets sliced off; perfect drops keep it wide.', bitsPerPoint: 0.8, pays: 'Pays 4 bits per 5 points.', unit: 'PTS' },
+  { id: 'dash', title: 'DEMO DASH', blurb: 'The developer\'s dog sprints through the glitch park. Jump hurdles and rocks, grab bones, mind the birds. Three lives.', bitsPerPoint: 0.6, pays: 'Pays 3 bits per 5 points.', unit: 'PTS' },
   { id: 'memory', title: 'GLITCH MEMORY', blurb: 'Watch the lane lights, then repeat the pattern on the arrows. It only gets longer.', bitsPerPoint: 4, pays: 'Pays 4 bits per round cleared.', unit: 'ROUNDS' },
 ];
+
+/** The secret sixth cabinet appears once any world has all three mastery stars. */
+export function secretCabinetOpen(p: Pick<Profile, 'stars'>): boolean {
+  return Object.values(p.stars).some((s) => (s?.length ?? 0) >= 3);
+}
 
 export interface QuestDef {
   id: string;

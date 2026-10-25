@@ -53,6 +53,7 @@ class ResultsScene implements Scene {
       }
       for (const st of this.s.newStars) g.toast('MASTERY STAR', `${STARS.find((x) => x.id === st)?.name ?? st}  +${STAR_BITS} BITS`, '#ffcf3f');
       for (const q of this.s.quests) g.toast('QUEST COMPLETE', QUEST_BY_ID.get(q)?.title ?? q, '#ffcf3f');
+      if (this.s.errand) g.toast('ERRAND DONE', this.s.errand, '#9dff3f');
       for (const id of this.s.weekly) g.toast('WEEKLY GOAL', id === 'sweep' ? 'ALL THREE DONE! BONUS PAID' : WEEKLY_BY_ID.get(id)?.title ?? id, '#3fe0ff');
       for (const m of this.s.mutations) g.toast('NEW MUTATION', MUTATION_BY_ID.get(m)?.name ?? m, '#ff3fd2');
     }

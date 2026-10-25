@@ -94,7 +94,7 @@ export class PenaltyMode extends ModeBase {
     this.volleyRng = this.rng.fork(0x70c);
     this.hp = this.stats.maxHp;
     this.applyCarry();
-    this.pickups = this.plan.pickups[0].map((p) => ({ ...p }));
+    this.pickups = this.plan.pickups[Math.min(this.level, GOALS_TO_WIN - 1)].map((p) => ({ ...p }));
     this.patClock = this.plan.keeper.phase;
   }
 
@@ -117,21 +117,33 @@ export class PenaltyMode extends ModeBase {
     this.hp = Math.min(this.stats.maxHp, this.hp + n);
   }
 
+  /** BOSS GAUNTLET leg 3: the keeper in OVERTIME. Fewer goals to win, but his patterns start where they ended. */
+  get overtime(): boolean {
+    return (this.opts.rush?.leg ?? 0) >= 3;
+  }
+  get goalsNeeded(): number {
+    return this.overtime ? 4 : GOALS_TO_WIN;
+  }
+  /** How far into the keeper's tricks the match is: goals scored, plus the overtime head start. */
+  private get level(): number {
+    return this.goals + (this.overtime ? 3 : 0);
+  }
+
   // ---- numbers ---------------------------------------------------------------------
   get keeperWidth(): number {
     return BASE_KEEPER_W * (this.director.flag('big_keeper') ? 1.7 : 1);
   }
   /** Bullet speed dial: difficulty, ENDLESS rounds and how far the match has gone. */
   private get speedK(): number {
-    return 1.12 * Math.sqrt(this.diffMult) * (1 + 0.07 * this.goals) * (this.director.flag('mud') ? 0.85 : 1);
+    return 1.12 * Math.sqrt(this.diffMult) * (1 + 0.07 * this.level) * (this.director.flag('mud') ? 0.85 : 1);
   }
   private patternsNow(): PatternId[] {
-    return this.plan.rounds[Math.min(this.goals, GOALS_TO_WIN - 1)];
+    return this.plan.rounds[Math.min(this.level, GOALS_TO_WIN - 1)];
   }
   /** Where the keeper stands while patrolling. */
   patrolX(clock = this.patClock): number {
     const k = this.plan.keeper;
-    const amp = k.amp * (1 + 0.03 * this.goals);
+    const amp = k.amp * (1 + 0.03 * this.level);
     const half = (GOAL.right - GOAL.left) / 2 - this.keeperWidth / 2 - 2;
     // The keeper leans toward where the player is, so there is never a free side to shoot at.
     const centre = 240 + (this.px - 240) * 0.35;
@@ -170,7 +182,7 @@ export class PenaltyMode extends ModeBase {
       this.introT -= dt;
       if (this.introT <= 0) {
         this.phase = 'play';
-        this.say('KICK OFF!', '#ffcf3f');
+        this.say(this.overtime ? 'OVERTIME!' : 'KICK OFF!', '#ffcf3f');
         this.game.audio.sfx('warn');
       }
     }
@@ -244,7 +256,7 @@ export class PenaltyMode extends ModeBase {
     // The keeper reads the shot, a little late and a little wrong.
     const k = this.keeper;
     k.state = 'dive';
-    k.reactT = this.plan.keeper.react * (this.director.flag('big_keeper') ? 0.9 : 1);
+    k.reactT = this.plan.keeper.react * (this.director.flag('big_keeper') ? 0.9 : 1) * (this.hasPerk('crackshot') ? 1.3 : 1);
     k.target = tx + this.rng.range(-9, 9);
   }
 
@@ -269,7 +281,7 @@ export class PenaltyMode extends ModeBase {
 
   /** Fires one volley of `pat`; sets the delay until the next one. */
   private emit(pat: PatternId): void {
-    const lvl = this.goals;
+    const lvl = this.level;
     const sk = this.speedK;
     const kx = this.keeper.x;
     const ky = KEEPER_Y - 6;
@@ -364,7 +376,7 @@ export class PenaltyMode extends ModeBase {
   private updateKeeper(dt: number): void {
     const k = this.keeper;
     const kp = this.plan.keeper;
-    const dive = kp.dive * (1 + 0.04 * this.goals);
+    const dive = kp.dive * (1 + 0.04 * this.level);
     if (k.state === 'patrol') {
       k.x = approach(k.x, this.patrolX(), 160 * dt);
     } else if (k.state === 'dive') {
@@ -482,14 +494,14 @@ export class PenaltyMode extends ModeBase {
     this.game.audio.sfx('levelup');
     this.game.fx.shake(4);
     this.particles.burst(x, GOAL.line - 4, ['#fff', '#ffcf3f', '#ff9f3f'], 26, 110);
-    this.say(this.goals >= GOALS_TO_WIN ? 'FINAL WHISTLE!' : corner ? 'TOP CORNER!' : 'GOAL!', '#7dff6b');
+    this.say(this.goals >= this.goalsNeeded ? 'FINAL WHISTLE!' : corner ? 'TOP CORNER!' : 'GOAL!', '#7dff6b');
     if (this.cleanRun >= 3) this.runFlags.add('hat_trick');
-    if (this.goals === 2) this.collectFloppy(0);
-    if (this.goals === 4) this.collectFloppy(1);
-    if (this.goals >= GOALS_TO_WIN) {
+    if (!this.overtime && this.goals === 2) this.collectFloppy(0);
+    if (!this.overtime && this.goals === 4) this.collectFloppy(1);
+    if (this.goals >= this.goalsNeeded) {
       this.phase = 'won';
       this.endT = 0;
-      this.collectFloppy(2);
+      if (!this.overtime) this.collectFloppy(2);
       this.addBits(40);
       this.game.fx.flash('#7dff6b', 0.35);
       return;
@@ -513,8 +525,8 @@ export class PenaltyMode extends ModeBase {
     this.pauseT = 1.6;
     this.emitT = 0;
     this.iframes = 1;
-    this.pickups = (this.plan.pickups[Math.min(this.goals, GOALS_TO_WIN - 1)] ?? []).map((p) => ({ ...p }));
-    this.say(`GOAL ${this.goals + 1} OF ${GOALS_TO_WIN}`, '#ffcf3f');
+    this.pickups = (this.plan.pickups[Math.min(this.level, GOALS_TO_WIN - 1)] ?? []).map((p) => ({ ...p }));
+    this.say(`GOAL ${this.goals + 1} OF ${this.goalsNeeded}`, '#ffcf3f');
     this.game.audio.sfx('warn');
   }
 
@@ -697,7 +709,7 @@ export class PenaltyMode extends ModeBase {
     rect(ctx, 0, 0, W, 12, 'rgba(0,0,0,0.6)');
     hearts(ctx, 4, 2, this.hp, this.stats.maxHp);
     const x0 = 150;
-    drawText(ctx, `GOALS ${this.goals}/${GOALS_TO_WIN}`, x0, 2, '#7dff6b');
+    drawText(ctx, `GOALS ${this.goals}/${this.goalsNeeded}`, x0, 2, this.overtime ? '#ff6f3f' : '#7dff6b');
     drawText(ctx, `SAVED ${this.saves}`, x0 + 74, 2, '#9a9ab8');
     drawText(ctx, `BITS ${this.runBits}`, x0 + 132, 2, '#ffcf3f');
     if (this.endlessRound) drawText(ctx, `R${this.endlessRound}`, x0 + 194, 2, '#ff6f3f');

@@ -8,20 +8,21 @@ import { ListMenu, MenuItem } from './menu.ts';
 import { H, W, PAL, rect, frame, clamp, Particles, bar, glow } from '../render/gfx.ts';
 import { drawText, wrap } from '../render/font.ts';
 import { drawByte, drawCass, drawCoreIcon, drawKevin, drawManual, drawPolygon, drawRex, drawDemo, PortraitId } from '../render/actors.ts';
-import { INTRO, KEVIN_LINES, MODE_INFO, lockHint, POLYGON_INTRO, REX_LINES, manualLines, isModeUnlocked, ENDING, CAST, BOSSES } from '../data/story.ts';
+import { GAUNTLET_LEGS, INTRO, KEVIN_LINES, MODE_INFO, lockHint, POLYGON_INTRO, REX_LINES, manualLines, isModeUnlocked, ENDING, CAST, BOSSES } from '../data/story.ts';
 import { MODE_IDS, ModeId, ChaosCategory, TOTAL_FLOPPIES, xpForLevel } from '../core/save.ts';
 import { SHOP, ACHIEVEMENTS, unlockAchievement } from '../data/progression.ts';
-import { QUESTS, MINIS, MiniId } from '../data/quests.ts';
+import { QUESTS, MINIS, MiniId, secretCabinetOpen } from '../data/quests.ts';
 import { STARS, STAR_BITS, starCount } from '../data/mastery.ts';
 import { COSMETICS, buyOrEquip } from '../data/cosmetics.ts';
 import { PET_ITEMS, PET_STAGES, buyOrWearPet, petForm, petStage } from '../data/pet.ts';
 import { DECOR, DECOR_SLOTS, buyOrWearDecor } from '../data/decor.ts';
+import { Giver, errandFor, errandView } from '../data/errands.ts';
 import { SWEEP_BITS, weekKey, weeklyFor, weeklyView } from '../data/weekly.ts';
 import { dateKey, dailyFor, currentStreak, challengeUrl, DAILY_BONUS } from '../data/daily.ts';
 import { MODIFIERS } from '../data/progression.ts';
 import { Rng, formatSeed } from '../core/rng.ts';
 import { startMini } from './arcade.ts';
-import { MUTATIONS, GENRES, describeUnlock, isUnlockSatisfied } from '../fusion/registry.ts';
+import { MUTATIONS, MUTATION_BY_ID, GENRES, describeUnlock, isUnlockSatisfied } from '../fusion/registry.ts';
 
 interface Thing {
   id: string;
@@ -35,6 +36,14 @@ interface Thing {
 const CAB_Y = 58;
 /** Left edge of each of the seven cabinets (32px wide, 66px apart, roughly centred on the 480px screen). */
 const CAB_X = [26, 92, 158, 224, 290, 356, 422];
+
+/** The first-visit lobby tour: walk to each thing and use it. */
+const TOUR: Array<{ target: string; text: string }> = [
+  { target: 'quests', text: 'WALK TO THE QUEST BOARD AND PRESS Z. QUESTS PAY OUT AUTOMATICALLY.' },
+  { target: 'byte', text: 'SAY HELLO TO BYTE. FEED IT AND IT GROWS, THEN DRESS IT UP.' },
+  { target: 'lab', text: 'THE MUTATION LAB MIXES GENRES. SWITCH THEM ON AND OFF FOR BONUS BITS.' },
+  { target: 'cab:rampage', text: 'PICK A CABINET. RETRO RAMPAGE IS THE GENTLEST START.' },
+];
 
 export class HubScene implements Scene {
   id = 'hub';
@@ -67,6 +76,7 @@ export class HubScene implements Scene {
     this.things.push({ id: 'daily', x: 118, y: 196, label: 'DAILY CHALLENGE', r: 22 });
     this.things.push({ id: 'trophy', x: 330, y: 236, label: 'TROPHY CASE', r: 16 });
     this.things.push({ id: 'rex', x: 150, y: 236, label: 'REX TURBO', r: 14 });
+    this.things.push({ id: 'dash', x: 462, y: 192, label: 'SECRET CABINET', r: 16, visible: () => secretCabinetOpen(this.game.profile) });
     this.things.push({ id: 'kevin', x: 0, y: 112, label: 'KEVIN FROM QA', r: 14 });
     this.things.push({ id: 'demo', x: 220, y: 240, label: 'DEMO (SECRET)', r: 14, visible: () => this.game.profile.secretUnlocked });
     this.things.push({ id: 'brick', x: 380, y: 160, label: 'BRICKLORD (FREED)', r: 16, visible: () => this.game.profile.bossChoices.bricklord === 'mercy' });
@@ -84,6 +94,10 @@ export class HubScene implements Scene {
     this.game.music(p.endingSeen ? 'ending' : 'hub');
     this.game.audio.unlock();
     this.syncPetTrophies();
+    if (secretCabinetOpen(p) && !p.lore.includes('secret_cab')) {
+      p.lore.push('secret_cab');
+      this.game.toast('SECRET CABINET', 'SOMETHING POWERED ON AT THE RIGHT EDGE', '#ff9f3f');
+    }
     // Care loop: pets get hungry between adventures.
     if (!p.introDone) {
       p.introDone = true;
@@ -211,11 +225,13 @@ export class HubScene implements Scene {
   private openPauseMenu(): void {
     this.menu = new ListMenu('LOBBY MENU', [
       { label: 'PLAY A WORLD', sub: 'Pick a world to play right now, without walking to its cabinet.', onSelect: () => this.worldPicker() },
-      ...(this.game.profile.endingSeen ? [{ label: 'BOSS RUSH', sub: 'BRICKLORD MAX then DJ STATIC, back to back. Health carries over, no healing in between. Pays +50% bits.', onSelect: () => { this.menu = null; this.game.startMode('beatdown', { rematch: true, rush: { leg: 1 as const } }); } }] : []),
+      ...(this.game.profile.endingSeen ? [{ label: 'BOSS RUSH', sub: 'BRICKLORD MAX then DJ STATIC, back to back. Health carries over, no healing in between. Pays +50% bits.', onSelect: () => { this.menu = null; this.game.startMode('beatdown', { rematch: true, rush: { leg: 1 } }); } }] : []),
+      ...(this.game.profile.bossesDefeated.includes('highscore') ? [{ label: 'BOSS GAUNTLET', sub: 'BRICKLORD MAX, DJ STATIC, the keeper in OVERTIME, then THE HIGH SCORE, with health carried over. Pays double bits.', color: '#ffcf3f', onSelect: () => { this.menu = null; this.game.startMode('beatdown', { rematch: true, rush: { leg: 1, legs: GAUNTLET_LEGS } }); } }] : []),
       { label: 'DAILY CHALLENGE', sub: 'A new seeded run every day, with a streak bonus and a shareable link.', onSelect: () => this.dailyMenu() },
       { label: 'QUEST BOARD', sub: 'Your quests and rewards.', onSelect: () => this.questMenu() },
       { label: 'MINI-GAME ARCADE', sub: 'Five quick games that pay bits.', onSelect: () => this.arcadeMenu() },
       { label: 'RESUME', onSelect: () => (this.menu = null) },
+      ...(this.game.profile.tutorial.done ? [] : [{ label: 'SKIP TOUR', sub: 'Hide the first-visit tour hints.', onSelect: () => { this.game.profile.tutorial.done = true; this.save(); this.menu = null; } }]),
       { label: 'SETTINGS', onSelect: () => { this.menu = null; this.game.goto(this.game.settingsFactory(() => this.game.hubFactory())); } },
       { label: 'SAVE & QUIT TO TITLE', onSelect: () => { this.save(); this.menu = null; this.game.goto(this.game.titleFactory()); } },
     ], () => (this.menu = null), { x: W / 2 - 100, y: 80, w: 200, accent: '#3fe0ff' });
@@ -229,7 +245,9 @@ export class HubScene implements Scene {
   private interact(th: Thing): void {
     const p = this.game.profile;
     this.game.audio.sfx('select');
+    this.tourAdvance(th.id);
     if (th.id.startsWith('cab:')) return this.cabinet(th.id.slice(4) as ModeId);
+    if (this.errandTalk(th.id)) return;
     switch (th.id) {
       case 'core': return this.core();
       case 'manual': {
@@ -241,6 +259,16 @@ export class HubScene implements Scene {
           if (eff.length && !p.lore.includes('manual_confession')) p.lore.push('manual_confession');
           this.save();
         });
+        return;
+      }
+      case 'dash': {
+        if (!p.lore.includes('dash_intro')) {
+          p.lore.push('dash_intro');
+          this.save();
+          this.say('demo', 'DEMO', ['Woof! (This cabinet only turns on for someone who has mastered a whole world.)', 'Woof woof! (It is my game. I run. You jump. Do not tell Kevin.)']);
+        }
+        this.game.audio.sfx('select');
+        startMini(this.game, 'dash');
         return;
       }
       case 'byte': return this.petMenu();
@@ -272,6 +300,66 @@ export class HubScene implements Scene {
       case 'brick': return this.say('brick', 'BRICKLORD MAX', ['I am not the final level anymore. I am a lobby decoration. It is wonderful.', 'Tip: in a rematch, bait my blocks into the gaps. Complete rows hurt.']);
       case 'static': return this.say('static', 'DJ STATIC', ['Free at last! I get to play the LOBBY music now. Requests? No? Fine.', 'Psst. In my fight, a static bolt can be PARRIED right on the line.']);
     }
+  }
+
+  /** Ticks the lobby tour when the player uses the thing it is pointing at. */
+  private tourAdvance(thingId: string): void {
+    const p = this.game.profile;
+    const tu = p.tutorial;
+    if (tu.done || !p.introDone) return;
+    const step = TOUR[tu.step];
+    if (!step || (step.target !== thingId && !(step.target.startsWith('cab:') && thingId.startsWith('cab:')))) return;
+    tu.step++;
+    if (tu.step >= TOUR.length) {
+      tu.done = true;
+      p.bits += 50;
+      this.game.toast('TOUR COMPLETE', '+50 BITS. HAVE FUN!', '#7dff6b');
+      this.game.audio.sfx('levelup');
+    } else this.game.toast(`TOUR ${tu.step}/${TOUR.length}`, 'NICE! ONE MORE STOP.', '#7dff6b');
+    this.save();
+  }
+
+  /** The tour banner and the arrow that points at the next stop. */
+  private drawTour(ctx: CanvasRenderingContext2D): void {
+    const p = this.game.profile;
+    const tu = p.tutorial;
+    if (tu.done || !p.introDone || this.menu || this.game.inDialog) return;
+    const step = TOUR[tu.step];
+    if (!step) return;
+    const th = this.things.find((x) => x.id === step.target);
+    if (th) {
+      const bob = Math.round(Math.sin(this.t * 6) * 3);
+      drawText(ctx, '\u25BC', th.x, th.y - 62 + bob, '#7dff6b', { align: 'center', scale: 2 });
+    }
+    frame(ctx, 8, H - 40, W - 16, 24, '#0b0716ee', '#7dff6b');
+    drawText(ctx, `TOUR ${tu.step + 1}/${TOUR.length}`, 14, H - 36, '#7dff6b');
+    drawText(ctx, this.game.input.label(step.text), 14, H - 26, '#fff');
+  }
+
+  /** Today's errand giver talks first (once to ask, once to thank); everything else is the usual chat. */
+  private errandTalk(thingId: string): boolean {
+    const giver = ({ rex: 'rex', kevin: 'kevin', shop: 'polygon', manual: 'manual' } as Record<string, Giver>)[thingId];
+    if (!giver) return false;
+    const p = this.game.profile;
+    const day = dateKey();
+    const e = errandFor(day);
+    if (e.giver !== giver) return false;
+    const st = errandView(p, day);
+    const who = { rex: ['rex', 'REX TURBO'], kevin: ['kevin', 'KEVIN FROM QA'], polygon: ['polygon', 'MADAME POLYGON'], manual: ['manual', 'THE MANUAL'] }[giver] as [PortraitId, string];
+    let lines: string[] | null = null;
+    if (!st.asked) {
+      p.errand = { ...st, asked: true };
+      lines = [...e.ask, `ERRAND: ${e.summary.toUpperCase()} REWARD ${e.bits} BITS.`];
+    } else if (st.done && !st.thanked) {
+      p.errand = { ...st, thanked: true };
+      lines = e.thanks;
+    }
+    if (!lines) return false;
+    this.save();
+    this.game.say(lines.map((text) => ({ who: who[0], name: who[1], text })), () => {
+      if (thingId === 'shop') this.shopMenu();
+    });
+    return true;
   }
 
   private cabinet(mode: ModeId): void {
@@ -323,10 +411,37 @@ export class HubScene implements Scene {
       });
       return;
     }
-    const lines = p.endingSeen
-      ? ['CORE STATUS: 41% STABLE. ONE PAGE MISSING.', 'NEXT TARGET: THE HIGH SCORE. (PART 2 ON THE ROADMAP)']
-      : [`CORE SHARDS: ${shards}/2. DEFEAT THE BOSSES OF BOSS BEATDOWN AND GLITCH RHYTHM.`, `FLOPPY DISKS BACKED UP: ${p.floppies.length}/${TOTAL_FLOPPIES}.`];
+    if (p.endingSeen) {
+      this.coreMenu();
+      return;
+    }
+    const lines = [`CORE SHARDS: ${shards}/2. DEFEAT THE BOSSES OF BOSS BEATDOWN AND GLITCH RHYTHM.`, `FLOPPY DISKS BACKED UP: ${p.floppies.length}/${TOTAL_FLOPPIES}.`];
     this.say('core', 'CARTRIDGE CORE', lines);
+  }
+
+  /** After the reboot the Core offers the last fight. */
+  private coreMenu(): void {
+    const p = this.game.profile;
+    const beaten = p.bossesDefeated.includes('highscore');
+    const fate = p.bossChoices.highscore;
+    const items: MenuItem[] = [
+      {
+        label: beaten ? 'REMATCH THE HIGH SCORE' : 'CHALLENGE THE HIGH SCORE',
+        sub: beaten ? 'The board is quiet now. Fight it again for bits, a harder run and a better score.' : 'The last page of the Manual is behind its panel. Three phases of bullet hell: ARCADE, FIGHT NIGHT and SUDDEN DEATH.',
+        color: '#ffcf3f',
+        onSelect: () => { this.menu = null; this.game.startMode('highscore', beaten ? { rematch: true } : {}); },
+      },
+      {
+        label: 'CORE STATUS',
+        sub: beaten ? 'The Manual is complete.' : 'CORE: 41% STABLE. ONE PAGE MISSING.',
+        onSelect: () => this.card('CARTRIDGE CORE', beaten ? `CORE STATUS: 100% STABLE. THE MANUAL IS COMPLETE.${fate === 'mercy' ? ' THE BOARD WAS SET FREE.' : fate === 'purge' ? ' YOU TOOK THE CROWN.' : ''}` : 'CORE STATUS: 41% STABLE. ONE PAGE MISSING. THE HIGH SCORE HOLDS IT.', () => this.coreMenu(), [
+          ['FLOPPIES', `${p.floppies.length}/${TOTAL_FLOPPIES}`],
+          ['HIGH SCORE', beaten ? 'DEFEATED' : 'AT LARGE'],
+        ]),
+      },
+      { label: 'BACK', onSelect: () => (this.menu = null) },
+    ];
+    this.menu = new ListMenu('CARTRIDGE CORE', items, () => (this.menu = null), { x: 70, y: 70, w: 340, accent: '#ffcf3f' });
   }
 
   private petMenu(keepIndex?: number): void {
@@ -572,15 +687,18 @@ export class HubScene implements Scene {
     if (keep !== undefined) this.menu.index = Math.min(keep, items.length - 1);
   }
 
-  private labMenu(): void {
+  private labMenu(keep?: number): void {
     const p = this.game.profile;
-    const items: MenuItem[] = MUTATIONS.map((m) => {
+    const items: MenuItem[] = [
+      { label: 'LOADOUTS', value: () => `${p.loadouts.filter(Boolean).length}/3 SAVED`, sub: 'Save which mutations are switched on as a named build, and load it back later.', onSelect: () => this.loadoutMenu() },
+    ];
+    items.push(...MUTATIONS.map((m) => {
       const unlocked = p.mutationsUnlocked.includes(m.id) && isUnlockSatisfied(m.unlock, p);
       return {
         label: m.name,
         value: () => (!unlocked ? describeUnlock(m.unlock) : p.mutationsDisabled.includes(m.id) ? 'OFF' : 'ON'),
-        sub: `${m.genres.map((g) => GENRES[g].name).join(' + ')} • ${m.modes.map((x) => MODE_INFO[x].title).join(', ')}: ${m.tagline}`,
-        color: GENRES[m.genres[1]].color,
+        sub: `${m.cursed ? 'CURSED. ' : ''}${m.genres.map((g) => GENRES[g].name).join(' + ')} • ${m.modes.length > 3 ? 'ALL WORLDS' : m.modes.map((x) => MODE_INFO[x].title).join(', ')}: ${m.tagline}`,
+        color: m.cursed ? '#ff6f6f' : GENRES[m.genres[1]].color,
         disabled: !unlocked,
         onSelect: () => {
           if (p.mutationsDisabled.includes(m.id)) p.mutationsDisabled = p.mutationsDisabled.filter((x) => x !== m.id);
@@ -588,9 +706,48 @@ export class HubScene implements Scene {
           this.save();
         },
       };
-    });
+    }));
     items.push({ label: 'BACK', onSelect: () => (this.menu = null) });
-    this.menu = new ListMenu('MUTATION LAB — EACH ACTIVE MUTATION: +15% BITS', items, () => (this.menu = null), { x: 30, y: 24, w: 420, rows: 10, accent: '#ff3fd2' });
+    this.menu = new ListMenu('MUTATION LAB \u2014 EACH MUTATION: +15% BITS (CURSES +30%)', items, () => (this.menu = null), { x: 30, y: 24, w: 420, rows: 10, accent: '#ff3fd2' });
+    if (keep !== undefined) this.menu.index = Math.min(keep, items.length - 1);
+  }
+
+  /** Three saved builds: which mutations are on. Loading leaves anything unlocked since then switched off. */
+  private loadoutMenu(): void {
+    const p = this.game.profile;
+    const items: MenuItem[] = p.loadouts.map((l, i) => ({
+      label: `BUILD ${'ABC'[i]}`,
+      value: () => (l ? `${l.on.length} ON` : 'EMPTY'),
+      sub: l ? `${l.on.length} mutations on. Pick it to load, replace or clear.` : 'Empty. Pick it to save your current setup here.',
+      onSelect: () => this.loadoutSlot(i),
+    }));
+    items.push({ label: 'BACK', onSelect: () => this.labMenu(0) });
+    this.menu = new ListMenu('LOADOUTS', items, () => this.labMenu(0), { x: 80, y: 60, w: 320, accent: '#ff3fd2' });
+  }
+
+  private loadoutSlot(i: number): void {
+    const p = this.game.profile;
+    const l = p.loadouts[i];
+    const on = MUTATIONS.filter((m) => p.mutationsUnlocked.includes(m.id) && isUnlockSatisfied(m.unlock, p) && !p.mutationsDisabled.includes(m.id)).map((m) => m.id);
+    const actions: MenuItem[] = [
+      { label: l ? 'REPLACE WITH CURRENT SETUP' : 'SAVE CURRENT SETUP', sub: `Saves the ${on.length} mutations that are on right now.`, onSelect: () => { p.loadouts[i] = { name: `BUILD ${'ABC'[i]}`, on }; this.save(); this.game.toast('LOADOUT SAVED', `BUILD ${'ABC'[i]}: ${on.length} ON`, '#ff3fd2'); this.loadoutMenu(); } },
+    ];
+    if (l) {
+      actions.unshift({
+        label: 'LOAD THIS BUILD',
+        sub: 'Switch to exactly these mutations.',
+        onSelect: () => {
+          p.mutationsDisabled = MUTATIONS.filter((m) => p.mutationsUnlocked.includes(m.id) && !l.on.includes(m.id)).map((m) => m.id);
+          this.save();
+          this.game.audio.sfx('powerup');
+          this.game.toast('LOADOUT LOADED', `BUILD ${'ABC'[i]}`, '#ff3fd2');
+          this.loadoutMenu();
+        },
+      });
+      actions.push({ label: 'CLEAR THIS SLOT', onSelect: () => { p.loadouts[i] = null; this.save(); this.loadoutMenu(); } });
+    }
+    const names = l ? l.on.map((id) => MUTATION_BY_ID.get(id)?.name ?? id) : [];
+    this.card(`BUILD ${'ABC'[i]}`, l ? `ON: ${names.join(', ') || 'NOTHING'}` : 'Nothing saved here yet.', () => this.loadoutMenu(), [], actions);
   }
 
   private shrineMenu(): void {
@@ -655,7 +812,7 @@ export class HubScene implements Scene {
   private questSig(): number {
     const p = this.game.profile;
     const w = weeklyView(p);
-    return p.questsDone.length * 100000 + Object.values(p.questProgress).reduce((a, b) => a + b, 0) + w.done.length * 1000 + Object.values(w.progress).reduce((a, b) => a + b, 0);
+    return errandView(p, dateKey()).progress * 10 + p.questsDone.length * 100000 + Object.values(p.questProgress).reduce((a, b) => a + b, 0) + w.done.length * 1000 + Object.values(w.progress).reduce((a, b) => a + b, 0);
   }
 
   /** The world a world-quest should start: the fastest one for speed runs, else the first you have not cleared. */
@@ -687,6 +844,20 @@ export class HubScene implements Scene {
     this.game.questSeenSig = this.questSig();
     const done = p.questsDone.length;
     const items: MenuItem[] = [
+      { label: '\u2014 TODAY\'S ERRAND \u2014', disabled: true },
+      (() => {
+        const e = errandFor(dateKey());
+        const st = errandView(p, dateKey());
+        const prog = Math.min(e.goal, st.progress);
+        const play = e.metric === 'points' ? 'arcade' : 'worlds';
+        return {
+          label: (st.done ? '\u2605 ' : '\u2606 ') + e.title,
+          value: () => (st.done ? 'DONE' : `${prog}/${e.goal}`),
+          sub: `${e.summary} From ${e.giver === 'polygon' ? 'MADAME POLYGON' : e.giver === 'kevin' ? 'KEVIN' : e.giver === 'rex' ? 'REX' : 'THE MANUAL'}. Reward: ${e.bits} bits + ${e.xp} XP.`,
+          color: st.done ? '#9dff3f' : '#c8ffb0',
+          onSelect: () => this.card(e.title, e.summary, (at) => this.questMenu(at), [['FROM', e.giver.toUpperCase()], ['STATUS', st.done ? 'COMPLETE' : `${prog} / ${e.goal}`], ['REWARD', `${e.bits} BITS + ${e.xp} XP`]], this.questActions(e.id, play, st.done)),
+        };
+      })(),
       { label: '\u2014 THIS WEEK (RESETS MONDAY) \u2014', disabled: true },
       ...weeklyFor(weekKey()).map((w) => {
         const st = weeklyView(p);
@@ -777,7 +948,7 @@ export class HubScene implements Scene {
   private arcadeMenu(): void {
     const p = this.game.profile;
     const items: MenuItem[] = [
-      ...MINIS.map((m) => ({
+      ...MINIS.filter((m) => m.id !== 'dash' || secretCabinetOpen(p)).map((m) => ({
         label: m.title,
         value: () => `BEST ${p.mini[m.id]?.best ?? 0}`,
         sub: `${m.blurb} ${m.pays}`,
@@ -846,6 +1017,8 @@ export class HubScene implements Scene {
       drawText(ctx, '\u25BC', CAB_X[0] + 16, 30 + bob, '#7dff6b', { align: 'center' });
     }
     this.drawQuestBoard(ctx);
+    this.drawErrandMarker(ctx);
+    this.drawSecretCabinet(ctx);
     this.drawDailySign(ctx);
     this.drawMiniCabinet(ctx);
     this.drawStation(ctx, 440, 140, 'LAB', '#ff3fd2');
@@ -884,6 +1057,7 @@ export class HubScene implements Scene {
     drawText(ctx, `DISKS ${p.floppies.length}/${TOTAL_FLOPPIES}`, 160, H - 10, '#3fe0ff');
     drawText(ctx, `SHARDS ${shards}/2`, 248, H - 10, '#ff6f3f');
     drawText(ctx, this.game.input.label('Z INTERACT • ESC MENU'), W - 6, H - 10, '#9a9ab8', { align: 'right' });
+    this.drawTour(ctx);
     if (this.menu) {
       rect(ctx, 0, 0, W, H, '#0006');
       this.menu.draw(ctx, t);
@@ -1003,6 +1177,40 @@ export class HubScene implements Scene {
     const stars = starCount(this.game.profile, m);
     if (on) for (let i = 0; i < 3; i++) rect(ctx, x + 8 + i * 6, y + 49, 4, 4, i < stars ? '#ffcf3f' : '#3a3050');
     drawText(ctx, info.title.split(' ')[0], x + 16, y + 56, on ? info.color : '#555', { align: 'center' });
+  }
+
+  /** The hidden sixth cabinet: it only exists once a world is fully mastered. */
+  private drawSecretCabinet(ctx: CanvasRenderingContext2D): void {
+    if (!secretCabinetOpen(this.game.profile)) return;
+    const x = 449, y = 160;
+    rect(ctx, x + 2, y + 44, 28, 4, 'rgba(0,0,0,0.35)');
+    rect(ctx, x, y, 28, 44, '#1a1030');
+    rect(ctx, x + 2, y + 2, 24, 5, '#ff9f3f');
+    rect(ctx, x + 4, y + 9, 20, 16, '#000');
+    const hop = Math.abs(Math.sin(this.t * 5)) * 4;
+    rect(ctx, x + 8 + ((this.t * 14) % 8), y + 21 - hop, 5, 3, '#c98b4a');
+    rect(ctx, x + 16, y + 20, 2, 5, '#ff3f6b');
+    rect(ctx, x + 6, y + 28, 4, 4, '#ff3f6b');
+    rect(ctx, x + 14, y + 28, 4, 4, '#3fe0ff');
+    ctx.globalAlpha = 0.25 + Math.sin(this.t * 2) * 0.1;
+    glow(ctx, x + 14, y + 20, 26, '255,159,63', 0.5);
+    ctx.globalAlpha = 1;
+    drawText(ctx, 'DASH', x + 14, y + 49, '#ff9f3f', { align: 'center' });
+  }
+
+  /** A bobbing "!" over whoever has a favour to ask, or is waiting to say thanks. */
+  private drawErrandMarker(ctx: CanvasRenderingContext2D): void {
+    if (this.menu || this.game.inDialog) return;
+    const p = this.game.profile;
+    const day = dateKey();
+    const e = errandFor(day);
+    const st = errandView(p, day);
+    if (st.asked && !(st.done && !st.thanked)) return;
+    const id = { rex: 'rex', kevin: 'kevin', polygon: 'shop', manual: 'manual' }[e.giver];
+    const th = this.things.find((x) => x.id === id);
+    if (!th) return;
+    const bob = Math.round(Math.sin(this.t * 4) * 2);
+    drawText(ctx, st.done ? '\u2605' : '!', th.x, th.y - 58 + bob, st.done ? '#7dff6b' : '#9dff3f', { align: 'center', scale: 2 });
   }
 
   private drawQuestBoard(ctx: CanvasRenderingContext2D): void {

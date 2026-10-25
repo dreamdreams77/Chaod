@@ -29,7 +29,7 @@ export const BOSSES: Array<{ id: string; name: string; mode: ModeId | 'roadmap';
   { id: 'static', name: 'DJ STATIC', mode: 'rhythm', title: 'The Glitch Selector', bio: 'A rhythm-game announcer made of TV snow. Remixes reality because nobody ever let them pick the song.' },
   { id: 'lurker', name: 'THE LURKER', mode: 'neon', title: 'The Thing in the Rear-View', bio: 'A racing ghost that feeds on hesitation. It was the "ghost car" in a time-trial mode, and got hungry.' },
   { id: 'manager', name: 'THE CLOSING-TIME MANAGER', mode: 'mall', title: 'Mini-Boss, Retired', bio: 'Demoted from mini-boss to mall manager in 1994. Hunts anyone still shopping after closing.' },
-  { id: 'highscore', name: 'THE HIGH SCORE', mode: 'roadmap', title: 'Top of Every Leaderboard', bio: 'An entity made of every initials-entry ever typed. It caused the Crash so that no one could ever beat it. (Coming in Part 2.)' },
+  { id: 'highscore', name: 'THE HIGH SCORE', mode: 'highscore', title: 'Top of Every Leaderboard', bio: 'An entity made of every initials-entry ever typed. It caused the Crash so that no one could ever beat it. The last page of the Manual is behind its panel.' },
 ];
 
 export const INTRO: Line[] = [
@@ -102,6 +102,20 @@ export const BOSS_DEFEAT: Record<string, Line[]> = {
   ],
 };
 
+export const HIGHSCORE_INTRO: Line[] = [
+  { who: 'highscore', name: 'THE HIGH SCORE', text: 'I AM EVERY INITIAL EVER TYPED. I AM THE NUMBER AT THE TOP. NOBODY GETS TO BE ABOVE ME.' },
+  { who: 'highscore', name: 'THE HIGH SCORE', text: 'I MADE THE CRASH SO THE BOARD COULD NEVER BE BEATEN. GAMES END. A RECORD IS FOREVER.' },
+  { who: 'manual', name: 'THE MANUAL', text: 'The last page is behind its panel! Keep out of the bullets and keep firing. Graze bullets to charge your bombs.' },
+  { who: 'cass', name: 'CASS', text: 'Records are made to be broken.' },
+];
+
+export const HIGHSCORE_DEFEAT: Line[] = [
+  { who: 'highscore', name: 'THE HIGH SCORE', text: 'Zero. I am... zero. It is so quiet down here.' },
+  { who: 'highscore', name: 'THE HIGH SCORE', text: 'I only wanted someone to remember that I was best once. Nobody keeps playing after the top.' },
+  { who: 'manual', name: 'THE MANUAL', text: 'The last page is back! The Core is whole. But a board with no champion is only a list of names.' },
+  { who: 'cass', name: 'CASS', text: 'What do we do with the crown?', choices: [{ label: 'SET THE BOARD FREE', effect: 'mercy' }, { label: 'TAKE THE CROWN (+300 BITS)', effect: 'purge' }] },
+];
+
 export const ENDING: Line[] = [
   { who: 'core', name: 'CARTRIDGE CORE', text: 'SHARDS ACCEPTED. REBOOTING... GENRE BOUNDARIES: 41% RESTORED.' },
   { who: 'manual', name: 'THE MANUAL', text: 'It is working! The worlds are settling. Not perfectly. I hope not perfectly.' },
@@ -110,6 +124,10 @@ export const ENDING: Line[] = [
   { who: 'cass', name: 'CASS', text: 'Then I guess I am going for a new record.' },
 ];
 
+/** The legs of the classic BOSS RUSH; the GAUNTLET adds the keeper in overtime and THE HIGH SCORE. */
+export const RUSH_LEGS: ModeId[] = ['beatdown', 'rhythm'];
+export const GAUNTLET_LEGS: ModeId[] = ['beatdown', 'rhythm', 'penalty', 'highscore'];
+
 export const MODE_INFO: Record<ModeId, { title: string; genre: string; blurb: string; color: string }> = {
   rampage: { title: 'RETRO RAMPAGE', genre: 'PLATFORMER → SHMUP', blurb: 'Run, jump, slash. Midway the level turns into a shoot-em-up.', color: '#ffcf3f' },
   neon: { title: 'NEON PANIC', genre: 'RACING → HORROR', blurb: 'Beat REX TURBO to the line. At midnight, something gives chase.', color: '#3fe0ff' },
@@ -117,6 +135,7 @@ export const MODE_INFO: Record<ModeId, { title: string; genre: string; blurb: st
   beatdown: { title: 'BOSS BEATDOWN', genre: 'FIGHTER → BULLET HELL', blurb: 'Fight BRICKLORD MAX. Fill block rows. Survive his genre tantrum.', color: '#ff6f3f' },
   rhythm: { title: 'GLITCH RHYTHM', genre: 'RHYTHM + SHOOTER', blurb: 'Hit notes on the beat to shoot DJ STATIC. Dodge the glitches.', color: '#ff3fd2' },
   penalty: { title: 'PENALTY STORM', genre: 'SPORTS + BULLET HELL', blurb: 'Dribble, dodge the keeper\'s bullet patterns and score six goals.', color: '#ff9f3f' },
+  highscore: { title: 'THE HIGH SCORE', genre: 'EVERY GENRE', blurb: 'The final boss: three phases, bullet hell, a fighter and a remix. Graze bullets to charge bombs.', color: '#ffcf3f' },
   command: { title: 'CORE COMMAND', genre: 'STRATEGY → BULLET HELL', blurb: 'Build towers along the glitch road. Eight waves. Defend the Cartridge Core.', color: '#7dff6b' },
 };
 
@@ -140,5 +159,6 @@ export function isModeUnlocked(mode: ModeId, cleared: Record<ModeId, { clears: n
     case 'rhythm': return total >= 2;
     case 'command': return total >= 3;
     case 'penalty': return total >= 4;
+    case 'highscore': return true; // the Core only offers it once the Cartridge Core is restored
   }
 }

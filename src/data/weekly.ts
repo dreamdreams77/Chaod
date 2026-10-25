@@ -7,7 +7,7 @@ import type { Profile } from '../core/save.ts';
 import { Rng, seedFromString } from '../core/rng.ts';
 import type { QuestEvent } from './quests.ts';
 
-export type WeeklyMetric = 'clears' | 'bits' | 'rounds' | 'disks' | 'clean' | 'chaos' | 'stars' | 'plays' | 'points';
+export type WeeklyMetric = 'fast' | 'clears' | 'bits' | 'rounds' | 'disks' | 'clean' | 'chaos' | 'stars' | 'plays' | 'points';
 
 export interface WeeklyDef {
   id: string;
@@ -66,11 +66,12 @@ export function weeklyFor(key: string): WeeklyDef[] {
 }
 
 /** How much progress an event adds to a weekly goal. */
-export function weeklyGain(w: WeeklyDef, ev: QuestEvent): number {
+export function weeklyGain(w: { metric: WeeklyMetric }, ev: QuestEvent): number {
   if (ev.kind === 'run') {
     const r = ev.r;
     switch (w.metric) {
       case 'clears': return r.cleared ? 1 : 0;
+      case 'fast': return r.cleared && !r.endless && r.time < 150 ? 1 : 0;
       case 'bits': return ev.paidBits;
       case 'rounds': return r.endless?.rounds ?? 0;
       case 'disks': return ev.newFloppies;

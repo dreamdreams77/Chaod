@@ -22,6 +22,9 @@ import { BeatdownMode } from './modes/beatdown.ts';
 import { RhythmMode } from './modes/rhythm.ts';
 import { CommandMode } from './modes/command.ts';
 import { PenaltyMode } from './modes/penalty.ts';
+import { HighScoreMode } from './modes/highscore.ts';
+import { PerkScene } from './scenes/perks.ts';
+import { offerPerks, perkTotals } from './data/perks.ts';
 import { validateRegistry } from './fusion/registry.ts';
 import { CHAOS_EVENTS } from './chaos/events.ts';
 import type { Scene } from './game.ts';
@@ -56,6 +59,13 @@ function boot(): void {
   const title = { id: 'boot', update() {}, draw() {} } as Scene;
   game = new Game(canvas, ctx, input, audio, store, profile, settings, title);
   game.titleFactory = () => new TitleScene(game);
+  game.perkFactory = (mode, opts, pick) => {
+    const held = perkTotals(opts.perks).defs;
+    const offers = offerPerks(game.rng, mode, held.map((p) => p.id));
+    // Nothing left to offer (every perk held): go straight in.
+    if (!offers.length) return game.modeFactory(mode, opts);
+    return new PerkScene(game, mode, offers, held, opts.endless?.round ?? 1, pick);
+  };
   game.hubFactory = () => new HubScene(game);
   game.settingsFactory = (back) => new SettingsScene(game, back);
   game.modeFactory = (mode: ModeId, opts) => {
@@ -67,6 +77,7 @@ function boot(): void {
       case 'rhythm': return new RhythmMode(game, opts);
       case 'command': return new CommandMode(game, opts);
       case 'penalty': return new PenaltyMode(game, opts);
+      case 'highscore': return new HighScoreMode(game, opts);
     }
   };
   game.sharedChallenge = parseChallenge(location.search);

@@ -9,6 +9,7 @@ import { defaultProfile, MODE_IDS, ModeId } from '../src/core/save.ts';
 import { applyRun, applyMini, RunResult } from '../src/data/progression.ts';
 import { isModeUnlocked } from '../src/data/story.ts';
 import { QUESTS, MINIS } from '../src/data/quests.ts';
+import { ERRANDS } from '../src/data/errands.ts';
 import { migrateProfile } from '../src/core/save.ts';
 
 // ---- Genre Fusion -------------------------------------------------------------
@@ -28,7 +29,9 @@ test('the initial release ships at least six distinct genre fusions', () => {
 test('every mutation trait is actually read by the mode that claims it', () => {
   for (const m of MUTATIONS) {
     for (const mode of m.modes) {
-      const src = readFileSync(new URL(`../src/modes/${mode}.ts`, import.meta.url), 'utf8');
+      // Curses are enforced once, in the shared base class; every other mutation is read by its own mode.
+      const files = m.cursed ? ['base'] : [mode];
+      const src = files.map((f) => readFileSync(new URL(`../src/modes/${f}.ts`, import.meta.url), 'utf8')).join('\n');
       const used = m.traits.some((t) => src.includes(`has('${t}')`));
       assert.ok(used, `${m.id}: none of [${m.traits}] is checked in ${mode}.ts`);
     }
@@ -196,7 +199,9 @@ test('applyRun is pure and rewards clears', () => {
   assert.equal(JSON.stringify(p), snapshot, 'input profile untouched');
   assert.equal(summary.bits, 100);
   const questBits = QUESTS.filter((q) => summary.quests.includes(q.id)).reduce((n, q) => n + q.bits, 0);
-  assert.equal(profile.bits, summary.bits + questBits + summary.newStars.length * 40 + summary.dailyBonus, 'run bits plus exactly the finished quests, stars and daily bonus');
+  const weeklyBits = summary.weekly.reduce((n, id) => n + (id === 'sweep' ? SWEEP_BITS : WEEKLY_POOL.find((w) => w.id === id)!.bits), 0);
+  const errandBits = summary.errand ? ERRANDS.find((e) => e.title === summary.errand)!.bits : 0;
+  assert.equal(profile.bits, summary.bits + questBits + summary.newStars.length * 40 + summary.dailyBonus + weeklyBits + errandBits, 'run bits plus exactly the finished quests, goals, errand, stars and daily bonus');
   assert.equal(profile.cleared.rampage.clears, 1);
   assert.equal(summary.newFloppies, 1);
   assert.ok(summary.achievements.includes('first_clear'));

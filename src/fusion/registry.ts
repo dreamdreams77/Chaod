@@ -9,7 +9,7 @@
  * mode(s) listed. No other wiring is required — the hub lab, reward
  * multipliers, banners and tests pick it up automatically.
  */
-import { MODE_IDS, type ModeId } from '../core/save.ts';
+import { ALL_MODES, type ModeId } from '../core/save.ts';
 
 export type GenreId = 'platformer' | 'shooter' | 'racing' | 'horror' | 'fighter' | 'rpg' | 'rhythm' | 'puzzle' | 'pet' | 'bullethell' | 'strategy' | 'sports';
 
@@ -32,7 +32,8 @@ export type UnlockRule =
   | { kind: 'start' }
   | { kind: 'clear'; mode: ModeId }
   | { kind: 'boss'; boss: string }
-  | { kind: 'floppies'; count: number };
+  | { kind: 'floppies'; count: number }
+  | { kind: 'ending' };
 
 export interface MutationDef {
   id: string;
@@ -45,6 +46,8 @@ export interface MutationDef {
   modes: ModeId[];
   params: Record<string, number>;
   unlock: UnlockRule;
+  /** CURSED mutations are opt-in: a real drawback in exchange for a bigger bit bonus. */
+  cursed?: boolean;
 }
 
 export const MUTATIONS: MutationDef[] = [
@@ -160,12 +163,22 @@ export const MUTATIONS: MutationDef[] = [
   },
 ];
 
+/** The four curses, available once the Core is restored and switched OFF until you opt in. Their rules live in ModeBase. */
+const CURSED_MODES = ALL_MODES;
+MUTATIONS.push(
+  { id: 'curse_greed', name: 'PAWN SHOP', genres: ['strategy', 'horror'], tagline: 'CURSED: you take double damage, but bits pay 50% more.', traits: ['curse_greed'], modes: CURSED_MODES, params: {}, unlock: { kind: 'ending' }, cursed: true },
+  { id: 'curse_haste', name: 'TURBO TERROR', genres: ['racing', 'horror'], tagline: 'CURSED: everything runs 20% faster, but bits pay more.', traits: ['curse_haste'], modes: CURSED_MODES, params: {}, unlock: { kind: 'ending' }, cursed: true },
+  { id: 'curse_static', name: 'STATIC STORM', genres: ['rhythm', 'horror'], tagline: 'CURSED: chaos events at HIGH intensity, but bits pay more.', traits: ['curse_static'], modes: CURSED_MODES, params: {}, unlock: { kind: 'ending' }, cursed: true },
+  { id: 'curse_frail', name: 'PAPER HEART', genres: ['pet', 'fighter'], tagline: 'CURSED: one fewer heart, but XP is doubled.', traits: ['curse_frail'], modes: CURSED_MODES, params: {}, unlock: { kind: 'ending' }, cursed: true },
+);
+
 export const MUTATION_BY_ID = new Map(MUTATIONS.map((m) => [m.id, m]));
 
 export interface UnlockContext {
   cleared: Partial<Record<ModeId, { clears: number }>>;
   bossesDefeated: string[];
   floppies: string[];
+  endingSeen?: boolean;
 }
 
 export function isUnlockSatisfied(rule: UnlockRule, c: UnlockContext): boolean {
@@ -174,6 +187,7 @@ export function isUnlockSatisfied(rule: UnlockRule, c: UnlockContext): boolean {
     case 'clear': return (c.cleared[rule.mode]?.clears ?? 0) > 0;
     case 'boss': return c.bossesDefeated.includes(rule.boss);
     case 'floppies': return c.floppies.length >= rule.count;
+    case 'ending': return c.endingSeen === true;
   }
 }
 
@@ -183,6 +197,7 @@ export function describeUnlock(rule: UnlockRule): string {
     case 'clear': return `CLEAR ${rule.mode.toUpperCase()}`;
     case 'boss': return `DEFEAT ${rule.boss.toUpperCase()}`;
     case 'floppies': return `FIND ${rule.count} FLOPPIES`;
+    case 'ending': return 'RESTORE THE CORE';
   }
 }
 
@@ -190,7 +205,7 @@ export function describeUnlock(rule: UnlockRule): string {
 export function validateRegistry(): string[] {
   const errors: string[] = [];
   const ids = new Set<string>();
-  const validModes = MODE_IDS;
+  const validModes = ALL_MODES;
   for (const m of MUTATIONS) {
     if (ids.has(m.id)) errors.push(`duplicate mutation id ${m.id}`);
     ids.add(m.id);

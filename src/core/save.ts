@@ -4,8 +4,11 @@ import { PetOutfit, defaultOutfit, cleanOutfit } from '../data/pet.ts';
 import { LobbyDecor, defaultDecor, cleanDecor } from '../data/decor.ts';
 import { WeeklyState, emptyWeekly, WEEKLY_BY_ID } from '../data/weekly.ts';
 
-export type ModeId = 'rampage' | 'neon' | 'mall' | 'beatdown' | 'rhythm' | 'command' | 'penalty';
+export type ModeId = 'rampage' | 'neon' | 'mall' | 'beatdown' | 'rhythm' | 'command' | 'penalty' | 'highscore';
+/** The seven worlds that have a lobby cabinet (and three floppy disks each). */
 export const MODE_IDS: ModeId[] = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm', 'command', 'penalty'];
+/** Every mode with a record: the worlds plus the final boss, THE HIGH SCORE. */
+export const ALL_MODES: ModeId[] = [...MODE_IDS, 'highscore'];
 /** Every world hides three floppy disks. */
 export const TOTAL_FLOPPIES = MODE_IDS.length * 3;
 export type Difficulty = 'easy' | 'normal' | 'hard';
@@ -58,6 +61,14 @@ export interface Profile {
   decor: LobbyDecor;
   /** This week's goals (see data/weekly.ts). */
   weekly: WeeklyState;
+  /** Saved Mutation Lab builds (three slots): the mutations that were switched on. */
+  loadouts: Array<{ name: string; on: string[] } | null>;
+  /** The first-visit lobby tour (see scenes/hub.ts). */
+  tutorial: { step: number; done: boolean };
+  /** Today's lobby errand from one of the cast (see data/errands.ts). */
+  errand: { key: string; progress: number; done: boolean; asked: boolean; thanked: boolean };
+  /** The last lobby season that was announced, so each season is greeted once. */
+  seasonSeen: string;
   /** Daily challenge record (see data/daily.ts). */
   daily: { key: string; best: number; cleared: boolean; streak: number; lastClear: string };
 }
@@ -79,6 +90,8 @@ export interface Settings {
   bindings: Bindings;
   fixedSeed: number | null;
   hints: boolean;
+  /** RUN PERKS: choose one of three perks before each run. */
+  perks: boolean;
   /** ASSIST MODE: one extra heart in every world and slower enemies and bullets. */
   assist: boolean;
 }
@@ -94,7 +107,7 @@ export function defaultProfile(): Profile {
     level: 1,
     bits: 0,
     floppies: [],
-    cleared: Object.fromEntries(MODE_IDS.map((m) => [m, rec()])) as Record<ModeId, ModeRecord>,
+    cleared: Object.fromEntries(ALL_MODES.map((m) => [m, rec()])) as Record<ModeId, ModeRecord>,
     bossesDefeated: [],
     bossChoices: {},
     abilities: [],
@@ -120,6 +133,10 @@ export function defaultProfile(): Profile {
     endless: {},
     decor: defaultDecor(),
     weekly: emptyWeekly(),
+    loadouts: [null, null, null],
+    tutorial: { step: 0, done: false },
+    errand: { key: '', progress: 0, done: false, asked: false, thanked: false },
+    seasonSeen: '',
     daily: { key: '', best: 0, cleared: false, streak: 0, lastClear: '' },
   };
 }
@@ -141,6 +158,7 @@ export function defaultSettings(): Settings {
     bindings: cloneBindings(DEFAULT_BINDINGS),
     fixedSeed: null,
     hints: true,
+    perks: true,
     assist: false,
   };
 }
@@ -159,7 +177,7 @@ export function migrateProfile(raw: unknown): Profile {
   // Field-by-field checks so a hand-edited or half-written save can never crash a run or poison a score with NaN.
   const num = (v: unknown, fallback: number, min = 0): number => (typeof v === 'number' && Number.isFinite(v) ? Math.max(min, v) : fallback);
   p.cleared = { ...base.cleared };
-  for (const m of MODE_IDS) {
+  for (const m of ALL_MODES) {
     const c = ((r.cleared ?? {}) as Record<string, Partial<ModeRecord> | null>)[m];
     p.cleared[m] = { clears: Math.floor(num(c?.clears, 0)), bestScore: num(c?.bestScore, 0), bestTime: num(c?.bestTime, 0) };
   }
@@ -179,19 +197,39 @@ export function migrateProfile(raw: unknown): Profile {
   p.wardrobe = cleanWardrobe(r.wardrobe);
   p.stars = {};
   if (r.stars && typeof r.stars === 'object' && !Array.isArray(r.stars)) {
-    for (const m of MODE_IDS) {
+    for (const m of ALL_MODES) {
       const v = (r.stars as Record<string, unknown>)[m];
       if (Array.isArray(v)) p.stars[m] = v.filter((x): x is string => x === 'clean' || x === 'fast' || x === 'collector').filter((x, i, a) => a.indexOf(x) === i);
     }
   }
   p.endless = {};
   if (r.endless && typeof r.endless === 'object' && !Array.isArray(r.endless)) {
-    for (const m of MODE_IDS) {
+    for (const m of ALL_MODES) {
       const e = (r.endless as Record<string, { rounds?: unknown; score?: unknown } | null>)[m];
       if (e && Number.isFinite(e.rounds) && Number.isFinite(e.score)) p.endless[m] = { rounds: Math.max(0, Math.floor(e.rounds as number)), score: Math.max(0, e.score as number) };
     }
   }
   p.decor = cleanDecor(r.decor);
+  p.loadouts = [0, 1, 2].map((i) => {
+    const l = (Array.isArray(r.loadouts) ? r.loadouts[i] : null) as { name?: unknown; on?: unknown } | null | undefined;
+    if (!l || typeof l !== 'object' || !Array.isArray(l.on)) return null;
+    return { name: typeof l.name === 'string' ? l.name.slice(0, 12) : `BUILD ${i + 1}`, on: l.on.filter((x): x is string => typeof x === 'string').slice(0, 40) };
+  });
+  // Players who already have progress do not need the lobby tour.
+  const tu = (r.tutorial ?? {}) as Partial<Profile['tutorial']>;
+  p.tutorial = {
+    step: Number.isFinite(tu.step) ? Math.max(0, Math.min(9, Math.floor(tu.step as number))) : 0,
+    done: typeof tu.done === 'boolean' ? tu.done : r.introDone === true || (r.runsStarted ?? 0) > 0,
+  };
+  const er = (r.errand ?? {}) as Partial<Profile['errand']>;
+  p.errand = {
+    key: typeof er.key === 'string' ? er.key.slice(0, 10) : '',
+    progress: Number.isFinite(er.progress) ? Math.max(0, er.progress as number) : 0,
+    done: er.done === true,
+    asked: er.asked === true,
+    thanked: er.thanked === true,
+  };
+  p.seasonSeen = typeof r.seasonSeen === 'string' ? r.seasonSeen.slice(0, 16) : '';
   const wk = (r.weekly ?? {}) as Partial<WeeklyState>;
   p.weekly = emptyWeekly();
   if (typeof wk.key === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(wk.key)) {
@@ -241,6 +279,7 @@ export function migrateSettings(raw: unknown): Settings {
   }
   s.bindings = cloneBindings(cleanBind);
   s.assist = s.assist === true;
+  s.perks = s.perks !== false;
   if (s.fixedSeed !== null && !(typeof s.fixedSeed === 'number' && Number.isInteger(s.fixedSeed) && s.fixedSeed >= 0 && s.fixedSeed <= 999999)) s.fixedSeed = null;
   s.master = clamp01(s.master);
   s.music = clamp01(s.music);

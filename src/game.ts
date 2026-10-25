@@ -100,6 +100,8 @@ export class Game {
   private lastStart: (() => Scene) | null = null;
   settingsReturn: (() => Scene) | null = null;
   modeFactory!: (mode: ModeId, opts: ModeOpts) => Scene;
+  /** The perk pick shown before a run: three offers, the perks already held, and the callback with the choice (null = skip). */
+  perkFactory!: (mode: ModeId, opts: ModeOpts, pick: (perkId: string | null) => void) => Scene;
   hubFactory!: () => Scene;
   titleFactory!: () => Scene;
   settingsFactory!: (back: () => Scene) => Scene;
@@ -160,9 +162,18 @@ export class Game {
   startMode(mode: ModeId, opts: ModeOpts = {}, restart?: { mode: ModeId; opts: ModeOpts }): void {
     // `restart` lets a chained run (BOSS RUSH leg 2) retry from its beginning instead of from the middle.
     const again = restart ?? { mode, opts };
-    this.lastStart = () => this.modeFactory(again.mode, again.opts);
+    this.lastStart = () => this.entry(again.mode, again.opts);
     this.profile.runsStarted++;
-    this.goto(this.modeFactory(mode, opts));
+    this.goto(this.entry(mode, opts));
+  }
+  /** Seeded challenges (the daily and shared links) and later legs of a chained run skip the perk pick. */
+  private offersPerks(opts: ModeOpts): boolean {
+    return this.settings.perks && !opts.daily && opts.seed === undefined && !((opts.rush?.leg ?? 1) > 1);
+  }
+  /** The scene that starts a run: the perk pick when one is due, otherwise the world itself. */
+  private entry(mode: ModeId, opts: ModeOpts): Scene {
+    if (!this.offersPerks(opts)) return this.modeFactory(mode, opts);
+    return this.perkFactory(mode, opts, (perk) => this.goto(this.modeFactory(mode, { ...opts, perks: perk ? [...(opts.perks ?? []), perk] : opts.perks })));
   }
   restart(): void {
     if (this.lastStart) {

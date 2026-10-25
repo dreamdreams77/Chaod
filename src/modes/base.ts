@@ -12,8 +12,9 @@ import { MODIFIERS, NIGHTMARE, Modifier, RunResult } from '../data/progression.t
 import { Particles, Popups, W, H, frame, rect, bar } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { showResults } from '../scenes/results.ts';
-import { MODE_INFO } from '../data/story.ts';
+import { MODE_INFO, RUSH_LEGS } from '../data/story.ts';
 import { petBitBonus, petStage } from '../data/pet.ts';
+import { PerkDef, perkTotals } from '../data/perks.ts';
 
 const BUMP: Record<ChaosIntensity, ChaosIntensity> = { off: 'off', low: 'normal', normal: 'high', high: 'high' };
 
@@ -55,7 +56,9 @@ export interface ModeOpts {
   /** ENDLESS RUN: the same world again and again, a little harder each round, until you fall. */
   endless?: Carry & { round: number; seed?: number };
   /** BOSS RUSH: Bricklord (leg 1) straight into DJ Static (leg 2) with health carried over. */
-  rush?: Carry & { leg: 1 | 2 };
+  rush?: Carry & { leg: number; legs?: ModeId[] };
+  /** Perks picked so far this run (see data/perks.ts). */
+  perks?: string[];
 }
 
 export abstract class ModeBase implements Scene {
@@ -75,6 +78,9 @@ export abstract class ModeBase implements Scene {
   readonly particles = new Particles();
   readonly popups = new Popups();
   readonly stats: { maxHp: number; power: number; energy: number };
+  /** Perks picked for this run, and what they add up to. */
+  readonly perkList: PerkDef[];
+  private readonly perkFx: ReturnType<typeof perkTotals>;
   runBits = 0;
   runXp = 0;
   foundFloppies: string[] = [];
@@ -102,6 +108,10 @@ export abstract class ModeBase implements Scene {
     if (this.modifier?.id === 'chaotic') intensity = BUMP[intensity];
     if (this.endlessRound >= 3) intensity = BUMP[intensity];
     if (this.modifier?.id === 'nightmare' && intensity !== 'off') intensity = 'high';
+    const perkFx = perkTotals(opts.perks);
+    this.perkFx = perkFx;
+    this.perkList = perkFx.defs;
+    if ((perkFx.chaos || this.fusion.has('curse_static')) && intensity !== 'off') intensity = 'high';
     if (this.modifier?.id === 'calm') intensity = 'off';
     this.director = new ChaosDirector({
       mode,
@@ -114,6 +124,7 @@ export abstract class ModeBase implements Scene {
     const st = playerStats(p);
     if (this.modifier?.id === 'glass' || this.modifier?.id === 'nightmare') st.maxHp = Math.max(2, st.maxHp - 1);
     if (game.settings.assist) st.maxHp += 1;
+    st.maxHp = Math.max(2, st.maxHp + this.perkFx.hp - (this.fusion.has('curse_frail') ? 1 : 0));
     this.stats = st;
     // A chained run carries disks, flags and chaos events forward, so nothing is found (or paid for) twice.
     const carry = opts.endless ?? opts.rush;
@@ -133,18 +144,22 @@ export abstract class ModeBase implements Scene {
     return this.endlessRound ? Math.min(2, 1 + 0.12 * (this.endlessRound - 1)) : 1;
   }
   get diffMult(): number {
-    return { easy: 0.6, normal: 1, hard: 1.4 }[this.game.settings.difficulty] * this.tier * (this.game.settings.assist ? 0.85 : 1);
+    return { easy: 0.6, normal: 1, hard: 1.4 }[this.game.settings.difficulty] * this.tier * (this.game.settings.assist ? 0.85 : 1) * this.perkFx.diff;
   }
   get damageMult(): number {
-    return this.modifier?.id === 'glass' || this.modifier?.id === 'nightmare' || this.endlessRound >= 5 ? 2 : 1;
+    return this.modifier?.id === 'glass' || this.modifier?.id === 'nightmare' || this.endlessRound >= 5 || this.fusion.has('curse_greed') ? 2 : 1;
   }
+  hasPerk(id: string): boolean {
+    return this.perkList.some((p) => p.id === id);
+  }
+
   /** Modes call this right after setting their starting health: BOSS RUSH and ENDLESS RUN hand health over. */
   protected applyCarry(): void {
     const c = this.opts.rush?.carryHp ?? this.opts.endless?.carryHp;
     if (c !== undefined) this.hp = Math.max(1, Math.min(this.stats.maxHp, c));
   }
   get speedMult(): number {
-    return this.modifier?.id === 'turbo' ? 1.15 : 1;
+    return (this.modifier?.id === 'turbo' ? 1.15 : 1) * this.perkFx.speed * (this.fusion.has('curse_haste') ? 1.2 : 1);
   }
 
   abstract directorContext(): DirectorContext;
@@ -228,13 +243,15 @@ export abstract class ModeBase implements Scene {
     this.ended = true;
     const rush = this.opts.rush;
     if (this.opts.nightmare && cleared) this.runFlags.add('nightmare');
-    if (rush?.leg === 1 && cleared) {
-      // BOSS RUSH: no results yet. DJ Static is next, with this health and the tally so far.
+    const legs = rush?.legs ?? RUSH_LEGS;
+    if (rush && cleared && rush.leg < legs.length) {
+      // BOSS RUSH / GAUNTLET: no results yet. The next boss is up, with this health and the tally so far.
+      const perks = this.opts.perks;
       this.game.startMode(
-        'rhythm',
-        { rematch: true, rush: { leg: 2, carryHp: this.hp, bits: this.runBits, xp: this.runXp + 40, time: this.time, damage: this.damageTaken, score, chaos: [...this.chaosSeen], floppies: [...this.foundFloppies], flags: [...this.runFlags] } },
-        // RETRY after a loss in leg 2 starts the whole rush again, so the leg-1 tally can never be paid twice.
-        { mode: 'beatdown', opts: { rematch: true, rush: { leg: 1 } } },
+        legs[rush.leg],
+        { rematch: true, perks, rush: { leg: rush.leg + 1, legs, carryHp: this.hp, bits: (rush.bits ?? 0) + this.runBits, xp: (rush.xp ?? 0) + this.runXp + 40, time: (rush.time ?? 0) + this.time, damage: (rush.damage ?? 0) + this.damageTaken, score: (rush.score ?? 0) + score, chaos: [...this.chaosSeen], floppies: [...this.foundFloppies], flags: [...this.runFlags] } },
+        // RETRY after a loss in a later leg starts the whole run again, so no leg's tally is ever paid twice.
+        { mode: legs[0], opts: { rematch: true, perks, rush: { leg: 1, legs } } },
       );
       return;
     }
@@ -245,7 +262,7 @@ export abstract class ModeBase implements Scene {
       const next = {
         round: end.round + 1,
         seed: (this.seed + 104729 * end.round) % 1000000,
-        carryHp: Math.min(this.stats.maxHp, this.hp + 1),
+        carryHp: Math.min(this.stats.maxHp, this.hp + 1 + this.perkFx.heal),
         bits: (end.bits ?? 0) + this.runBits,
         xp: (end.xp ?? 0) + this.runXp + 30,
         time: (end.time ?? 0) + this.time,
@@ -255,7 +272,7 @@ export abstract class ModeBase implements Scene {
         floppies: [...this.foundFloppies],
         flags: [...this.runFlags],
       };
-      this.game.startMode(this.mode, { endless: next }, { mode: this.mode, opts: { endless: { round: 1 } } });
+      this.game.startMode(this.mode, { endless: next, perks: this.opts.perks }, { mode: this.mode, opts: { endless: { round: 1 } } });
       return;
     }
     const result: RunResult = {
@@ -264,12 +281,12 @@ export abstract class ModeBase implements Scene {
       score,
       time: this.time,
       bits: this.runBits,
-      xp: this.runXp + (cleared ? 40 : 10),
+      xp: Math.round((this.runXp + (cleared ? 40 : 10)) * this.perkFx.xp * (this.fusion.has('curse_frail') ? 2 : 1)),
       floppies: this.foundFloppies,
       damageTaken: this.damageTaken,
       flags: [...this.runFlags],
       chaosSeen: [...this.chaosSeen],
-      bitMultiplier: this.fusion.rewardMultiplier() + (this.modifier?.bitBonus ?? 0) + petBitBonus(petStage(this.game.profile.pet.care)),
+      bitMultiplier: this.fusion.rewardMultiplier() + (this.modifier?.bitBonus ?? 0) + petBitBonus(petStage(this.game.profile.pet.care)) + this.perkFx.bits + (this.fusion.has('curse_greed') ? 0.5 : 0),
       rematch: this.opts.rematch,
       challenge: this.opts.daily ? 'daily' : this.opts.seed !== undefined ? 'shared' : undefined,
       dailyKey: this.opts.daily,
@@ -281,10 +298,10 @@ export abstract class ModeBase implements Scene {
       result.boss = undefined;
       result.rematch = false;
     }
-    if (rush?.leg === 2) {
+    if (rush && rush.leg === legs.length && rush.leg > 1) {
       mergeCarry(result, rush);
-      result.bitMultiplier += 0.5;
-      if (cleared) result.flags = [...result.flags, 'boss_rush'];
+      result.bitMultiplier += legs.length > 2 ? 1 : 0.5;
+      if (cleared) result.flags = [...result.flags, legs.length > 2 ? 'gauntlet' : 'boss_rush'];
     }
     showResults(this.game, result, this.seed);
   }
@@ -324,6 +341,7 @@ export abstract class ModeBase implements Scene {
     drawText(ctx, `DISKS ${this.foundFloppies.length}/3`, x, y + 9, '#3fe0ff');
     if (this.endlessRound) drawText(ctx, `ENDLESS ROUND ${this.endlessRound}`, x, y + 27, '#ff6f3f');
     if (this.modifier) drawText(ctx, `MOD: ${this.modifier.name}`, x, y + 18, '#b07aff');
+    if (this.perkList.length) drawText(ctx, `PERKS: ${this.perkList.map((p) => p.name).join(', ')}`.slice(0, 40), x, y + 36, '#7dff6b');
   }
 
   drawHint(ctx: CanvasRenderingContext2D, text: string, touchText = this.gestureHint, y = H - 14): void {

@@ -131,6 +131,7 @@ export class CommandMode extends ModeBase {
   towers: Tower[] = [];
   enemies: Enemy[] = [];
   cash = START_CASH;
+
   wave = 0;
   phase: Phase = 'build';
   buildT = BUILD_SECONDS + 6;
@@ -152,6 +153,7 @@ export class CommandMode extends ModeBase {
     this.map = generateCommand(this.seed);
     this.hp = this.stats.maxHp;
     this.applyCarry();
+    if (this.hasPerk('architect')) this.cash += 60;
   }
 
   enter(): void {

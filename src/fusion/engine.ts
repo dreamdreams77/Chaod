@@ -12,7 +12,7 @@ export class FusionEngine {
   /** Mutations forced on mid-run by scripted genre shifts or chaos events. */
   private temp = new Set<string>();
 
-  constructor(readonly mode: ModeId, profile: Pick<Profile, 'mutationsUnlocked' | 'mutationsDisabled' | 'cleared' | 'bossesDefeated' | 'floppies'>) {
+  constructor(readonly mode: ModeId, profile: Pick<Profile, 'mutationsUnlocked' | 'mutationsDisabled' | 'cleared' | 'bossesDefeated' | 'floppies' | 'endingSeen'>) {
     this.active = MUTATIONS.filter(
       (m) =>
         m.modes.includes(mode) &&
@@ -41,9 +41,9 @@ export class FusionEngine {
     this.temp.delete(trait);
   }
 
-  /** Each active mutation adds +15% to bit rewards: risk is rewarded. */
+  /** Each active mutation adds +15% to bit rewards (+30% for a curse): risk is rewarded. */
   rewardMultiplier(): number {
-    return 1 + 0.15 * this.active.length;
+    return 1 + this.active.reduce((a, m) => a + (m.cursed ? 0.3 : 0.15), 0);
   }
 
   genresInPlay(base: GenreId): GenreId[] {

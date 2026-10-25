@@ -4,10 +4,13 @@
  */
 import { MODE_IDS, ModeId, Profile, TOTAL_FLOPPIES, levelForXp } from '../core/save.ts';
 import { newlyUnlocked } from '../fusion/engine.ts';
+import { MUTATION_BY_ID } from '../fusion/registry.ts';
 import { QuestDef, MiniId, MINIS, advanceQuests } from './quests.ts';
 import { applyDailyResult } from './daily.ts';
 import { awardStars } from './mastery.ts';
 import { advanceWeekly, weekKey } from './weekly.ts';
+import { advanceErrand } from './errands.ts';
+import { dateKey } from './daily.ts';
 
 export interface ShopItem {
   id: string;
@@ -54,6 +57,10 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'rematch', name: 'BACK FOR MORE', desc: 'Win a boss rematch.' },
   { id: 'beat_rex', name: 'NEW LAP RECORD', desc: 'Beat REX TURBO in NEON PANIC.' },
   { id: 'level5', name: 'LEVELED UP', desc: 'Reach level 5.' },
+  { id: 'secret_dash', name: 'WHO\'S A GOOD DOG', desc: 'Play DEMO DASH in the secret cabinet.' },
+  { id: 'boss_highscore', name: 'NEW HIGH SCORE', desc: 'Defeat THE HIGH SCORE and complete the Manual.' },
+  { id: 'perfect_score', name: 'PERFECT SCORE', desc: 'Defeat THE HIGH SCORE without being hit.' },
+  { id: 'gauntlet', name: 'GAUNTLET RUNNER', desc: 'Win the whole BOSS GAUNTLET in one go.' },
   { id: 'hat_trick', name: 'HAT TRICK', desc: 'Score 3 goals in a row without being hit in PENALTY STORM.' },
   { id: 'flawless_core', name: 'PERFECT DEFENSE', desc: 'Clear CORE COMMAND without a single leak.' },
   { id: 'boss_rush', name: 'RUSH HOUR', desc: 'Beat BRICKLORD MAX and DJ STATIC back to back in BOSS RUSH.' },
@@ -102,6 +109,8 @@ export interface RunSummary {
   quests: string[];
   /** Weekly goal ids finished by this run ('sweep' for the all-three bonus). */
   weekly: string[];
+  /** Title of today's lobby errand if this run finished it. */
+  errand: string | null;
 }
 
 export function unlockAchievement(p: Profile, id: string, out: string[]): void {
@@ -111,7 +120,7 @@ export function unlockAchievement(p: Profile, id: string, out: string[]): void {
   }
 }
 
-export function applyRun(profile: Profile, r: RunResult, today: string = weekKey()): { profile: Profile; summary: RunSummary } {
+export function applyRun(profile: Profile, r: RunResult, today: string = weekKey(), day: string = dateKey()): { profile: Profile; summary: RunSummary } {
   const p: Profile = structuredCloneSafe(profile);
   const achievements: string[] = [];
   const levelBefore = p.level;
@@ -168,14 +177,19 @@ export function applyRun(profile: Profile, r: RunResult, today: string = weekKey
   const runEvent = { kind: 'run' as const, r, newFloppies, paidBits: bits, newStars: newStars.length };
   const quests = advanceQuests(p, runEvent).map((q) => q.id);
   const weekly = advanceWeekly(p, runEvent, today);
+  const errand = advanceErrand(p, runEvent, day)?.title ?? null;
   p.level = levelForXp(p.xp);
   if (p.level >= 5) unlockAchievement(p, 'level5', achievements);
   // Virtual-pet care loop: BYTE gets hungry and ready to play again after every adventure.
   p.pet.hunger = Math.min(3, p.pet.hunger + 1);
   p.pet.trainedToday = 0;
   const muts = newlyUnlocked(p).map((m) => m.id);
-  for (const m of muts) p.mutationsUnlocked.push(m);
-  return { profile: p, summary: { bits, xp, levelBefore, levelAfter: p.level, newFloppies, achievements, mutations: muts, firstClear, dailyBonus, dailyStreak, newStars, quests, weekly } };
+  for (const m of muts) {
+    p.mutationsUnlocked.push(m);
+    // Curses are opt-in: they arrive switched off.
+    if (MUTATION_BY_ID.get(m)?.cursed) p.mutationsDisabled.push(m);
+  }
+  return { profile: p, summary: { bits, xp, levelBefore, levelAfter: p.level, newFloppies, achievements, mutations: muts, firstClear, dailyBonus, dailyStreak, newStars, quests, weekly, errand } };
 }
 
 export function structuredCloneSafe<T>(v: T): T {
@@ -206,11 +220,12 @@ export interface MiniOutcome {
   quests: QuestDef[];
   /** Weekly goal ids finished by this round. */
   weekly: string[];
+  errand: string | null;
   achievements: string[];
 }
 
 /** Records a finished mini-game: pays bits, tracks the personal best, advances quests. Pure. */
-export function applyMini(profile: Profile, game: MiniId, rawScore: number, today: string = weekKey()): { profile: Profile; outcome: MiniOutcome } {
+export function applyMini(profile: Profile, game: MiniId, rawScore: number, today: string = weekKey(), day: string = dateKey()): { profile: Profile; outcome: MiniOutcome } {
   const p: Profile = structuredCloneSafe(profile);
   const score = Number.isFinite(rawScore) ? Math.max(0, Math.floor(rawScore)) : 0;
   const info = MINIS.find((m) => m.id === game)!;
@@ -222,8 +237,10 @@ export function applyMini(profile: Profile, game: MiniId, rawScore: number, toda
   const miniEvent = { kind: 'mini' as const, game, score };
   const quests = advanceQuests(p, miniEvent);
   const weekly = advanceWeekly(p, miniEvent, today);
+  const errand = advanceErrand(p, miniEvent, day)?.title ?? null;
   p.level = levelForXp(p.xp);
   const achievements: string[] = [];
   if (p.level >= 5) unlockAchievement(p, 'level5', achievements);
-  return { profile: p, outcome: { bits, best, quests, weekly, achievements } };
+  if (game === 'dash') unlockAchievement(p, 'secret_dash', achievements);
+  return { profile: p, outcome: { bits, best, quests, weekly, errand, achievements } };
 }

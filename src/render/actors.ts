@@ -11,7 +11,7 @@ export function setLook(l: Look, h: string): void {
 }
 
 export type Pose = 'idle' | 'run' | 'jump' | 'attack' | 'special' | 'block' | 'hurt' | 'dizzy';
-export type PortraitId = 'cass' | 'demo' | 'manual' | 'kevin' | 'rex' | 'polygon' | 'byte' | 'brick' | 'static' | 'manager' | 'core';
+export type PortraitId = 'cass' | 'demo' | 'manual' | 'kevin' | 'rex' | 'polygon' | 'byte' | 'brick' | 'static' | 'manager' | 'core' | 'highscore';
 
 export interface Actor {
   x: number;
@@ -258,6 +258,36 @@ export function drawByte(ctx: CanvasRenderingContext2D, x: number, y: number, t:
   ctx.restore();
 }
 
+/**
+ * THE HIGH SCORE: a huge cabinet marquee with a crown and glowing eyes. The caller draws the
+ * score digits on the dark panel; `w`/`h` size it, `mood` changes the eyes.
+ */
+export function drawHighScore(ctx: CanvasRenderingContext2D, cx: number, cy: number, t: number, w = 96, h = 40, mood: 'calm' | 'angry' | 'open' | 'dead' = 'calm'): void {
+  const x = Math.round(cx - w / 2), y = Math.round(cy - h / 2);
+  const gold = mood === 'dead' ? '#6a5a30' : mood === 'angry' ? '#ff9f3f' : '#ffcf3f';
+  // crown
+  r(ctx, x + w / 2 - 14, y - 9, 28, 9, gold);
+  for (let i = 0; i < 4; i++) r(ctx, x + w / 2 - 14 + i * 9, y - 13, 5, 5, gold);
+  r(ctx, x + w / 2 - 2, y - 17, 4, 5, '#ff3fd2');
+  // frame and panel
+  r(ctx, x - 3, y - 3, w + 6, h + 6, gold);
+  r(ctx, x - 1, y - 1, w + 2, h + 2, '#15101f');
+  r(ctx, x, y, w, h, '#05020d');
+  r(ctx, x, y, w, 2, 'rgba(255,255,255,0.12)');
+  // eyes on the top corners of the panel
+  const blink = Math.floor(t * 0.9) % 7 === 0 ? 1 : 3;
+  const eye = mood === 'angry' ? '#ff3f5a' : mood === 'open' ? '#7dff6b' : mood === 'dead' ? '#555' : '#3fe0ff';
+  r(ctx, x + 6, y + 4, 8, blink, eye);
+  r(ctx, x + w - 14, y + 4, 8, blink, eye);
+  if (mood === 'angry') {
+    r(ctx, x + 4, y + 2, 10, 1, '#ff3f5a');
+    r(ctx, x + w - 14, y + 2, 10, 1, '#ff3f5a');
+  }
+  // legs of the cabinet
+  r(ctx, x + 6, y + h + 3, 8, 6, '#2a2438');
+  r(ctx, x + w - 14, y + h + 3, 8, 6, '#2a2438');
+}
+
 /** The Manual: a haunted instruction booklet. */
 export function drawManual(ctx: CanvasRenderingContext2D, x: number, y: number, t: number): void {
   const yy = Math.round(y + Math.sin(t * 2) * 2);
@@ -417,6 +447,7 @@ export function drawPortrait(ctx: CanvasRenderingContext2D, who: PortraitId, x: 
     case 'static': drawStatic(ctx, cx, y + 16, t); break;
     case 'manager': drawManager(ctx, cx, y + 16, t); break;
     case 'core': drawCoreIcon(ctx, cx, y + 16, t, 2); break;
+    case 'highscore': drawHighScore(ctx, cx, y + 20, t, 26, 12, 'calm'); break;
   }
   ctx.restore();
 }

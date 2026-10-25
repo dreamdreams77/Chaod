@@ -8,7 +8,7 @@ import { WEEKLY_BY_ID } from '../data/weekly.ts';
 import type { Game, Scene } from '../game.ts';
 import { H, W, PAL, Particles, Popups, backdrop, glow, rect, frame, bar, clamp, approach } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
-import { drawCass, drawFloppy, drawBit } from '../render/actors.ts';
+import { drawCass, drawDemo, drawFloppy, drawBit } from '../render/actors.ts';
 import { MiniId, MINIS } from '../data/quests.ts';
 import { MiniOutcome, applyMini } from '../data/progression.ts';
 import { Rng } from '../core/rng.ts';
@@ -20,6 +20,7 @@ export function startMini(game: Game, id: MiniId): void {
     memory: (g) => new MemoryScene(g),
     whack: (g) => new WhackScene(g),
     stack: (g) => new StackScene(g),
+    dash: (g) => new DashScene(g),
   };
   game.goto(make[id](game));
 }
@@ -53,6 +54,7 @@ abstract class MiniBase implements Scene {
     this.outcome = outcome;
     this.game.announceAchievements(outcome.achievements);
     for (const q of outcome.quests) this.game.toast('QUEST COMPLETE', q.title, '#ffcf3f');
+    if (outcome.errand) this.game.toast('ERRAND DONE', outcome.errand, '#9dff3f');
     for (const id of outcome.weekly) this.game.toast('WEEKLY GOAL', id === 'sweep' ? 'ALL THREE DONE! BONUS PAID' : WEEKLY_BY_ID.get(id)?.title ?? id, '#3fe0ff');
     this.game.audio.sfx(outcome.best ? 'levelup' : 'powerup');
   }
@@ -942,6 +944,171 @@ export class MemoryScene extends MiniBase {
     }
     if (this.t < 3) drawText(ctx, this.game.input.label('REPEAT THE PATTERN WITH THE ARROWS • ESC LEAVES'), W / 2, H - 14, '#fff', { align: 'center' });
     this.drawOver(ctx, 'ROUNDS');
+  }
+}
+
+// ---- DEMO DASH (the secret cabinet) -----------------------------------------------------
+
+interface Hazard {
+  x: number;
+  kind: 'hurdle' | 'rock' | 'bird' | 'bone';
+  y: number;
+  hit: boolean;
+}
+
+const DASH_GROUND = H - 56;
+const DASH_SECONDS = 60;
+
+export class DashScene extends MiniBase {
+  id = 'mini-dash';
+  protected readonly miniId = 'dash' as const;
+  private readonly rng: Rng;
+  private dy = 0;
+  private vy = 0;
+  private onGround = true;
+  private holding = false;
+  private lives = 3;
+  private bones = 0;
+  private dist = 0;
+  private hurtT = 0;
+  private spawnT = 1;
+  private readonly things: Hazard[] = [];
+
+  constructor(game: Game) {
+    super(game);
+    this.rng = new Rng(game.rng.int(1, 999999));
+  }
+
+  /** Tapping anywhere jumps (the pad's A button and Z do too). */
+  protected tapLive(): boolean {
+    this.jump();
+    return true;
+  }
+
+  private jump(): void {
+    if (!this.onGround || this.over) return;
+    this.vy = -330;
+    this.onGround = false;
+    this.holding = true;
+    this.game.audio.sfx('jump');
+  }
+
+  private get speed(): number {
+    return 130 + Math.min(150, this.t * 3.2);
+  }
+
+  update(dt: number): void {
+    this.t += dt;
+    if (this.updateOver(dt)) return;
+    const inp = this.game.input;
+    if (inp.pressed('pause')) {
+      this.finish();
+      return;
+    }
+    this.particles.update(dt);
+    this.popups.update(dt);
+    this.hurtT = Math.max(0, this.hurtT - dt);
+    if (inp.pressed('jump') || inp.pressed('confirm') || inp.pressed('up')) this.jump();
+    // Holding the button a little longer jumps higher.
+    if (this.holding && !inp.held('jump') && !inp.held('confirm') && !inp.held('up') && this.vy < -140) this.vy = -140;
+    if (this.holding && this.vy >= 0) this.holding = false;
+    this.vy += 900 * dt;
+    this.dy += this.vy * dt;
+    if (this.dy >= 0) {
+      this.dy = 0;
+      this.vy = 0;
+      this.onGround = true;
+      this.holding = false;
+    }
+    const sp = this.speed;
+    this.dist += sp * dt;
+    this.score = Math.floor(this.dist / 14) + this.bones * 3;
+    this.spawnT -= dt;
+    if (this.spawnT <= 0) {
+      this.spawnT = this.rng.range(0.7, 1.5) * (150 / sp) + 0.35;
+      const r = this.rng.next();
+      const kind: Hazard['kind'] = r < 0.34 ? 'hurdle' : r < 0.6 ? 'rock' : r < 0.78 ? 'bird' : 'bone';
+      const y = kind === 'bird' ? DASH_GROUND - 36 : kind === 'bone' ? DASH_GROUND - this.rng.range(14, 54) : DASH_GROUND;
+      this.things.push({ x: W + 20, kind, y, hit: false });
+      // A short trail of bones sometimes follows a hurdle: the jump pays.
+      if (kind === 'hurdle' && this.rng.chance(0.6)) for (let i = 1; i <= 3; i++) this.things.push({ x: W + 20 + i * 14, kind: 'bone', y: DASH_GROUND - 40 - Math.sin(i / 4 * Math.PI) * 14, hit: false });
+    }
+    const dogX = 90;
+    const dogY = DASH_GROUND + this.dy;
+    for (const h of this.things) {
+      h.x -= sp * dt;
+      if (h.hit) continue;
+      const dx = Math.abs(h.x - dogX);
+      if (h.kind === 'bone') {
+        if (dx < 12 && Math.abs(h.y - (dogY - 10)) < 14) {
+          h.hit = true;
+          this.bones++;
+          this.game.audio.sfx('coin');
+          this.popups.add(h.x, h.y - 8, '+3', '#ffcf3f');
+        }
+      } else if (this.hurtT <= 0) {
+        const w = h.kind === 'rock' ? 10 : h.kind === 'bird' ? 9 : 7;
+        const top = h.kind === 'hurdle' ? h.y - 18 : h.kind === 'rock' ? h.y - 10 : h.y - 8;
+        const bottom = h.kind === 'bird' ? h.y + 4 : h.y;
+        if (dx < w + 5 && dogY > top && dogY - 16 < bottom) {
+          h.hit = true;
+          this.lives--;
+          this.hurtT = 1;
+          this.game.audio.sfx('hurt');
+          this.game.fx.shake(2);
+          this.particles.burst(dogX, dogY - 8, ['#c98b4a', '#fff'], 10, 80);
+        }
+      }
+    }
+    for (let i = this.things.length - 1; i >= 0; i--) if (this.things[i].x < -30) this.things.splice(i, 1);
+    if (this.lives <= 0 || this.t >= DASH_SECONDS) this.finish();
+  }
+
+  draw(ctx: CanvasRenderingContext2D): void {
+    this.drawBackdrop(ctx, '255,159,63');
+    // ground with scrolling dashes
+    rect(ctx, 0, DASH_GROUND + 2, W, H - DASH_GROUND, '#120a24');
+    rect(ctx, 0, DASH_GROUND + 2, W, 1, '#ff9f3f');
+    for (let x = -((this.dist) % 40); x < W; x += 40) rect(ctx, x, DASH_GROUND + 10, 18, 1, '#ff9f3f55');
+    for (const h of this.things) {
+      if (h.hit && h.kind === 'bone') continue;
+      if (h.kind === 'hurdle') {
+        rect(ctx, h.x - 7, h.y - 18, 3, 18, '#ffffff');
+        rect(ctx, h.x + 4, h.y - 18, 3, 18, '#ffffff');
+        rect(ctx, h.x - 8, h.y - 15, 16, 3, '#ff3f6b');
+        rect(ctx, h.x - 8, h.y - 9, 16, 3, '#ffffff');
+      } else if (h.kind === 'rock') {
+        rect(ctx, h.x - 9, h.y - 8, 18, 8, '#6a6a88');
+        rect(ctx, h.x - 6, h.y - 11, 12, 4, '#8a8aa8');
+        rect(ctx, h.x - 9, h.y - 8, 18, 1, '#b0b0c8');
+      } else if (h.kind === 'bird') {
+        const flap = Math.floor(this.t * 8) % 2;
+        rect(ctx, h.x - 6, h.y - 3, 12, 6, '#b07aff');
+        rect(ctx, h.x - 8, h.y - 5 + flap * 5, 5, 3, '#8a5ad0');
+        rect(ctx, h.x + 5, h.y - 1, 4, 2, '#ffcf3f');
+        rect(ctx, h.x + 2, h.y - 2, 2, 2, '#fff');
+      } else {
+        glow(ctx, h.x, h.y, 9, '255,255,255', 0.35);
+        rect(ctx, h.x - 5, h.y - 1, 10, 3, '#fffbe8');
+        rect(ctx, h.x - 6, h.y - 3, 3, 3, '#fffbe8');
+        rect(ctx, h.x - 6, h.y + 1, 3, 3, '#fffbe8');
+        rect(ctx, h.x + 3, h.y - 3, 3, 3, '#fffbe8');
+        rect(ctx, h.x + 3, h.y + 1, 3, 3, '#fffbe8');
+      }
+    }
+    const blink = this.hurtT > 0 && Math.floor(this.t * 10) % 2 === 0;
+    rect(ctx, 80, DASH_GROUND + 1, 22, 3, `rgba(0,0,0,${0.4 - Math.min(0.3, -this.dy / 200)})`);
+    if (!blink) drawDemo(ctx, { x: 90, y: DASH_GROUND + this.dy, facing: 1, pose: this.onGround ? 'run' : 'jump', t: this.t * 1.4 });
+    this.particles.draw(ctx);
+    this.popups.draw(ctx);
+    const left = Math.max(0, DASH_SECONDS - this.t);
+    drawText(ctx, `SCORE ${this.score}`, 8, 8, '#ffcf3f');
+    drawText(ctx, `BONES ${this.bones}`, 8, 18, '#fffbe8');
+    for (let i = 0; i < 3; i++) drawText(ctx, '\u2665', W - 40 + i * 9, 8, i < this.lives ? '#ff3f6b' : '#40303a');
+    bar(ctx, W / 2 - 50, 8, 100, 5, left / DASH_SECONDS, left < 10 ? '#ff3f3f' : '#7dff6b', '#102010', '#ffffff55');
+    drawText(ctx, `${Math.ceil(left)}`, W / 2, 16, '#fff', { align: 'center' });
+    if (this.t < 3.5) drawText(ctx, this.game.input.label('Z OR TAP: JUMP (HOLD FOR A HIGHER JUMP) \u2022 GRAB BONES \u2022 DODGE ROCKS AND BIRDS'), W / 2, H - 14, '#fff', { align: 'center' });
+    this.drawOver(ctx, 'PTS');
   }
 }
 
