@@ -65,7 +65,12 @@ function boot(): void {
   game.scene = game.titleFactory();
   game.scene.enter?.();
 
-  setupTouch(document.getElementById('touch')!, input, () => resize());
+  setupTouch(document.getElementById('touch')!, input, () => resize(), () => {
+    game.settings.musicOn = !game.settings.musicOn;
+    game.saveSettings();
+    game.toast('MUSIC', game.settings.musicOn ? 'ON' : 'OFF', '#3fe0ff');
+    return game.settings.musicOn;
+  });
 
   // Audio can only start after a user gesture.
   const unlock = () => audio.unlock();
@@ -125,6 +130,7 @@ function boot(): void {
   });
   canvas.focus();
 
+  const musicBtn = document.querySelector('#touch button[aria-label="toggle music"]');
   let last = performance.now();
   let acc = 0;
   let crashed = false;
@@ -146,6 +152,7 @@ function boot(): void {
       if (steps === 5) acc = 0;
       game.profile.playTime += elapsed;
       game.render();
+      musicBtn?.classList.toggle('off', !game.settings.musicOn);
     } catch (e) {
       crashed = true;
       console.error(e);

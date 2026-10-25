@@ -1,7 +1,7 @@
 # Changelog
 
 ## 1.2.0 — music switch
-- Music can be turned on and off without touching volume: Settings → MUSIC, the pause menu, or the M key anywhere. Sound effects stay on. The choice is saved.
+- Music can be turned on and off without touching volume: Settings → MUSIC, the pause menu, or the M key anywhere. Sound effects stay on. A ♪ button on the touch pad toggles it in one tap. The choice is saved.
 - Depth: soft glow on bullet-hell bullets and light shading on the main character.
 
 ## 1.1.1 — second review pass

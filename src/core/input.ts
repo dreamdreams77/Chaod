@@ -195,7 +195,7 @@ function isGameKey(code: string): boolean {
 }
 
 /** Builds a minimal on-screen gamepad for touch devices. */
-export function setupTouch(root: HTMLElement, input: Input, onEnable: () => void = () => {}): void {
+export function setupTouch(root: HTMLElement, input: Input, onEnable: () => void = () => {}, onMusic: () => boolean = () => true): void {
   // [action, label, zone, left, top, extra class]; coordinates are inside a 164x164 zone.
   const layout: Array<[Action, string, 'dpad' | 'acts', number, number, string]> = [
     ['up', '▲', 'dpad', 56, 0, ''],
@@ -214,6 +214,17 @@ export function setupTouch(root: HTMLElement, input: Input, onEnable: () => void
   zones.dpad.className = 'zone dpad';
   zones.acts.className = 'zone acts';
   root.append(zones.dpad, zones.acts);
+  // One-tap music switch beside the pause button; the label shows the current state.
+  const music = document.createElement('button');
+  music.className = 'small';
+  music.textContent = '♪';
+  music.setAttribute('style', 'left:70px;top:0px');
+  music.setAttribute('aria-label', 'toggle music');
+  music.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    music.classList.toggle('off', !onMusic());
+  });
+  zones.acts.appendChild(music);
   for (const [action, label, zone, left, top, extra] of layout) {
     const b = document.createElement('button');
     b.textContent = label;
