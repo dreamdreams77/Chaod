@@ -1,5 +1,6 @@
 /**
- * Lobby mini-games: CART CATCH (reflex) and GLITCH MEMORY (pattern recall).
+ * Lobby mini-games: CART CATCH (reflex), BYTE BREAKOUT (paddle and bricks), WHACK-A-GLITCH (reaction),
+ * STACK-A-CART (timing) and GLITCH MEMORY (pattern recall).
  * Small self-contained scenes; results flow through applyMini so bits, personal
  * bests and quests are handled (and tested) in one place.
  */
@@ -12,7 +13,14 @@ import { MiniOutcome, applyMini } from '../data/progression.ts';
 import { Rng } from '../core/rng.ts';
 
 export function startMini(game: Game, id: MiniId): void {
-  game.goto(id === 'catch' ? new CatchScene(game) : id === 'breakout' ? new BreakoutScene(game) : new MemoryScene(game));
+  const make: Record<MiniId, (g: Game) => Scene> = {
+    catch: (g) => new CatchScene(g),
+    breakout: (g) => new BreakoutScene(g),
+    memory: (g) => new MemoryScene(g),
+    whack: (g) => new WhackScene(g),
+    stack: (g) => new StackScene(g),
+  };
+  game.goto(make[id](game));
 }
 
 abstract class MiniBase implements Scene {
@@ -148,7 +156,7 @@ export class CatchScene extends MiniBase {
     this.t += dt;
     if (this.updateOver(dt)) return;
     const inp = this.game.input;
-    if (inp.pressed('back') || inp.pressed('pause')) {
+    if (inp.pressed('pause')) {
       // Leaving early ends the round and banks what you have; press again to return to the lobby.
       this.finish();
       return;
@@ -319,7 +327,7 @@ export class BreakoutScene extends MiniBase {
     this.t += dt;
     if (this.updateOver(dt)) return;
     const inp = this.game.input;
-    if (inp.pressed('back') || inp.pressed('pause')) {
+    if (inp.pressed('pause')) {
       this.finish();
       return;
     }
@@ -447,7 +455,341 @@ export class BreakoutScene extends MiniBase {
     for (let i = 0; i < 3; i++) drawText(ctx, '\u2665', W - 40 + i * 9, 8, i < this.lives ? '#ff3f6b' : '#40303a');
     bar(ctx, W / 2 - 50, 8, 100, 5, left / BREAKOUT_SECONDS, left < 15 ? '#ff3f3f' : '#7dff6b', '#102010', '#ffffff55');
     if (this.stuck && !this.over) drawText(ctx, this.game.input.label('TAP OR Z LAUNCHES THE BALL (AUTO IN 3S)'), W / 2, PADDLE_Y - 30, '#fff', { align: 'center' });
-    if (this.t < 4) drawText(ctx, this.game.input.label('ARROWS MOVE \u2022 TOP ROW TAKES TWO HITS \u2022 ESC ENDS THE ROUND'), W / 2, H - 12, '#fff', { align: 'center' });
+    if (this.t < 4) drawText(ctx, this.game.input.label('ARROWS MOVE \u2022 TOP ROW TAKES TWO HITS \u2022 ESC OR P ENDS THE ROUND'), W / 2, H - 12, '#fff', { align: 'center' });
+    this.drawOver(ctx, 'PTS');
+  }
+}
+
+// ---- WHACK-A-GLITCH ------------------------------------------------------------------
+
+const WHACK_SECONDS = 30;
+const HOLE_X = [W / 2 - 86, W / 2, W / 2 + 86];
+const HOLE_Y = [112, 164, 216];
+
+interface Critter {
+  cell: number;
+  kind: 'glitch' | 'gold' | 'byte';
+  age: number;
+  life: number;
+  hit: number; // seconds since whacked, or -1
+}
+
+export class WhackScene extends MiniBase {
+  id = 'mini-whack';
+  protected readonly miniId = 'whack' as const;
+  private readonly rng: Rng;
+  private readonly critters: Critter[] = [];
+  private cursor = 4;
+  private combo = 0;
+  private spawnT = 0.6;
+  private swingT = 0;
+  private pendingWhack = -1;
+
+  constructor(game: Game) {
+    super(game);
+    this.rng = new Rng(game.rng.int(1, 999999));
+  }
+
+  /** Touch / click: tap a hole to bonk it. Rows are split halfway between holes, so there is no overlap. */
+  protected tapLive(x: number, y: number): boolean {
+    const col = clamp(Math.round((x - HOLE_X[1]) / 86) + 1, 0, 2);
+    const row = clamp(Math.round((y - (HOLE_Y[0] - 12)) / 52), 0, 2);
+    if (Math.abs(x - HOLE_X[col]) <= 44) {
+      this.cursor = row * 3 + col;
+      this.pendingWhack = this.cursor;
+    }
+    return true;
+  }
+
+  private whack(cell: number): void {
+    this.swingT = 0.18;
+    const cr = this.critters.find((c) => c.cell === cell && c.hit < 0);
+    const x = HOLE_X[cell % 3], y = HOLE_Y[Math.floor(cell / 3)];
+    const a = this.game.audio;
+    if (!cr) {
+      this.combo = 0;
+      a.sfx('miss');
+      return;
+    }
+    cr.hit = 0;
+    if (cr.kind === 'byte') {
+      this.score = Math.max(0, this.score - 3);
+      this.combo = 0;
+      a.sfx('hurt');
+      this.game.fx.shake(2);
+      this.popups.add(x, y - 36, 'OOPS! -3', '#3fa9ff');
+      this.particles.burst(x, y - 14, ['#3fa9ff', '#fff'], 10, 70);
+      return;
+    }
+    this.combo++;
+    const gain = (cr.kind === 'gold' ? 3 : 1) * Math.min(2, 1 + Math.floor(this.combo / 10));
+    this.score += gain;
+    a.sfx(cr.kind === 'gold' ? 'floppy' : 'hit', 1 + Math.min(0.5, this.combo * 0.03));
+    this.popups.add(x, y - 36, `+${gain}`, cr.kind === 'gold' ? '#ffcf3f' : '#7dff6b');
+    this.particles.burst(x, y - 14, cr.kind === 'gold' ? ['#ffcf3f', '#fff'] : ['#ff3f6b', '#fff'], 12, 90);
+  }
+
+  update(dt: number): void {
+    this.t += dt;
+    if (this.updateOver(dt)) return;
+    const inp = this.game.input;
+    if (inp.pressed('pause')) {
+      this.finish();
+      return;
+    }
+    this.particles.update(dt);
+    this.popups.update(dt);
+    this.swingT = Math.max(0, this.swingT - dt);
+    // Keyboard: arrows hop the hammer between holes (wrapping), A bonks.
+    let cx = this.cursor % 3, cy = Math.floor(this.cursor / 3);
+    if (inp.pressed('left')) cx = (cx + 2) % 3;
+    if (inp.pressed('right')) cx = (cx + 1) % 3;
+    if (inp.pressed('up')) cy = (cy + 2) % 3;
+    if (inp.pressed('down')) cy = (cy + 1) % 3;
+    this.cursor = cy * 3 + cx;
+    if (inp.pressed('jump') || inp.pressed('confirm') || inp.pressed('attack')) this.whack(this.cursor);
+    if (this.pendingWhack >= 0) {
+      this.whack(this.pendingWhack);
+      this.pendingWhack = -1;
+    }
+
+    const ramp = this.t / WHACK_SECONDS;
+    this.spawnT -= dt;
+    if (this.spawnT <= 0) {
+      this.spawnT = 0.62 - ramp * 0.3;
+      const free = [0, 1, 2, 3, 4, 5, 6, 7, 8].filter((c) => !this.critters.some((k) => k.cell === c));
+      if (free.length) {
+        const r = this.rng.next();
+        const life = 1.25 - ramp * 0.6;
+        const kind: Critter['kind'] = r < 0.68 ? 'glitch' : r < 0.82 ? 'gold' : 'byte';
+        this.critters.push({ cell: this.rng.pick(free), kind, age: 0, life: kind === 'gold' ? life * 0.75 : life, hit: -1 });
+      }
+    }
+    for (const c of this.critters) {
+      c.age += dt;
+      if (c.hit >= 0) c.hit += dt;
+      // A glitch that escapes un-bonked breaks your streak.
+      if (c.hit < 0 && c.age >= c.life && c.kind !== 'byte') this.combo = 0;
+    }
+    for (let i = this.critters.length - 1; i >= 0; i--) {
+      const c = this.critters[i];
+      if (c.age >= c.life || (c.hit >= 0.3)) this.critters.splice(i, 1);
+    }
+    if (this.t >= WHACK_SECONDS) this.finish();
+  }
+
+  draw(ctx: CanvasRenderingContext2D): void {
+    this.drawBackdrop(ctx, '125,255,107');
+    // Holes first, then critters rising out of them, then front lips so they emerge from the ground
+    for (let c = 0; c < 9; c++) {
+      const x = HOLE_X[c % 3], y = HOLE_Y[Math.floor(c / 3)];
+      rect(ctx, x - 30, y + 8, 60, 12, 'rgba(0,0,0,0.5)');
+      rect(ctx, x - 26, y + 10, 52, 8, '#05020d');
+      const cr = this.critters.find((k) => k.cell === c);
+      if (cr) {
+        const rise = Math.max(0, Math.min(1, cr.age / 0.14, (cr.life - cr.age) / 0.14));
+        const squish = cr.hit >= 0;
+        const h = squish ? 12 : 24;
+        // The body slides up out of the hole: hidden below the lip at rise 0, fully out at rise 1.
+        const ty = y + 14 - (squish ? 1 : rise) * h;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x - 28, y - 40, 56, 54);
+        ctx.clip();
+        const body = cr.kind === 'gold' ? '#ffcf3f' : cr.kind === 'byte' ? '#3fa9ff' : '#ff3f6b';
+        rect(ctx, x - 14, ty, 28, h, body);
+        rect(ctx, x - 14, ty, 28, 3, 'rgba(255,255,255,0.45)');
+        rect(ctx, x - 9, ty + 6, 5, squish ? 2 : 6, '#000');
+        rect(ctx, x + 4, ty + 6, 5, squish ? 2 : 6, '#000');
+        if (cr.kind === 'byte') {
+          rect(ctx, x - 2, ty - 4, 4, 5, '#fff');
+          rect(ctx, x - 6, ty + h - 6, 12, 2, '#000');
+        } else rect(ctx, x - 7, ty + h - 6, 14, 2, '#000');
+        if (cr.kind === 'gold') glow(ctx, x, ty + h / 2, 22, '255,207,63', 0.4);
+        ctx.restore();
+      }
+      rect(ctx, x - 30, y + 14, 60, 4, '#2a1840');
+      rect(ctx, x - 30, y + 14, 60, 1, '#4a2a70');
+    }
+    // Cursor ring and hammer
+    const cx = HOLE_X[this.cursor % 3], cy = HOLE_Y[Math.floor(this.cursor / 3)];
+    ctx.globalAlpha = 0.5 + Math.sin(this.t * 8) * 0.2;
+    rect(ctx, cx - 32, cy - 36, 64, 2, '#ffffff');
+    rect(ctx, cx - 32, cy + 18, 64, 2, '#ffffff');
+    ctx.globalAlpha = 1;
+    const swing = this.swingT > 0 ? 1 : 0;
+    ctx.save();
+    ctx.translate(cx + 26, cy - 28 + swing * 12);
+    ctx.rotate(swing ? 0.5 : -0.45);
+    rect(ctx, -2, -4, 4, 28, '#8a5a2a');
+    rect(ctx, -10, -14, 20, 12, '#c0c0d0');
+    rect(ctx, -10, -14, 20, 3, '#ffffff');
+    ctx.restore();
+    this.particles.draw(ctx);
+    this.popups.draw(ctx);
+    const left = Math.max(0, WHACK_SECONDS - this.t);
+    drawText(ctx, `SCORE ${this.score}`, 8, 8, '#ffcf3f');
+    drawText(ctx, `COMBO ${this.combo}${this.combo >= 10 ? ' x2' : ''}`, 8, 18, '#7dff6b');
+    bar(ctx, W / 2 - 50, 8, 100, 5, left / WHACK_SECONDS, left < 8 ? '#ff3f3f' : '#7dff6b', '#102010', '#ffffff55');
+    drawText(ctx, `${Math.ceil(left)}`, W / 2, 16, '#fff', { align: 'center' });
+    if (this.t < 4) drawText(ctx, this.game.input.label('TAP A HOLE, OR ARROWS + Z \u2022 GOLD = 3 \u2022 DO NOT HIT BYTE \u2022 ESC OR P ENDS THE ROUND'), W / 2, H - 10, '#fff', { align: 'center' });
+    this.drawOver(ctx, 'PTS');
+  }
+}
+
+// ---- STACK-A-CART --------------------------------------------------------------------
+
+const STACK_H = 14;
+const STACK_BASE_W = 130;
+const STACK_TOP_Y = 210;
+
+interface Slab {
+  x: number;
+  w: number;
+}
+
+interface Debris {
+  x: number;
+  y: number;
+  w: number;
+  vy: number;
+  hue: number;
+}
+
+export class StackScene extends MiniBase {
+  id = 'mini-stack';
+  protected readonly miniId = 'stack' as const;
+  private readonly slabs: Slab[] = [{ x: (W - STACK_BASE_W) / 2, w: STACK_BASE_W }];
+  private mx = 20;
+  private mw = STACK_BASE_W;
+  private dir = 1;
+  private streak = 0;
+  private cam = 0;
+  private drop = false;
+  private readonly debris: Debris[] = [];
+
+  protected tapLive(): boolean {
+    this.drop = true;
+    return true;
+  }
+
+  private speed(): number {
+    return Math.min(300, 110 + this.slabs.length * 5);
+  }
+
+  private place(): void {
+    const top = this.slabs[this.slabs.length - 1];
+    const left = Math.max(this.mx, top.x);
+    const right = Math.min(this.mx + this.mw, top.x + top.w);
+    const ow = right - left;
+    const y = this.slabY(this.slabs.length);
+    const a = this.game.audio;
+    if (ow <= 0) {
+      // Missed the tower entirely: the whole slab falls and the run is over.
+      this.debris.push({ x: this.mx, y, w: this.mw, vy: 0, hue: this.slabs.length * 23 });
+      a.sfx('miss');
+      this.game.fx.shake(3);
+      this.finish();
+      return;
+    }
+    const perfect = Math.abs(this.mx - top.x) <= 3;
+    let slab: Slab;
+    if (perfect) {
+      this.streak++;
+      slab = { x: top.x, w: top.w };
+      // Three perfects in a row grow the slab back a little.
+      if (this.streak >= 3 && slab.w < STACK_BASE_W) {
+        const dw = Math.min(6, STACK_BASE_W - slab.w);
+        slab = { x: top.x - dw / 2, w: slab.w + dw };
+      }
+      this.score += 2;
+      a.sfx('perfect', 1 + Math.min(0.6, this.streak * 0.08));
+      this.popups.add(W / 2, y - 24, this.streak > 1 ? `PERFECT x${this.streak}` : 'PERFECT!', '#7dff6b');
+      this.particles.burst(this.mx + this.mw / 2, y, ['#7dff6b', '#fff'], 10, 80);
+    } else {
+      this.streak = 0;
+      slab = { x: left, w: ow };
+      this.score += 1;
+      a.sfx('step', 0.9);
+      // Slice off the overhang and let it fall away.
+      if (this.mx < left) this.debris.push({ x: this.mx, y, w: left - this.mx, vy: 0, hue: this.slabs.length * 23 });
+      if (this.mx + this.mw > right) this.debris.push({ x: right, y, w: this.mx + this.mw - right, vy: 0, hue: this.slabs.length * 23 });
+    }
+    this.slabs.push(slab);
+    this.mw = slab.w;
+    this.dir = this.slabs.length % 2 ? 1 : -1;
+    this.mx = this.dir > 0 ? 10 : W - 10 - this.mw;
+    if (this.slabs.length >= 60) this.finish();
+  }
+
+  /** World y (top of slab n) before camera scroll; slab 0 sits at the bottom. */
+  private slabY(n: number): number {
+    return STACK_TOP_Y - n * STACK_H + this.cam;
+  }
+
+  update(dt: number): void {
+    this.t += dt;
+    // Sliced-off pieces keep falling even while the result panel is up.
+    for (const d of this.debris) {
+      d.vy += 520 * dt;
+      d.y += d.vy * dt;
+    }
+    for (let i = this.debris.length - 1; i >= 0; i--) if (this.debris[i].y > H + 40) this.debris.splice(i, 1);
+    if (this.updateOver(dt)) return;
+    const inp = this.game.input;
+    if (inp.pressed('pause')) {
+      this.finish();
+      return;
+    }
+    this.particles.update(dt);
+    this.popups.update(dt);
+    // Camera scrolls so the working height stays on screen.
+    const want = Math.max(0, (this.slabs.length - 6) * STACK_H);
+    this.cam += (want - this.cam) * Math.min(1, dt * 6);
+    this.mx += this.dir * this.speed() * dt;
+    if (this.mx < 10) { this.mx = 10; this.dir = 1; }
+    if (this.mx + this.mw > W - 10) { this.mx = W - 10 - this.mw; this.dir = -1; }
+    if (inp.pressed('jump') || inp.pressed('confirm') || inp.pressed('attack') || this.drop) {
+      this.drop = false;
+      this.place();
+    }
+  }
+
+  private drawSlab(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, n: number): void {
+    const hue = (n * 23) % 360;
+    rect(ctx, x + 2, y + 3, w, STACK_H - 1, 'rgba(0,0,0,0.3)');
+    rect(ctx, x, y, w, STACK_H - 1, `hsl(${hue},70%,52%)`);
+    rect(ctx, x, y, w, 2, `hsl(${hue},80%,72%)`);
+    rect(ctx, x, y + STACK_H - 4, w, 3, `hsl(${hue},70%,38%)`);
+    if (w > 24) {
+      rect(ctx, x + 6, y + 4, Math.min(w - 12, 34), 5, 'rgba(255,255,255,0.8)');
+      rect(ctx, x + w - 10, y + 3, 4, STACK_H - 7, 'rgba(0,0,0,0.35)');
+    }
+  }
+
+  draw(ctx: CanvasRenderingContext2D): void {
+    this.drawBackdrop(ctx, '255,207,63');
+    for (let n = 0; n < this.slabs.length; n++) {
+      const y = this.slabY(n);
+      if (y < -STACK_H || y > H + STACK_H) continue;
+      this.drawSlab(ctx, this.slabs[n].x, y, this.slabs[n].w, n);
+    }
+    for (const d of this.debris) this.drawSlab(ctx, d.x, d.y, d.w, Math.round(d.hue / 23));
+    if (!this.over) {
+      const y = this.slabY(this.slabs.length);
+      // Guide line down to the tower so the drop point is easy to judge
+      ctx.globalAlpha = 0.25;
+      rect(ctx, this.mx, y + STACK_H, 1, 40, '#ffffff');
+      rect(ctx, this.mx + this.mw - 1, y + STACK_H, 1, 40, '#ffffff');
+      ctx.globalAlpha = 1;
+      this.drawSlab(ctx, this.mx, y, this.mw, this.slabs.length);
+    }
+    this.particles.draw(ctx);
+    this.popups.draw(ctx);
+    drawText(ctx, `SCORE ${this.score}`, 8, 8, '#ffcf3f');
+    drawText(ctx, `FLOORS ${this.slabs.length - 1}`, 8, 18, '#3fe0ff');
+    if (this.streak > 1) drawText(ctx, `PERFECT STREAK ${this.streak}`, W - 8, 8, '#7dff6b', { align: 'right' });
+    if (this.t < 4) drawText(ctx, this.game.input.label('TAP OR Z TO DROP \u2022 LINE IT UP \u2022 PERFECT = 2 POINTS \u2022 ESC OR P ENDS THE ROUND'), W / 2, H - 10, '#fff', { align: 'center' });
     this.drawOver(ctx, 'PTS');
   }
 }
@@ -510,7 +852,7 @@ export class MemoryScene extends MiniBase {
     this.t += dt;
     if (this.updateOver(dt)) return;
     const inp = this.game.input;
-    if (inp.pressed('back') || inp.pressed('pause')) {
+    if (inp.pressed('pause')) {
       // Leaving early ends the round and banks what you have; press again to return to the lobby.
       this.finish();
       return;

@@ -39,7 +39,7 @@ Nine fusions total (seven available from the start, two unlocked by play). Every
 
 **THE CHAOS DIRECTOR** fires 19 telegraphed events across five categories — cosmetic, environmental, combat, genre transformation and legendary — with rules for cooldowns, minimum warning time, recovery after damage, genre compatibility, boss-specific events, accessibility, and unwinnable-combination prevention. Players can feed it with stylish play, summon it with chaos orbs, and bias it at the hub shrine. Watch for **KEVIN FROM QA**, who "fixes" a rule wherever he appears.
 
-**Also:** a lobby **Quest Board** (ten quests that pay out automatically) and a **Mini-Game Arcade** (CART CATCH, BYTE BREAKOUT and GLITCH MEMORY); two full bosses with phases, telegraphs, weak points and defeat sequences; a mercy-or-delete choice for each; an ending; 15 floppy disks; 20 achievements; boss rematches; seeded challenge modifiers on replays; a shop; a virtual pet to feed and train; a secret character; an original cast and central mystery.
+**Also:** a lobby **Quest Board** (twelve quests that pay out automatically) and a **Mini-Game Arcade** (CART CATCH, BYTE BREAKOUT, WHACK-A-GLITCH, STACK-A-CART and GLITCH MEMORY); two full bosses with phases, telegraphs, weak points and defeat sequences; a mercy-or-delete choice for each; an ending; 15 floppy disks; 20 achievements; boss rematches; seeded challenge modifiers on replays; a shop; a virtual pet to feed and train; a secret character; an original cast and central mystery.
 
 ## Controls
 
@@ -87,7 +87,7 @@ Zero runtime dependencies and zero binary assets: every sprite is drawn from rec
 ## Quality checks
 
 ```bash
-npm run check        # typecheck (src + tests) + 55 unit tests + production build
+npm run check        # typecheck (src + tests) + 57 unit tests + production build
 npm run smoke        # headless Chromium: plays every world, then drives the full campaign to the ending
 ```
 

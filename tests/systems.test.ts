@@ -357,3 +357,47 @@ test('BYTE BREAKOUT: one missed ball costs exactly one life, and idle rounds do 
   const real = applyMini(defaultProfile(), 'breakout', 53);
   assert.ok(real.outcome.quests.some((q) => q.id === 'brick_boss'));
 });
+
+test('WHACK-A-GLITCH and STACK-A-CART run headlessly, score sensibly and always end', async () => {
+  const { WhackScene, StackScene } = await import('../src/scenes/arcade.ts');
+  const { Rng } = await import('../src/core/rng.ts');
+  const { defaultProfile: dp } = await import('../src/core/save.ts');
+  const mk = (seed: number, pressed: (a: string) => boolean) => ({
+    rng: new Rng(seed), profile: dp(), newSeed: () => seed,
+    input: { axisX: () => 0, pressed, label: (t: string) => t },
+    audio: { sfx() {} }, fx: { shake() {} }, music() {}, toHub() {}, saveProfile() {}, toast() {}, announceAchievements() {},
+  });
+  type S = { over: boolean; score: number; t: number; update(dt: number): void; critters?: Array<{ cell: number; kind: string; hit: number }>; cursor?: number; slabs?: Array<{ x: number; w: number }>; mx?: number; dir?: number };
+  for (let seed = 1; seed <= 10; seed++) {
+    // Whack: aim the cursor at a live critter each frame and bonk; the round ends at 30s with a non-negative score.
+    let press = false;
+    const w = new WhackScene(mk(seed, (a) => a === 'jump' && press) as never) as unknown as S;
+    for (let i = 0; i < 60 * 40 && !w.over; i++) {
+      const target = w.critters?.find((c) => c.hit < 0 && c.kind !== 'byte');
+      press = !!target;
+      if (target) w.cursor = target.cell;
+      w.update(1 / 60);
+      press = false;
+    }
+    assert.ok(w.over && w.score > 0, `whack seed ${seed} ends with points (${w.score})`);
+    // Stack: drop when the slab crosses the top slab's x. It never exceeds the 60-floor cap and always ends.
+    let drop = false;
+    const s = new StackScene(mk(seed, (a) => a === 'jump' && drop) as never) as unknown as S;
+    for (let i = 0; i < 60 * 300 && !s.over; i++) {
+      const top = s.slabs![s.slabs!.length - 1];
+      drop = (s.dir! > 0 && s.mx! >= top.x) || (s.dir! < 0 && s.mx! <= top.x);
+      s.update(1 / 60);
+      drop = false;
+    }
+    assert.ok(s.over && s.score >= 1, `stack seed ${seed} ends with a tower (${s.score})`);
+    assert.ok(s.slabs!.length <= 60);
+  }
+});
+
+test('new arcade quests complete at their thresholds', () => {
+  const w = applyMini(defaultProfile(), 'whack', 56);
+  assert.ok(w.outcome.quests.some((q) => q.id === 'whack_ace'));
+  const s = applyMini(defaultProfile(), 'stack', 25);
+  assert.ok(s.outcome.quests.some((q) => q.id === 'tower_builder'));
+  assert.ok(!applyMini(defaultProfile(), 'stack', 23).outcome.quests.some((q) => q.id === 'tower_builder'));
+});

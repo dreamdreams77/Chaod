@@ -5,7 +5,7 @@
 import { Profile, levelForXp } from '../core/save.ts';
 import type { RunResult } from './progression.ts';
 
-export type MiniId = 'catch' | 'memory' | 'breakout';
+export type MiniId = 'catch' | 'memory' | 'breakout' | 'whack' | 'stack';
 
 export interface MiniInfo {
   id: MiniId;
@@ -21,6 +21,8 @@ export interface MiniInfo {
 export const MINIS: MiniInfo[] = [
   { id: 'catch', title: 'CART CATCH', blurb: 'Catch bits and floppies in your cartridge. Dodge the glitch bugs. 30 seconds.', bitsPerPoint: 0.4, pays: 'Pays 2 bits per 5 points.', unit: 'PTS' },
   { id: 'breakout', title: 'BYTE BREAKOUT', blurb: 'Bounce the ball off your cartridge and smash the brick wall. Three lives, 90 seconds.', bitsPerPoint: 0.8, pays: 'Pays 4 bits per 5 points.', unit: 'PTS' },
+  { id: 'whack', title: 'WHACK-A-GLITCH', blurb: 'Bonk the glitches popping out of the holes. Golden ones are worth 3. Do not hit BYTE! 30 seconds.', bitsPerPoint: 0.4, pays: 'Pays 2 bits per 5 points.', unit: 'PTS' },
+  { id: 'stack', title: 'STACK-A-CART', blurb: 'Drop each sliding cartridge onto the tower. Overhang gets sliced off; perfect drops keep it wide.', bitsPerPoint: 0.8, pays: 'Pays 4 bits per 5 points.', unit: 'PTS' },
   { id: 'memory', title: 'GLITCH MEMORY', blurb: 'Watch the lane lights, then repeat the pattern on the arrows. It only gets longer.', bitsPerPoint: 4, pays: 'Pays 4 bits per round cleared.', unit: 'ROUNDS' },
 ];
 
@@ -43,6 +45,8 @@ export const QUESTS: QuestDef[] = [
   { id: 'arcade_regular', title: 'ARCADE REGULAR', desc: 'Play 5 lobby mini-games and score in each.', goal: 5, bits: 50, xp: 20 },
   { id: 'arcade_ace', title: 'ARCADE ACE', desc: 'Score 50+ in CART CATCH.', goal: 1, bits: 70, xp: 30 },
   { id: 'brick_boss', title: 'BRICK BOSS', desc: 'Score 52+ in BYTE BREAKOUT (the wall has 60 points).', goal: 1, bits: 70, xp: 30 },
+  { id: 'whack_ace', title: 'GLITCH EXTERMINATOR', desc: 'Score 55+ in WHACK-A-GLITCH.', goal: 1, bits: 70, xp: 30 },
+  { id: 'tower_builder', title: 'TOWER BUILDER', desc: 'Score 24+ in STACK-A-CART.', goal: 1, bits: 70, xp: 30 },
   { id: 'memory_master', title: 'MEMORY MASTER', desc: 'Clear 6 rounds in GLITCH MEMORY.', goal: 1, bits: 70, xp: 30 },
 ];
 
@@ -70,6 +74,8 @@ export function questGain(q: QuestDef, ev: QuestEvent): number {
     case 'arcade_regular': return ev.score > 0 ? 1 : 0;
     case 'arcade_ace': return ev.game === 'catch' && ev.score >= 50 ? 1 : 0;
     case 'brick_boss': return ev.game === 'breakout' && ev.score >= 52 ? 1 : 0;
+    case 'whack_ace': return ev.game === 'whack' && ev.score >= 55 ? 1 : 0;
+    case 'tower_builder': return ev.game === 'stack' && ev.score >= 24 ? 1 : 0;
     case 'memory_master': return ev.game === 'memory' && ev.score >= 6 ? 1 : 0;
   }
   return 0;

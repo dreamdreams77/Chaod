@@ -96,7 +96,7 @@ export class ListMenu {
     }
     const idx = this.scroll + rel;
     const it = this.items[idx];
-    if (!it) return true;
+    if (!it || it.disabled) return true; // info rows are not selectable by touch
     if (idx !== this.index) {
       this.index = idx;
       game.audio.sfx('select');
@@ -133,7 +133,7 @@ export class ListMenu {
       const sel = idx === this.index;
       const yy = y + 23 + i * 13;
       if (sel) rect(ctx, x + 4, yy - 2, w - 8, 11, '#ffffff14');
-      const col = it.disabled ? '#555' : sel ? '#ffcf3f' : it.color ?? '#ddd';
+      const col = it.disabled ? it.color ?? '#555' : sel ? '#ffcf3f' : it.color ?? '#ddd';
       drawText(ctx, (sel ? (Math.floor(t * 4) % 2 ? '▶' : ' ') : ' ') + ' ' + it.label, x + 8, yy, col);
       if (it.value) {
         const v = it.value();

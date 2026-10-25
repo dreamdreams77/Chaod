@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.0 — two more mini-games, sturdier quest board
+- WHACK-A-GLITCH (3×3 holes: bonk glitches, gold bugs are worth 3, never hit BYTE; arrows + A, or tap a hole) and STACK-A-CART (drop sliding cartridges onto a tower; perfect drops keep it wide; A or tap). Five arcade games now, twelve quests (new: GLITCH EXTERMINATOR, TOWER BUILDER), all balanced with simulated players to roughly 20-40 bits per minute.
+- Quest Board rows open a detail page inside the menu (status, reward, BACK) instead of a dialogue box, so A, a tap, or II/back always works and returns to the same row. The Trophy Case uses the same pages, with readable text. The board's interact zone now covers the whole sprite.
+- Mini-games end a round on ESC/P only (X is both "back" and "attack" on the keyboard, so it used to end rounds when pressed to play). Result panel buttons unchanged.
+- Fixes: perfect-drop popups follow the scrolling tower; slab growth no longer drifts; critters rise out of their holes; tapping an info row no longer selects it.
+
 ## 1.5.1 — quest cards close in one press; version on the title screen
 - Quest and Trophy Case info cards show their whole text at once, so one press (A, Enter or a tap) closes them and returns to the list; before, the first press only finished the typing effect, which made the board feel stuck.
 - The title screen footer now shows the build version (e.g. V1.5.1) so you can tell whether your browser has the latest page.

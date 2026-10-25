@@ -53,7 +53,7 @@ export class HubScene implements Scene {
     this.things.push({ id: 'shop', x: 420, y: 200, label: 'MADAME POLYGON (SHOP)', r: 18 });
     this.things.push({ id: 'lab', x: 440, y: 120, label: 'MUTATION LAB', r: 16 });
     this.things.push({ id: 'shrine', x: 40, y: 120, label: 'CHAOS SHRINE', r: 16 });
-    this.things.push({ id: 'quests', x: 188, y: 182, label: 'QUEST BOARD', r: 18 });
+    this.things.push({ id: 'quests', x: 188, y: 168, label: 'QUEST BOARD', r: 26 });
     this.things.push({ id: 'arcade', x: 292, y: 186, label: 'MINI-GAME ARCADE', r: 18 });
     this.things.push({ id: 'trophy', x: 330, y: 236, label: 'TROPHY CASE', r: 16 });
     this.things.push({ id: 'rex', x: 150, y: 236, label: 'REX TURBO', r: 14 });
@@ -425,11 +425,20 @@ export class HubScene implements Scene {
     this.menu = new ListMenu('CHAOS SHRINE — BIAS THE DIRECTOR (x3 WEIGHT)', items, () => (this.menu = null), { x: 60, y: 40, w: 360, accent: '#ff3fa4', footer: 'Chaos orbs in levels summon an event on demand.' });
   }
 
-  /** Info card for list rows with nothing to "do": confirm shows the text, then returns to the same row. */
-  private card(name: string, text: string, reopen: (at?: number) => void, who: PortraitId = 'manual'): void {
+  /**
+   * Detail page for list rows with nothing to "do": a small menu of text lines plus BACK, shown in
+   * place of the list (no dialogue involved, so A, a tap or II/back always returns to the same row).
+   */
+  private card(name: string, text: string, reopen: (at?: number) => void, rows: Array<[string, string]> = []): void {
     const at = this.menu?.index;
-    this.menu = null;
-    this.game.say([{ who, name, text, instant: true }], () => reopen(at));
+    const back = () => reopen(at);
+    const items: MenuItem[] = [
+      ...wrap(text, 52).map((line) => ({ label: line, disabled: true, color: '#ddd' })),
+      ...rows.map(([label, value]) => ({ label, value: () => value, disabled: true })),
+      { label: 'BACK', onSelect: back },
+    ];
+    this.menu = new ListMenu(name, items, back, { x: 60, y: 50, w: 360, accent: '#ffcf3f' });
+    this.menu.index = items.length - 1;
   }
 
   private trophyMenu(keep?: number): void {
@@ -468,12 +477,10 @@ export class HubScene implements Scene {
           sub: `${q.desc} Reward: ${q.bits} bits + ${q.xp} XP.`,
           color: ok ? '#ffcf3f' : undefined,
           // Confirm opens the quest card, so A / Z / Enter does something on every row.
-          onSelect: () => {
-            const at = this.menu?.index;
-            this.menu = null;
-            const status = ok ? 'COMPLETE! The reward is already in your pocket.' : `Progress: ${prog}/${q.goal}.`;
-            this.game.say([{ who: 'manual', name: q.title, text: `${q.desc} ${status} Reward: ${q.bits} bits and ${q.xp} XP.`, instant: true }], () => this.questMenu(at));
-          },
+          onSelect: () => this.card(q.title, q.desc, (at) => this.questMenu(at), [
+            ['STATUS', ok ? 'COMPLETE' : `${prog} / ${q.goal}`],
+            ['REWARD', `${q.bits} BITS + ${q.xp} XP`],
+          ]),
         };
       }),
       { label: 'BACK', onSelect: () => (this.menu = null) },
