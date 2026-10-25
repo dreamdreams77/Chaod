@@ -76,11 +76,32 @@ function boot(): void {
   const unlock = () => audio.unlock();
   window.addEventListener('keydown', unlock);
   // Tapping or clicking the screen drives menus (the touch pad still works for everything).
-  canvas.addEventListener('pointerdown', (e) => {
+  const logical = (e: PointerEvent): [number, number] | null => {
     const r = canvas.getBoundingClientRect();
-    if (r.width === 0 || r.height === 0) return;
-    game.tap(((e.clientX - r.left) * W) / r.width, ((e.clientY - r.top) * H) / r.height);
+    if (r.width === 0 || r.height === 0) return null;
+    return [((e.clientX - r.left) * W) / r.width, ((e.clientY - r.top) * H) / r.height];
+  };
+  let dragging = false;
+  canvas.addEventListener('pointerdown', (e) => {
+    const p = logical(e);
+    if (!p) return;
+    dragging = true;
+    canvas.setPointerCapture?.(e.pointerId);
+    game.tap(p[0], p[1]);
+    game.drag(p[0], p[1]);
   });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const p = logical(e);
+    if (p) game.drag(p[0], p[1]);
+  });
+  const endDrag = () => {
+    if (!dragging) return;
+    dragging = false;
+    game.dragEnd();
+  };
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
   // M toggles the music from anywhere (not while a remap prompt is waiting for a key).
   window.addEventListener('keydown', (e) => {
     if (e.code !== 'KeyM' || e.repeat || e.ctrlKey || e.metaKey || e.altKey || input.captureNext || Object.values(input.bindings).some((keys) => keys.includes('KeyM'))) return;

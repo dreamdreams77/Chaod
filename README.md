@@ -52,7 +52,7 @@ Nine fusions total (seven available from the start, two unlocked by play). Every
 | Block (fighter) | Down |
 | Pause | Esc / P |
 
-Every key is remappable in **Settings → Remap Controls**. Each world shows its own controls when it starts. A simple on-screen pad appears on touchscreens (not yet tested on real devices — see limitations).
+Every key is remappable in **Settings → Remap Controls**. Each world shows its own controls when it starts. A simple on-screen pad appears on touchscreens (not yet tested on real devices — see limitations). Menus, the lobby and the three mini-games can also be played by tapping and dragging the screen itself; the worlds use the pad.
 
 ## Accessibility
 

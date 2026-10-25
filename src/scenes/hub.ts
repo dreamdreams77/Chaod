@@ -88,8 +88,24 @@ export class HubScene implements Scene {
   /** Taps drive the open kiosk menu; with no menu a tap interacts with whatever you stand next to. */
   tap(x: number, y: number): boolean {
     if (this.menu) return this.menu.tap(x, y, this.game) || true;
-    return false;
+    if (this.train) return false; // the fetch mini-game reads CONFIRM
+    if (this.game.inDialog) return false;
+    // Tap a person or machine to walk over and use it; tap open floor to walk there.
+    let target: Thing | null = null;
+    let best = 1e9;
+    for (const th of this.things) {
+      if (th.visible && !th.visible()) continue;
+      const d = Math.hypot(th.x - x, th.y - y);
+      if (d < th.r + 16 && d < best) {
+        best = d;
+        target = th;
+      }
+    }
+    this.walkTo = { x: clamp(x, 14, W - 14), y: clamp(y, CAB_Y + 40, H - 12), thing: target };
+    return true;
   }
+
+  private walkTo: { x: number; y: number; thing: Thing | null } | null = null;
 
   update(dt: number): void {
     this.t += dt;
@@ -119,7 +135,22 @@ export class HubScene implements Scene {
       this.menu.update(this.game);
       return;
     }
-    const ax = inp.axisX(), ay = inp.axisY();
+    let ax = inp.axisX(), ay = inp.axisY();
+    if (ax || ay) this.walkTo = null;
+    else if (this.walkTo) {
+      // Tap-to-walk: head for the tapped spot (or the tapped thing, which may be wandering).
+      const w = this.walkTo;
+      const gx = w.thing ? w.thing.x : w.x;
+      const gy = w.thing ? Math.max(w.thing.y + 8, CAB_Y + 40) : w.y;
+      const dx = gx - this.px, dy = gy - this.py;
+      ax = Math.abs(dx) > 3 ? Math.sign(dx) : 0;
+      ay = Math.abs(dy) > 3 ? Math.sign(dy) : 0;
+      if (!ax && !ay) {
+        const th = w.thing;
+        this.walkTo = null;
+        if (th) this.interact(th);
+      }
+    }
     this.moving = ax !== 0 || ay !== 0;
     if (ax) this.facing = ax;
     const sp = 90;
@@ -134,6 +165,13 @@ export class HubScene implements Scene {
         best = d;
         this.near = th;
       }
+    }
+    // Arrived within range of the tapped thing: use it.
+    if (this.walkTo?.thing && this.near === this.walkTo.thing) {
+      const th = this.near;
+      this.walkTo = null;
+      this.interact(th);
+      return;
     }
     if (this.near && (inp.pressed('jump') || inp.pressed('confirm') || inp.pressed('attack'))) this.interact(this.near);
     if (inp.pressed('pause')) this.openPauseMenu();

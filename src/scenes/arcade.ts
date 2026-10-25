@@ -4,7 +4,7 @@
  * bests and quests are handled (and tested) in one place.
  */
 import type { Game, Scene } from '../game.ts';
-import { H, W, PAL, Particles, Popups, backdrop, glow, rect, frame, bar, clamp } from '../render/gfx.ts';
+import { H, W, PAL, Particles, Popups, backdrop, glow, rect, frame, bar, clamp, approach } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { drawCass, drawFloppy, drawBit } from '../render/actors.ts';
 import { MiniId, MINIS } from '../data/quests.ts';
@@ -45,6 +45,19 @@ abstract class MiniBase implements Scene {
     this.game.audio.sfx(outcome.best ? 'levelup' : 'powerup');
   }
 
+  /** Taps: the end panel's buttons; games add their own handling when a round is live. */
+  tap(x: number, y: number): boolean {
+    if (!this.over) return this.tapLive(x, y);
+    if (this.overT > 0.5 && y >= 160 && y <= 192) {
+      if (x < W / 2) startMini(this.game, this.miniId);
+      else this.game.toHub();
+    }
+    return true;
+  }
+  protected tapLive(_x: number, _y: number): boolean {
+    return true;
+  }
+
   /** Handles the end-of-game panel; returns true while it is showing. */
   protected updateOver(dt: number): boolean {
     if (!this.over) return false;
@@ -68,8 +81,12 @@ abstract class MiniBase implements Scene {
     else drawText(ctx, `BEST ${this.game.profile.mini[this.miniId]?.best ?? 0}`, W / 2, 124, '#9a9ab8', { align: 'center' });
     drawText(ctx, `+${this.outcome.bits} BITS`, W / 2, 138, '#ffcf3f', { align: 'center' });
     this.outcome.quests.forEach((q, i) => drawText(ctx, `QUEST: ${q.title}  +${q.bits}`, W / 2, 152 + i * 10, '#ffcf3f', { align: 'center' }));
-    const row = 172;
-    drawText(ctx, this.game.input.label('Z: PLAY AGAIN   X: LOBBY'), W / 2, row, '#ccc', { align: 'center' });
+    // Touchable buttons (keys still work: confirm = again, back = lobby).
+    for (const [i, label] of ['PLAY AGAIN', 'LOBBY'].entries()) {
+      const bx = i === 0 ? W / 2 - 100 : W / 2 + 6;
+      frame(ctx, bx, 166, 94, 20, i === 0 ? '#0f3a2a' : '#1d1233', i === 0 ? '#7dff6b' : '#9a9ab8');
+      drawText(ctx, label, bx + 47, 172, '#fff', { align: 'center' });
+    }
   }
 
   /** Shared arcade-room backdrop: gradient, light pools and a receding floor grid. */
@@ -104,6 +121,11 @@ const FLOOR_Y = H - 30;
 
 export class CatchScene extends MiniBase {
   id = 'mini-catch';
+  drag(x: number): void {
+    if (!this.over) this.dragX = x;
+  }
+  // Lifting a finger keeps the target: the cartridge glides there, so a single tap also works.
+  dragEnd(): void {}
   protected readonly miniId = 'catch' as const;
   private px = W / 2;
   private facing = 1;
@@ -112,6 +134,7 @@ export class CatchScene extends MiniBase {
   private combo = 0;
   private spawnT = 0.6;
   private hurtT = 0;
+  private dragX: number | null = null;
   private readonly items: Faller[] = [];
   private readonly rng: Rng;
 
@@ -134,9 +157,14 @@ export class CatchScene extends MiniBase {
     this.popups.update(dt);
     this.hurtT = Math.max(0, this.hurtT - dt);
     const ax = inp.axisX();
-    this.moving = ax !== 0;
-    if (ax) this.facing = ax;
-    this.px = clamp(this.px + ax * 200 * dt, 16, W - 16);
+    if (ax) this.dragX = null;
+    const before = this.px;
+    // A finger on the screen steers directly (a little quicker than the keys); otherwise arrows move.
+    if (this.dragX !== null) this.px = clamp(approach(this.px, this.dragX, 330 * dt), 16, W - 16);
+    else this.px = clamp(this.px + ax * 200 * dt, 16, W - 16);
+    const dx = this.px - before;
+    this.moving = Math.abs(dx) > 0.05;
+    if (this.moving) this.facing = dx > 0 ? 1 : -1;
 
     const left = CATCH_SECONDS - this.t;
     this.spawnT -= dt;
@@ -242,6 +270,15 @@ interface Brick {
 
 export class BreakoutScene extends MiniBase {
   id = 'mini-breakout';
+  drag(x: number): void {
+    if (!this.over) this.dragX = x;
+  }
+  // Lifting a finger keeps the target: the cartridge glides there, so a single tap also works.
+  dragEnd(): void {}
+  protected tapLive(): boolean {
+    this.tapLaunch = true;
+    return true;
+  }
   protected readonly miniId = 'breakout' as const;
   private px = W / 2;
   private pw = 56;
@@ -254,6 +291,8 @@ export class BreakoutScene extends MiniBase {
   private lives = 3;
   private speed = 150;
   private destroyed = 0;
+  private dragX: number | null = null;
+  private tapLaunch = false;
   private trail: Array<{ x: number; y: number }> = [];
   private readonly bricks: Brick[][];
   private readonly rng: Rng;
@@ -286,12 +325,16 @@ export class BreakoutScene extends MiniBase {
     }
     this.particles.update(dt);
     this.popups.update(dt);
-    this.px = clamp(this.px + inp.axisX() * 270 * dt, this.pw / 2, W - this.pw / 2);
+    if (inp.axisX()) this.dragX = null;
+    if (this.dragX !== null) this.px = clamp(approach(this.px, this.dragX, 360 * dt), this.pw / 2, W - this.pw / 2);
+    else this.px = clamp(this.px + inp.axisX() * 270 * dt, this.pw / 2, W - this.pw / 2);
+    if (!this.stuck) this.tapLaunch = false;
     if (this.stuck) {
       this.bx = this.px;
       this.by = PADDLE_Y - 6;
       this.stuckT += dt;
-      if (inp.pressed('jump') || inp.pressed('confirm') || inp.pressed('attack') || this.stuckT > 3) this.launch();
+      if (inp.pressed('jump') || inp.pressed('confirm') || inp.pressed('attack') || this.tapLaunch || this.stuckT > 3) this.launch();
+      this.tapLaunch = false;
     } else {
       // Four sub-steps keep a fast ball from tunnelling through a brick.
       const steps = 4;
@@ -403,7 +446,7 @@ export class BreakoutScene extends MiniBase {
     drawText(ctx, `SCORE ${this.score}`, 8, 8, '#ffcf3f');
     for (let i = 0; i < 3; i++) drawText(ctx, '\u2665', W - 40 + i * 9, 8, i < this.lives ? '#ff3f6b' : '#40303a');
     bar(ctx, W / 2 - 50, 8, 100, 5, left / BREAKOUT_SECONDS, left < 15 ? '#ff3f3f' : '#7dff6b', '#102010', '#ffffff55');
-    if (this.stuck && !this.over) drawText(ctx, this.game.input.label('Z LAUNCHES THE BALL (AUTO IN 3S)'), W / 2, PADDLE_Y - 30, '#fff', { align: 'center' });
+    if (this.stuck && !this.over) drawText(ctx, this.game.input.label('TAP OR Z LAUNCHES THE BALL (AUTO IN 3S)'), W / 2, PADDLE_Y - 30, '#fff', { align: 'center' });
     if (this.t < 4) drawText(ctx, this.game.input.label('ARROWS MOVE \u2022 TOP ROW TAKES TWO HITS \u2022 ESC ENDS THE ROUND'), W / 2, H - 12, '#fff', { align: 'center' });
     this.drawOver(ctx, 'PTS');
   }
@@ -422,6 +465,12 @@ type MemPhase = 'ready' | 'show' | 'input' | 'cheer';
 
 export class MemoryScene extends MiniBase {
   id = 'mini-memory';
+  protected tapLive(x: number, y: number): boolean {
+    if (y < 120 || y > 180) return true;
+    const i = PADS.findIndex((p) => Math.abs(x - p.x) <= 30);
+    if (i >= 0) this.tapPad = i;
+    return true;
+  }
   protected readonly miniId = 'memory' as const;
   private readonly rng: Rng;
   private seq: number[] = [];
@@ -432,6 +481,7 @@ export class MemoryScene extends MiniBase {
   private lit = -1;
   private litT = 0;
   private wrongT = 0;
+  private tapPad = -1;
 
   constructor(game: Game) {
     super(game);
@@ -467,6 +517,7 @@ export class MemoryScene extends MiniBase {
     }
     this.particles.update(dt);
     this.popups.update(dt);
+    if (this.phase !== 'input') this.tapPad = -1;
     this.litT = Math.max(0, this.litT - dt);
     if (this.litT === 0) this.lit = -1;
     this.wrongT = Math.max(0, this.wrongT - dt);
@@ -483,7 +534,7 @@ export class MemoryScene extends MiniBase {
       }
     } else if (this.phase === 'input') {
       for (let i = 0; i < PADS.length; i++) {
-        if (!inp.pressed(PADS[i].action)) continue;
+        if (!inp.pressed(PADS[i].action) && this.tapPad !== i) continue;
         if (this.seq[this.inputIndex] === i) {
           this.flash(i, 0.2);
           this.inputIndex++;
@@ -502,6 +553,7 @@ export class MemoryScene extends MiniBase {
         }
         break;
       }
+      this.tapPad = -1;
     } else if (this.phase === 'cheer' && this.timer <= 0) this.nextRound();
   }
 

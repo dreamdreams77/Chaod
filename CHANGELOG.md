@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.0 — touchscreen play without buttons (lobby and mini-games)
+- Lobby: tap a person or machine to walk to it and use it, or tap open floor to walk there. The D-pad still takes over instantly.
+- CART CATCH and BYTE BREAKOUT: drag a finger (or mouse) to steer, or tap a spot and the cartridge glides there; a tap also serves the ball. GLITCH MEMORY: tap the arrow pads. Result panels have PLAY AGAIN and LOBBY buttons.
+- The worlds themselves still use the on-screen buttons.
+
 ## 1.4.4 — confirm works on every list row
 - Pressing A / Z / Enter on a Quest Board quest or a Trophy Case entry (trophies, cast, bosses) now opens an info card with the full description, your progress and the reward, then returns to the same row. Before, those rows only showed their text at the bottom and ignored confirm.
 

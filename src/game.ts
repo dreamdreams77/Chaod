@@ -31,6 +31,9 @@ export interface Scene {
   onFatal?(win: boolean): void;
   /** A tap or click at logical screen coordinates; return true if handled. */
   tap?(x: number, y: number): boolean;
+  /** Finger or mouse held and moving over the screen (logical coordinates). */
+  drag?(x: number, y: number): void;
+  dragEnd?(): void;
 }
 
 interface DialogState {
@@ -281,6 +284,14 @@ export class Game {
         }
       }
     }
+  }
+
+  drag(x: number, y: number): void {
+    if (this.transition || this.fatal || this.dialog || this.paused) return;
+    this.scene.drag?.(x, y);
+  }
+  dragEnd(): void {
+    this.scene.dragEnd?.();
   }
 
   /** Taps and clicks on the screen: menus are touchable, everything else falls back to CONFIRM. */
