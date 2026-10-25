@@ -10,7 +10,7 @@ npm run dev     # http://127.0.0.1:8000/dev.html, rebuilds on save (refresh the 
 npm run check   # typecheck + unit tests + production build — run before every PR
 ```
 
-`index.html` in the repo root is **generated**: edit `index.template.html`, then run `npm run build`, which writes both `dist/index.html` and the root `index.html` (GitHub Pages serves the root file, so commit it).
+`index.html` in the repo root is **generated**: edit `index.template.html`, then run `npm run build`, which writes both `dist/index.html` and the root `index.html` (GitHub Pages serves the root file, so commit it). If you forget, the `build` workflow rebuilds it on every push to `main` and commits the result.
 
 Optional browser checks (Python Playwright): `npm run smoke`.
 

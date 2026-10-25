@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.2 — automatic builds
+- A `build` GitHub Actions workflow typechecks, tests and rebuilds the game on every push and pull request, and on `main` commits the refreshed root `index.html` so the published page can never fall behind the source.
+
 ## 1.4.1 — fix: game not loading on GitHub Pages
 - The root `index.html` had become a source template pointing at `src/main.ts`, which browsers cannot run, so the published page showed an empty black screen. `npm run build` now also writes the finished game to the root `index.html`; the template lives in `index.template.html`. A test guards against committing the template as the root page again.
 
