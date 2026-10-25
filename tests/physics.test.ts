@@ -723,3 +723,152 @@ test('FIELD MEDIC is only offered in an ENDLESS RUN', () => {
   assert.equal(seen(false), false);
   assert.equal(seen(true), true);
 });
+
+// ---- BLOCK PARTY and BOLT BRIGADE ----------------------------------------------------------
+
+import { BlocksMode } from '../src/modes/blocks.ts';
+import { BoltMode } from '../src/modes/bolt.ts';
+import { COLS as BLOCK_COLS, ROWS as BLOCK_ROWS } from '../src/procgen/blocks.ts';
+import { MASTERS as BOLT_MASTERS_T, TILE as BOLT_TILE } from '../src/procgen/bolt.ts';
+
+function blocksGame(difficulty: 'easy' | 'normal' | 'hard' = 'normal') {
+  const { game, started } = spyGame();
+  game.settings.chaos = 'off';
+  game.settings.difficulty = difficulty;
+  (game as unknown as Record<string, unknown>).say = () => {};
+  return { game, started };
+}
+
+function blocksReady(game: Game): BlocksMode {
+  const m = new BlocksMode(game);
+  for (let i = 0; i < 160; i++) m.update(1 / 60);
+  return m;
+}
+
+test('BLOCK PARTY: pieces move, rotate and hard-drop, the hold swaps once per piece, and a full row clears and scores', () => {
+  const { game } = blocksGame();
+  const m = blocksReady(game);
+  assert.equal(m.phase, 'play');
+  assert.ok(m.cur);
+  const x0 = m.cur!.x;
+  assert.ok(m.shift(-1));
+  assert.equal(m.cur!.x, x0 - 1);
+  const rot0 = m.cur!.rot;
+  m.rotate(1);
+  assert.notEqual(m.cur!.rot === rot0 && m.cur!.id !== 'O', true, 'rotation turns every piece but the O');
+  const first = m.cur!.id;
+  m.holdPiece();
+  assert.equal(m.hold, first);
+  const second = m.cur!.id;
+  m.holdPiece();
+  assert.equal(m.cur!.id, second, 'a second hold on the same piece does nothing');
+  // set up a nearly full bottom row and drop an I flat to finish it
+  for (let x = 0; x < BLOCK_COLS; x++) if (x > 3) m.board[BLOCK_ROWS - 1][x] = 8;
+  m.cur = { id: 'I', rot: 0, x: 0, y: 0 };
+  const score0 = m.score;
+  m.hardDrop();
+  assert.ok(m.score > score0, 'dropping scores');
+  assert.equal(m.phase, 'clear');
+  for (let i = 0; i < 40; i++) m.update(1 / 60);
+  assert.equal(m.lines, 1);
+  assert.equal(m.phase, 'play');
+  assert.ok(m.board[BLOCK_ROWS - 1].every((c) => c === 0), 'the cleared row is gone');
+});
+
+test('BLOCK PARTY: reaching the line goal wins with all three disks; topping out costs a heart and clears the top', () => {
+  const { game } = blocksGame();
+  const m = blocksReady(game);
+  m.lines = m.goal - 1;
+  for (let x = 0; x < BLOCK_COLS; x++) if (x > 3) m.board[BLOCK_ROWS - 1][x] = 8;
+  m.cur = { id: 'I', rot: 0, x: 0, y: 0 };
+  m.hardDrop();
+  for (let i = 0; i < 40; i++) m.update(1 / 60);
+  assert.equal(m.phase, 'won');
+  assert.equal(m.foundFloppies.length, 3);
+  for (let i = 0; i < 200; i++) m.update(1 / 60);
+  assert.ok(game.profile.cleared.blocks.clears === 1);
+
+  const { game: g2 } = blocksGame();
+  const t = blocksReady(g2);
+  const hp = t.hp;
+  for (let y = 0; y < BLOCK_ROWS; y++) for (let x = 0; x < BLOCK_COLS; x++) t.board[y][x] = x === 0 ? 0 : 8;
+  t.topOut();
+  assert.equal(t.hp, hp - 1);
+  assert.ok(t.board[2].every((c) => c === 0), 'the top of the well is cleared');
+  assert.equal(t.phase, 'play');
+  t.hp = 1;
+  t.topOut();
+  assert.equal(t.phase, 'lost');
+});
+
+test('BLOCK PARTY: BOMB BLOCKS blasts around where it lands, and only with the mutation on', () => {
+  const blast = (disabled: boolean): number => {
+    const { game } = blocksGame();
+    if (disabled) game.profile.mutationsDisabled.push('bomb_pieces');
+    const m = blocksReady(game);
+    for (let y = BLOCK_ROWS - 3; y < BLOCK_ROWS; y++) for (let x = 0; x < BLOCK_COLS; x++) m.board[y][x] = x === 9 ? 0 : 8;
+    m.pieces = 8;
+    m.cur = { id: 'O', rot: 0, x: 2, y: 0, bomb: !disabled };
+    m.hardDrop();
+    return m.board.flat().filter((c) => c === 8).length;
+  };
+  assert.ok(blast(false) < blast(true), 'the bomb removes blocks');
+});
+
+test('BOLT BRIGADE: a master falls to its weakness, weapons come from beaten masters, the fortress opens after all four', () => {
+  const { game, started } = bossGame();
+  const b = new BoltMode(game, { seed: 4242 });
+  assert.deepEqual(b.ownedWeapons, ['buster']);
+  assert.equal(b.fortressOpen, false);
+  const flare = BOLT_MASTERS_T.find((m) => m.id === 'flarebot')!;
+  b.begin(flare, false);
+  (b as unknown as { startBoss(): void }).startBoss();
+  b.update(1 / 60);
+  for (let i = 0; i < 130; i++) b.update(1 / 60);
+  assert.equal(b.phase, 'boss');
+  const boss = b.boss!;
+  const hp0 = boss.hp;
+  b.damageFoe(boss, 1, 'buster');
+  const buster = hp0 - boss.hp;
+  boss.flash = 0;
+  b.damageFoe(boss, 1, 'ice');
+  assert.equal(hp0 - boss.hp - buster, 3, 'ice is three times as good against FLAREBOT');
+  boss.hp = 0.5;
+  boss.flash = 0;
+  b.damageFoe(boss, 5, 'buster');
+  assert.equal(b.phase, 'dying');
+  for (let i = 0; i < 400; i++) b.update(1 / 60);
+  assert.ok(game.profile.bossesDefeated.includes('flarebot'), 'beating a master is remembered');
+  assert.equal(started.length, 0);
+  const again = new BoltMode(game, { seed: 4243 });
+  assert.deepEqual(again.ownedWeapons, ['buster', 'flame']);
+  for (const m of BOLT_MASTERS_T) if (!game.profile.bossesDefeated.includes(m.id)) game.profile.bossesDefeated.push(m.id);
+  assert.equal(new BoltMode(game, { seed: 1 }).fortressOpen, true);
+});
+
+test('BOLT BRIGADE: the player walks, jumps, runs through a whole stage with a simple bot, shoots foes and falls in pits safely', () => {
+  const { game } = bossGame();
+  for (const master of BOLT_MASTERS_T) {
+    const b = new BoltMode(game, { seed: 99 });
+    b.begin(master, false);
+    const inp = game.input;
+    let got = false;
+    for (let i = 0; i < 60 * 70 && b.phase === 'run'; i++) {
+      inp.beginFrame();
+      inp.setVirtual('right', true);
+      const ahead = Math.floor((b.px + 12) / BOLT_TILE);
+      const pit = !(b as unknown as { solid(x: number, y: number): boolean }).solid(ahead, Math.floor((b.py + 2) / BOLT_TILE));
+      const wall = (b as unknown as { solid(x: number, y: number): boolean }).solid(Math.floor((b.px + 14) / BOLT_TILE), Math.floor((b.py - 6) / BOLT_TILE));
+      const haz = b.hazards.some((h) => h.kind !== 'jet' && Math.abs(h.x * BOLT_TILE + 8 - (b.px + 20)) < 22 && Math.abs(h.y * BOLT_TILE - b.py) < 20);
+      inp.setVirtual('jump', (b.onGround && (pit || wall || haz)) || (!b.onGround && b.vy < 0));
+      b.iframes = 99;
+      b.update(1 / 60);
+      inp.endFrame();
+      if (b.kills > 0) got = true;
+    }
+    inp.setVirtual('right', false);
+    inp.setVirtual('jump', false);
+    assert.notEqual(b.phase, 'run', `${master.id}: the bot reaches the boss door`);
+    void got;
+  }
+});

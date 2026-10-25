@@ -58,6 +58,10 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'rematch', name: 'BACK FOR MORE', desc: 'Win a boss rematch.' },
   { id: 'beat_rex', name: 'NEW LAP RECORD', desc: 'Beat REX TURBO in NEON PANIC.' },
   { id: 'level5', name: 'LEVELED UP', desc: 'Reach level 5.' },
+  { id: 'quad_clear', name: 'FOUR AT ONCE', desc: 'Clear four rows at once in BLOCK PARTY.' },
+  { id: 'perfect_clear', name: 'SPOTLESS', desc: 'Empty the whole well in BLOCK PARTY.' },
+  { id: 'bolt_all', name: 'ROBOT MASTER', desc: 'Defeat all four robot masters in BOLT BRIGADE.' },
+  { id: 'bolt_fortress', name: 'FORTRESS BREAKER', desc: 'Clear the BOLT BRIGADE fortress.' },
   { id: 'secret_dash', name: 'WHO\'S A GOOD DOG', desc: 'Play DEMO DASH in the secret cabinet.' },
   { id: 'boss_highscore', name: 'NEW HIGH SCORE', desc: 'Defeat THE HIGH SCORE and complete the Manual.' },
   { id: 'perfect_score', name: 'PERFECT SCORE', desc: 'Defeat THE HIGH SCORE without being hit.' },
@@ -156,6 +160,7 @@ export function applyRun(profile: Profile, r: RunResult, today: string = weekKey
   }
   if (r.boss && r.cleared && !p.bossesDefeated.includes(r.boss)) p.bossesDefeated.push(r.boss);
   if (r.boss && r.cleared) unlockAchievement(p, `boss_${r.boss}`, achievements);
+  if (['frostbyte', 'flarebot', 'sproutron', 'voltwire'].every((m) => p.bossesDefeated.includes(m))) unlockAchievement(p, 'bolt_all', achievements);
   if (r.rematch && r.cleared) unlockAchievement(p, 'rematch', achievements);
   for (const e of r.chaosSeen) if (!p.chaosEventsSeen.includes(e)) p.chaosEventsSeen.push(e);
   if (p.chaosEventsSeen.length >= 10) unlockAchievement(p, 'chaos10', achievements);

@@ -22,6 +22,8 @@ import { BeatdownMode } from './modes/beatdown.ts';
 import { RhythmMode } from './modes/rhythm.ts';
 import { CommandMode } from './modes/command.ts';
 import { PenaltyMode } from './modes/penalty.ts';
+import { BlocksMode } from './modes/blocks.ts';
+import { BoltMode } from './modes/bolt.ts';
 import { HighScoreMode } from './modes/highscore.ts';
 import { PerkScene } from './scenes/perks.ts';
 import { offerPerks, perkTotals } from './data/perks.ts';
@@ -77,6 +79,8 @@ function boot(): void {
       case 'rhythm': return new RhythmMode(game, opts);
       case 'command': return new CommandMode(game, opts);
       case 'penalty': return new PenaltyMode(game, opts);
+      case 'blocks': return new BlocksMode(game, opts);
+      case 'bolt': return new BoltMode(game, opts);
       case 'highscore': return new HighScoreMode(game, opts);
     }
   };

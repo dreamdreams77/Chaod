@@ -157,3 +157,97 @@ test('penalty matches: every seed makes a valid, reproducible plan with gentle o
   for (let seed = 1; seed <= 60; seed++) for (const r of generatePitch(seed).rounds) for (const x of r) kinds.add(x);
   assert.equal(kinds.size, 5, 'all five patterns show up across seeds');
 });
+
+import { COLS as BCOLS, ROWS as BROWS, HIDDEN, PIECES, SHAPES, addGarbage, cellsOf, clearTop, dropDistance, emptyBoard, explode, fallSeconds, fits, fullRows, lineScore, lock, moved, nextBag, removeRows, rotated, spawn } from '../src/procgen/blocks.ts';
+
+test('block pieces: four cells in every rotation, rotations stay on the board, the O never changes', () => {
+  for (const id of PIECES) {
+    for (let r = 0; r < 4; r++) assert.equal(SHAPES[id][r].length, 4, `${id} rot ${r}`);
+    const b = emptyBoard();
+    let p = spawn(id);
+    assert.ok(fits(b, p), `${id} spawns in an empty well`);
+    for (let i = 0; i < 4; i++) {
+      const q = rotated(b, p, 1);
+      assert.ok(q && fits(b, q), `${id} rotates`);
+      p = q!;
+    }
+    assert.deepEqual(cellsOf(p), cellsOf(spawn(id)), `${id} four turns come back around`);
+  }
+  const b = emptyBoard();
+  const o = spawn('O');
+  assert.deepEqual(cellsOf(rotated(b, o, 1)!), cellsOf(o));
+});
+
+test('block rules: kicks off walls, hard-drop distance, locking, line clears with the stack settling, garbage, bombs', () => {
+  const b = emptyBoard();
+  // A vertical I against the left wall can still rotate thanks to kicks.
+  let p = spawn('I');
+  p = rotated(b, p, 1)!;
+  while (moved(b, p, -1, 0)) p = moved(b, p, -1, 0)!;
+  const flat = rotated(b, p, 1);
+  assert.ok(flat, 'kicked back from the wall');
+  assert.ok(cellsOf(flat!).every(([x]) => x >= 0 && x < BCOLS));
+  // Fill the bottom row except one gap, drop an I into... a vertical I in the gap clears it.
+  for (let x = 0; x < BCOLS; x++) if (x !== 4) b[BROWS - 1][x] = 8;
+  let v = rotated(b, spawn('I'), 1)!;
+  while (v.x + 2 > 4 && moved(b, v, -1, 0)) v = moved(b, v, -1, 0)!;
+  while (v.x + 2 < 4 && moved(b, v, 1, 0)) v = moved(b, v, 1, 0)!;
+  const d = dropDistance(b, v);
+  v = { ...v, y: v.y + d };
+  assert.equal(lock(b, v), false, 'locking inside the well is no top-out');
+  const rows = fullRows(b);
+  assert.deepEqual(rows, [BROWS - 1]);
+  const above = b[BROWS - 2].slice();
+  removeRows(b, rows);
+  assert.deepEqual(b[BROWS - 1], above, 'what was above falls down one');
+  assert.equal(fullRows(b).length, 0);
+  // Garbage pushes the stack up and keeps one gap per row.
+  const g = emptyBoard();
+  g[BROWS - 1][0] = 3;
+  assert.equal(addGarbage(g, new Rng(5), 2), false);
+  assert.equal(g[BROWS - 3][0], 3, 'the stack moved up two rows');
+  for (const y of [BROWS - 1, BROWS - 2]) assert.equal(g[y].filter((c) => c === 0).length, 1);
+  const tall = emptyBoard();
+  tall[0][3] = 1;
+  assert.equal(addGarbage(tall, new Rng(1), 1), true, 'pushing blocks out of the top overflows');
+  // A bomb clears a 5x3 patch; clearing the top frees a topped-out well.
+  const e = emptyBoard();
+  for (let y = 0; y < BROWS; y++) e[y].fill(3);
+  assert.equal(explode(e, 5, 10), 15);
+  clearTop(e, 8);
+  assert.ok(e.slice(0, HIDDEN + 8).every((r) => r.every((c) => c === 0)));
+  // Locking above the visible well reports a top-out.
+  assert.equal(lock(emptyBoard(), { id: 'O', rot: 0, x: 4, y: 0 }), true);
+});
+
+test('block bag, gravity and scoring behave', () => {
+  const rng = new Rng(11);
+  for (let i = 0; i < 50; i++) assert.deepEqual(nextBag(rng).slice().sort(), PIECES.slice().sort(), 'a fair bag');
+  assert.ok(fallSeconds(1) > fallSeconds(5) && fallSeconds(5) > fallSeconds(12));
+  assert.ok(fallSeconds(30) >= 0.045, 'never faster than the floor');
+  assert.equal(lineScore(4, 3), 2400);
+  assert.equal(lineScore(0, 5), 0);
+});
+
+import { generateBolt, validateBolt, MASTERS as BOLT_MASTERS, MASTER_BY_ID, WEAPONS as BOLT_WEAPONS } from '../src/procgen/bolt.ts';
+
+test('bolt stages: every seed and master makes a valid, reproducible stage with its floppy, and the weakness ring closes', () => {
+  for (const m of BOLT_MASTERS) {
+    for (let s = 1; s <= 150; s++) {
+      const l = generateBolt(s * 7919, m.id);
+      const v = validateBolt(l);
+      assert.ok(v.ok, `${m.id} seed ${s}: ${v.reason}`);
+      if (m.floppy !== null) assert.ok(l.floppy, `${m.id} seed ${s} hides its disk`);
+      assert.ok(l.enemies.length >= 3, 'there is something to shoot');
+    }
+  }
+  assert.deepEqual(generateBolt(1234, 'flarebot'), generateBolt(1234, 'flarebot'));
+  assert.notDeepEqual(generateBolt(1234, 'flarebot').ground, generateBolt(1235, 'flarebot').ground);
+  // each master is weak to another master's weapon, and every weapon is somebody's weakness exactly once
+  const weak = BOLT_MASTERS.map((m) => m.weakTo).sort();
+  assert.deepEqual(weak, BOLT_MASTERS.map((m) => m.weapon).sort());
+  for (const m of BOLT_MASTERS) {
+    assert.notEqual(m.weakTo, m.weapon);
+    assert.ok(BOLT_WEAPONS[m.weapon] && MASTER_BY_ID.get(m.id) === m);
+  }
+});

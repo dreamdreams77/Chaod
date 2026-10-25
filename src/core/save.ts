@@ -4,9 +4,9 @@ import { PetOutfit, defaultOutfit, cleanOutfit } from '../data/pet.ts';
 import { LobbyDecor, defaultDecor, cleanDecor } from '../data/decor.ts';
 import { WeeklyState, emptyWeekly, WEEKLY_BY_ID } from '../data/weekly.ts';
 
-export type ModeId = 'rampage' | 'neon' | 'mall' | 'beatdown' | 'rhythm' | 'command' | 'penalty' | 'highscore';
+export type ModeId = 'rampage' | 'neon' | 'mall' | 'beatdown' | 'rhythm' | 'command' | 'penalty' | 'blocks' | 'bolt' | 'highscore';
 /** The seven worlds that have a lobby cabinet (and three floppy disks each). */
-export const MODE_IDS: ModeId[] = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm', 'command', 'penalty'];
+export const MODE_IDS: ModeId[] = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm', 'command', 'penalty', 'blocks', 'bolt'];
 /** Every mode with a record: the worlds plus the final boss, THE HIGH SCORE. */
 export const ALL_MODES: ModeId[] = [...MODE_IDS, 'highscore'];
 /** Every world hides three floppy disks. */
@@ -111,7 +111,7 @@ export function defaultProfile(): Profile {
     bossesDefeated: [],
     bossChoices: {},
     abilities: [],
-    mutationsUnlocked: ['beat_platforms', 'switch_shots', 'lurker_pursuit', 'pet_guardian', 'combo_xp', 'block_rain', 'note_bullets', 'tower_xp', 'slap_shot'],
+    mutationsUnlocked: ['beat_platforms', 'switch_shots', 'lurker_pursuit', 'pet_guardian', 'combo_xp', 'block_rain', 'note_bullets', 'tower_xp', 'slap_shot', 'bomb_pieces', 'beat_buster'],
     mutationsDisabled: [],
     pet: { bond: 1, hunger: 2, fedToday: 0, trainedToday: 0, xp: 0, care: 0, outfit: defaultOutfit() },
     achievements: [],

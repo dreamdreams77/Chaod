@@ -35,8 +35,8 @@ interface Thing {
 }
 
 const CAB_Y = 58;
-/** Left edge of each of the seven cabinets (32px wide, 66px apart, roughly centred on the 480px screen). */
-const CAB_X = [26, 92, 158, 224, 290, 356, 422];
+/** Left edge of each of the nine cabinets (32px wide, 52px apart, centred on the 480px screen). */
+const CAB_X = Array.from({ length: 9 }, (_, i) => 16 + i * 52);
 
 /** The first-visit lobby tour: walk to each thing and use it. */
 const TOUR: Array<{ target: string; text: string }> = [
@@ -1189,6 +1189,8 @@ export class HubScene implements Scene {
         case 'neon': for (let i = 0; i < 4; i++) rect(ctx, x + 16 - i * 3, y + 14 + i * 4, 1 + i * 6, 1, '#ff3fa4'); rect(ctx, x + 14, y + 25, 4, 2, '#3fe0ff'); break;
         case 'mall': if (Math.floor(t * 2) % 3) { rect(ctx, x + 12, y + 16, 2, 2, '#ff2040'); rect(ctx, x + 17, y + 16, 2, 2, '#ff2040'); } break;
         case 'beatdown': rect(ctx, x + 8, y + 18, 5, 8, '#20c4b0'); rect(ctx, x + 18, y + 14, 7, 12, '#ff3f3f'); break;
+        case 'blocks': for (let i = 0; i < 4; i++) rect(ctx, x + 9 + ((i + Math.floor(t * 2)) % 4) * 4 - (i % 2) * 0, y + 24 - i * 4, 8, 3, ['#3fe0ff', '#b07aff', '#ffe23f', '#7dff6b'][i]); rect(ctx, x + 6, y + 12 + ((t * 10) % 8), 4, 4, '#ff3f5a'); break;
+        case 'bolt': rect(ctx, x + 4, y + 26, 24, 2, '#2a6aa8'); rect(ctx, x + 6 + ((t * 12) % 14), y + 17, 4, 9, '#3f9fff'); rect(ctx, x + 18 + ((t * 24) % 8), y + 20, 3, 2, '#ffe23f'); rect(ctx, x + 20, y + 14, 6, 12, '#ff7a1a'); break;
         case 'penalty': rect(ctx, x + 4, y + 10, 24, 18, '#0f4a24'); rect(ctx, x + 10, y + 11, 12, 2, '#fff'); rect(ctx, x + 12 + Math.round(Math.sin(t * 3) * 4), y + 13, 4, 3, '#ff9f3f'); rect(ctx, x + 15, y + 26 - ((t * 14) % 14), 3, 3, '#fff'); rect(ctx, x + 6 + ((t * 20) % 22), y + 18, 2, 2, '#ff3fd2'); break;
         case 'command': for (let i = 0; i < 5; i++) rect(ctx, x + 5 + i * 4, y + 22 - (i % 2) * 6, 3, 3, i % 2 ? '#7dff6b' : '#ff3f6b'); rect(ctx, x + 5, y + 25, 22, 2, '#2a2438'); rect(ctx, x + 6 + ((t * 14) % 16), y + 23, 3, 3, '#ffcf3f'); break;
         case 'rhythm': for (let i = 0; i < 4; i++) rect(ctx, x + 6 + i * 5, y + 10 + ((t * 30 + i * 7) % 16), 4, 2, ['#ff3fd2', '#3fe0ff', '#7dff6b', '#ffcf3f'][i]); break;
@@ -1202,7 +1204,7 @@ export class HubScene implements Scene {
     // Mastery stars: three pips under the screen, gold when earned.
     const stars = starCount(this.game.profile, m);
     if (on) for (let i = 0; i < 3; i++) rect(ctx, x + 8 + i * 6, y + 49, 4, 4, i < stars ? '#ffcf3f' : '#3a3050');
-    drawText(ctx, info.title.split(' ')[0], x + 16, y + 56, on ? info.color : '#555', { align: 'center' });
+    drawText(ctx, info.short ?? info.title.split(' ')[0], x + 16, y + 56, on ? info.color : '#555', { align: 'center' });
   }
 
   /** Seasonal dress-up: a colour wash plus a few drifting things, all cheap rectangles. */

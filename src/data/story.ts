@@ -128,13 +128,15 @@ export const ENDING: Line[] = [
 export const RUSH_LEGS: ModeId[] = ['beatdown', 'rhythm'];
 export const GAUNTLET_LEGS: ModeId[] = ['beatdown', 'rhythm', 'penalty', 'highscore'];
 
-export const MODE_INFO: Record<ModeId, { title: string; genre: string; blurb: string; color: string }> = {
+export const MODE_INFO: Record<ModeId, { title: string; genre: string; blurb: string; color: string; /** Cabinet label when the title is too long. */ short?: string }> = {
   rampage: { title: 'RETRO RAMPAGE', genre: 'PLATFORMER → SHMUP', blurb: 'Run, jump, slash. Midway the level turns into a shoot-em-up.', color: '#ffcf3f' },
   neon: { title: 'NEON PANIC', genre: 'RACING → HORROR', blurb: 'Beat REX TURBO to the line. At midnight, something gives chase.', color: '#3fe0ff' },
-  mall: { title: 'NIGHTMARE MALL', genre: 'SURVIVAL HORROR + PET', blurb: 'Find 3 keycards and escape. Hide in lockers. BYTE can bark.', color: '#b3122e' },
+  mall: { title: 'NIGHTMARE MALL', genre: 'SURVIVAL HORROR + PET', blurb: 'Find 3 keycards and escape. Hide in lockers. BYTE can bark.', color: '#b3122e', short: 'MALL' },
   beatdown: { title: 'BOSS BEATDOWN', genre: 'FIGHTER → BULLET HELL', blurb: 'Fight BRICKLORD MAX. Fill block rows. Survive his genre tantrum.', color: '#ff6f3f' },
   rhythm: { title: 'GLITCH RHYTHM', genre: 'RHYTHM + SHOOTER', blurb: 'Hit notes on the beat to shoot DJ STATIC. Dodge the glitches.', color: '#ff3fd2' },
   penalty: { title: 'PENALTY STORM', genre: 'SPORTS + BULLET HELL', blurb: 'Dribble, dodge the keeper\'s bullet patterns and score six goals.', color: '#ff9f3f' },
+  blocks: { title: 'BLOCK PARTY', genre: 'PUZZLE + PARTY', blurb: 'Seven falling shapes, a fair bag and a ghost to aim by. Clear the line goal. Topping out costs a heart.', color: '#b07aff', short: 'BLOCKS' },
+  bolt: { title: 'BOLT BRIGADE', genre: 'RUN-AND-GUN + BOSSES', blurb: 'Pick a robot master, run its stage, beat it and take its weapon. Charge your buster, exploit the weakness.', color: '#3f9fff', short: 'BOLT' },
   highscore: { title: 'THE HIGH SCORE', genre: 'EVERY GENRE', blurb: 'The final boss: three phases, bullet hell, a fighter and a remix. Graze bullets to charge bombs.', color: '#ffcf3f' },
   command: { title: 'CORE COMMAND', genre: 'STRATEGY → BULLET HELL', blurb: 'Build towers along the glitch road. Eight waves. Defend the Cartridge Core.', color: '#7dff6b' },
 };
@@ -144,6 +146,8 @@ export function lockHint(mode: ModeId): string {
   if (mode === 'neon' || mode === 'mall') return 'Clear RETRO RAMPAGE first.';
   if (mode === 'command') return 'Clear any three worlds first.';
   if (mode === 'penalty') return 'Clear any four worlds first.';
+  if (mode === 'blocks') return 'Clear any two worlds first.';
+  if (mode === 'bolt') return 'Clear any three worlds first.';
   return 'Clear any two worlds first.';
 }
 
@@ -159,6 +163,8 @@ export function isModeUnlocked(mode: ModeId, cleared: Record<ModeId, { clears: n
     case 'rhythm': return total >= 2;
     case 'command': return total >= 3;
     case 'penalty': return total >= 4;
+    case 'blocks': return total >= 2;
+    case 'bolt': return total >= 3;
     case 'highscore': return true; // the Core only offers it once the Cartridge Core is restored
   }
 }

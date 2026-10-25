@@ -166,6 +166,8 @@ export const MUTATIONS: MutationDef[] = [
 /** The four curses, available once the Core is restored and switched OFF until you opt in. Their rules live in ModeBase. */
 const CURSED_MODES = ALL_MODES;
 MUTATIONS.push(
+  { id: 'bomb_pieces', name: 'BOMB BLOCKS', genres: ['puzzle', 'shooter'], tagline: 'Every ninth piece is a bomb that blasts the blocks around where it lands.', traits: ['bomb_pieces'], modes: ['blocks'], params: { every: 9 }, unlock: { kind: 'start' } },
+  { id: 'beat_buster', name: 'BEAT BUSTER', genres: ['shooter', 'rhythm'], tagline: 'Shots fired right on the beat hit harder and spark.', traits: ['beat_shots'], modes: ['bolt'], params: { window: 0.09, bonus: 1 }, unlock: { kind: 'start' } },
   { id: 'curse_greed', name: 'PAWN SHOP', genres: ['strategy', 'horror'], tagline: 'CURSED: you take double damage, but bits pay 50% more.', traits: ['curse_greed'], modes: CURSED_MODES, params: {}, unlock: { kind: 'ending' }, cursed: true },
   { id: 'curse_haste', name: 'TURBO TERROR', genres: ['racing', 'horror'], tagline: 'CURSED: everything runs 20% faster, but bits pay more.', traits: ['curse_haste'], modes: CURSED_MODES, params: {}, unlock: { kind: 'ending' }, cursed: true },
   { id: 'curse_static', name: 'STATIC STORM', genres: ['rhythm', 'horror'], tagline: 'CURSED: chaos events at HIGH intensity, but bits pay more.', traits: ['curse_static'], modes: CURSED_MODES, params: {}, unlock: { kind: 'ending' }, cursed: true },

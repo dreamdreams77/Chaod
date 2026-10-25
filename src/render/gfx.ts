@@ -25,6 +25,8 @@ export const PAL = {
   fighter: { name: 'FIGHTER', bg0: '#2b0f0f', bg1: '#6b2a1a', bg2: '#d9773f', fg: '#fff3e0', accent: '#ffd23f', accent2: '#3fa9ff', danger: '#ff2b2b', good: '#6bff6b' },
   rhythm: { name: 'RHYTHM', bg0: '#0a0420', bg1: '#250a4a', bg2: '#5a1ab3', fg: '#ffffff', accent: '#ff3fd2', accent2: '#3fffe0', danger: '#ff3f3f', good: '#d6ff3f' },
   penalty: { name: 'SPORTS', bg0: '#04140a', bg1: '#0c3a1c', bg2: '#17803a', fg: '#f4fff4', accent: '#ff9f3f', accent2: '#ffffff', danger: '#ff3f5a', good: '#7dff6b' },
+  blocks: { name: 'PUZZLE', bg0: '#0a0420', bg1: '#1d0a3d', bg2: '#3a1a70', fg: '#f4eefe', accent: '#b07aff', accent2: '#3fe0ff', danger: '#ff3f5a', good: '#7dff6b' },
+  bolt: { name: 'RUN-AND-GUN', bg0: '#06182e', bg1: '#0f3a6a', bg2: '#2a6aa8', fg: '#eaf6ff', accent: '#3f9fff', accent2: '#ffe23f', danger: '#ff3f3f', good: '#7dff6b' },
   highscore: { name: 'FINAL', bg0: '#05020d', bg1: '#140a2a', bg2: '#2a1650', fg: '#fff7d6', accent: '#ffcf3f', accent2: '#ff3fd2', danger: '#ff3f5a', good: '#7dff6b' },
   command: { name: 'STRATEGY', bg0: '#06140c', bg1: '#0f2e1e', bg2: '#1f5a3a', fg: '#e8fff0', accent: '#7dff6b', accent2: '#3fe0ff', danger: '#ff3f5a', good: '#7dff6b' },
   bullet: { name: 'BULLET HELL', bg0: '#000010', bg1: '#0c0c3a', bg2: '#30307a', fg: '#ffffff', accent: '#ff7af5', accent2: '#7affff', danger: '#ff3355', good: '#aaff66' },
