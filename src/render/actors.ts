@@ -147,21 +147,112 @@ export function drawDemo(ctx: CanvasRenderingContext2D, a: Actor): void {
   });
 }
 
-/** BYTE, the virtual pet; colour tracks bond level. */
-export function drawByte(ctx: CanvasRenderingContext2D, x: number, y: number, t: number, bond: number, mood: 'happy' | 'sad' | 'alert' = 'happy'): void {
+/** How grown BYTE is and what it wears (see data/pet.ts). */
+export interface ByteForm {
+  stage: number;
+  head?: string;
+  face?: string;
+  back?: string;
+}
+
+/** BYTE, the virtual pet; colour tracks bond level, size and shape track its form (stage 0-3). */
+export function drawByte(ctx: CanvasRenderingContext2D, x: number, y: number, t: number, bond: number, mood: 'happy' | 'sad' | 'alert' = 'happy', form: ByteForm = { stage: 0 }): void {
+  const st = Math.max(0, Math.min(3, form.stage));
   const hop = Math.abs(Math.sin(t * 6)) * 3;
   const body = bond >= 4 ? '#7dff6b' : bond >= 2 ? '#3fe0ff' : '#9a9ab8';
+  const dark = bond >= 4 ? '#3fb040' : bond >= 2 ? '#2a90b0' : '#6a6a88';
+  const bw = [10, 10, 12, 14][st]; // body width
+  const bh = [8, 9, 10, 12][st]; // body height
+  const hw = bw >> 1;
   ctx.save();
   ctx.translate(Math.round(x), Math.round(y - hop));
-  r(ctx, -5, -8, 10, 8, body);
-  r(ctx, -4, -9, 8, 1, body);
-  r(ctx, -3, -6, 2, 2, '#000');
-  r(ctx, 1, -6, 2, 2, '#000');
-  if (mood === 'happy') r(ctx, -2, -3, 4, 1, '#000');
-  else if (mood === 'alert') r(ctx, -1, -3, 2, 2, '#000');
-  else r(ctx, -2, -2, 4, 1, '#000');
-  r(ctx, 0, -12, 1, 3, '#fff');
-  r(ctx, -1, -13, 3, 2, bond >= 4 ? '#ffcf3f' : '#ff3fa4');
+  // back items sit behind the body
+  if (form.back === 'cape') {
+    r(ctx, -hw - 1, -bh + 2, bw + 2, bh - 1, '#c01848');
+    r(ctx, -hw - 2, -2, bw + 4, 2, '#8a1030');
+  } else if (form.back === 'wings') {
+    const flap = Math.floor(t * 6) % 2;
+    r(ctx, -hw - 5, -bh - 1 + flap, 5, 3, '#b07aff');
+    r(ctx, -hw - 3, -bh + 2 + flap, 3, 3, '#7a4ad0');
+    r(ctx, hw, -bh - 1 + flap, 5, 3, '#b07aff');
+    r(ctx, hw, -bh + 2 + flap, 3, 3, '#7a4ad0');
+  }
+  if (st >= 2) r(ctx, hw, -3, 3, 2, dark); // tail
+  else if (st >= 1) r(ctx, hw, -2, 2, 2, dark);
+  // body
+  r(ctx, -hw, -bh, bw, bh, body);
+  r(ctx, -hw + 1, -bh - 1, bw - 2, 1, body);
+  r(ctx, -hw, -2, bw, 2, dark);
+  // ears from the first evolution on
+  if (st >= 1) {
+    r(ctx, -hw, -bh - 3, 2, 3, body);
+    r(ctx, hw - 2, -bh - 3, 2, 3, body);
+    r(ctx, -hw, -bh - 3, 1, 1, dark);
+    r(ctx, hw - 1, -bh - 3, 1, 1, dark);
+  }
+  // eyes and mouth
+  const ey = -bh + 2;
+  r(ctx, -3, ey, 2, 2, '#000');
+  r(ctx, 1, ey, 2, 2, '#000');
+  if (mood === 'happy') r(ctx, -2, ey + 5 - (bh > 9 ? 0 : 1), 4, 1, '#000');
+  else if (mood === 'alert') r(ctx, -1, ey + 4, 2, 2, '#000');
+  else r(ctx, -2, ey + 5, 4, 1, '#000');
+  if (st >= 2) {
+    r(ctx, -hw + 1, ey + 3, 2, 1, '#ff7aa8'); // cheeks
+    r(ctx, hw - 3, ey + 3, 2, 1, '#ff7aa8');
+  }
+  // antenna / crest
+  if (st >= 3) {
+    r(ctx, -1, -bh - 6, 3, 5, '#ffcf3f');
+    r(ctx, -2, -bh - 7, 5, 2, '#fff7a8');
+    ctx.globalAlpha = 0.18 + Math.sin(t * 4) * 0.06;
+    r(ctx, -hw - 3, -bh - 4, bw + 6, bh + 6, '#ffcf3f');
+    ctx.globalAlpha = 1;
+  } else {
+    r(ctx, 0, -bh - 4, 1, 3, '#fff');
+    r(ctx, -1, -bh - 5, 3, 2, bond >= 4 ? '#ffcf3f' : '#ff3fa4');
+  }
+  // face items
+  if (form.face === 'shades') {
+    r(ctx, -4, ey - 1, 8, 3, '#111');
+    r(ctx, -3, ey, 2, 1, '#3fe0ff');
+    r(ctx, 1, ey, 2, 1, '#3fe0ff');
+  } else if (form.face === 'monocle') {
+    r(ctx, 0, ey - 1, 4, 1, '#ffcf3f');
+    r(ctx, 0, ey + 2, 4, 1, '#ffcf3f');
+    r(ctx, 0, ey - 1, 1, 4, '#ffcf3f');
+    r(ctx, 3, ey - 1, 1, 4, '#ffcf3f');
+  } else if (form.face === 'stache') {
+    r(ctx, -3, ey + 4, 6, 2, '#3a2010');
+    r(ctx, -4, ey + 5, 2, 1, '#3a2010');
+    r(ctx, 2, ey + 5, 2, 1, '#3a2010');
+  }
+  // neck items
+  if (form.back === 'scarf') {
+    r(ctx, -hw, -4, bw, 2, '#ff6f3f');
+    r(ctx, hw - 3, -2, 2, 4, '#ff6f3f');
+  }
+  // head items on top
+  const top = st >= 3 ? -bh - 7 : -bh - 3 - (st >= 1 ? 1 : 0);
+  if (form.head === 'bow') {
+    r(ctx, 1, top, 2, 2, '#ff3f6b');
+    r(ctx, 5, top, 2, 2, '#ff3f6b');
+    r(ctx, 3, top, 2, 2, '#ffcf3f');
+  } else if (form.head === 'party') {
+    r(ctx, -1, top - 1, 4, 2, '#ff3fd2');
+    r(ctx, 0, top - 4, 2, 3, '#3fe0ff');
+    r(ctx, 0, top - 5, 2, 1, '#ffcf3f');
+  } else if (form.head === 'tophat') {
+    r(ctx, -hw, top + 1, bw, 1, '#15101f');
+    r(ctx, -hw + 2, top - 4, bw - 4, 5, '#15101f');
+    r(ctx, -hw + 2, top - 1, bw - 4, 1, '#c01848');
+  } else if (form.head === 'phones') {
+    r(ctx, -hw - 1, ey - 1, 2, 4, '#222');
+    r(ctx, hw - 1, ey - 1, 2, 4, '#222');
+    r(ctx, -hw, top + 2, bw, 1, '#222');
+    r(ctx, -hw - 1, ey, 1, 2, '#3fe0ff');
+    r(ctx, hw + 1, ey, 1, 2, '#3fe0ff');
+  }
   ctx.restore();
 }
 

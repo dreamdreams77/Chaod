@@ -13,6 +13,7 @@ import { Particles, Popups, W, H, frame, rect, bar } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { showResults } from '../scenes/results.ts';
 import { MODE_INFO } from '../data/story.ts';
+import { petBitBonus, petStage } from '../data/pet.ts';
 
 const BUMP: Record<ChaosIntensity, ChaosIntensity> = { off: 'off', low: 'normal', normal: 'high', high: 'high' };
 
@@ -233,7 +234,7 @@ export abstract class ModeBase implements Scene {
       damageTaken: this.damageTaken,
       flags: [...this.runFlags],
       chaosSeen: [...this.chaosSeen],
-      bitMultiplier: this.fusion.rewardMultiplier() + (this.modifier?.bitBonus ?? 0),
+      bitMultiplier: this.fusion.rewardMultiplier() + (this.modifier?.bitBonus ?? 0) + petBitBonus(petStage(this.game.profile.pet.care)),
       rematch: this.opts.rematch,
       challenge: this.opts.daily ? 'daily' : this.opts.seed !== undefined ? 'shared' : undefined,
       dailyKey: this.opts.daily,

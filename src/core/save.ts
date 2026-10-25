@@ -1,5 +1,6 @@
 import { ACTIONS, Bindings, DEFAULT_BINDINGS, cloneBindings } from './input.ts';
 import { Wardrobe, defaultWardrobe, cleanWardrobe } from '../data/cosmetics.ts';
+import { PetOutfit, defaultOutfit, cleanOutfit } from '../data/pet.ts';
 
 export type ModeId = 'rampage' | 'neon' | 'mall' | 'beatdown' | 'rhythm' | 'command';
 export const MODE_IDS: ModeId[] = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm', 'command'];
@@ -25,7 +26,8 @@ export interface Profile {
   abilities: string[];
   mutationsUnlocked: string[];
   mutationsDisabled: string[];
-  pet: { bond: number; hunger: number; fedToday: number; trainedToday: number; xp: number };
+  /** `care` is lifetime care (it drives BYTE's form); `xp` is progress toward the next bond level. */
+  pet: { bond: number; hunger: number; fedToday: number; trainedToday: number; xp: number; care: number; outfit: PetOutfit };
   achievements: string[];
   lore: string[];
   manualTrust: number;
@@ -88,7 +90,7 @@ export function defaultProfile(): Profile {
     abilities: [],
     mutationsUnlocked: ['beat_platforms', 'switch_shots', 'lurker_pursuit', 'pet_guardian', 'combo_xp', 'block_rain', 'note_bullets', 'tower_xp'],
     mutationsDisabled: [],
-    pet: { bond: 1, hunger: 2, fedToday: 0, trainedToday: 0, xp: 0 },
+    pet: { bond: 1, hunger: 2, fedToday: 0, trainedToday: 0, xp: 0, care: 0, outfit: defaultOutfit() },
     achievements: [],
     lore: [],
     manualTrust: 0,
@@ -149,7 +151,10 @@ export function migrateProfile(raw: unknown): Profile {
     p.cleared[m] = { clears: Math.floor(num(c?.clears, 0)), bestScore: num(c?.bestScore, 0), bestTime: num(c?.bestTime, 0) };
   }
   const pt = (r.pet ?? {}) as Partial<Profile['pet']>;
-  p.pet = { bond: num(pt.bond, base.pet.bond), hunger: num(pt.hunger, base.pet.hunger), fedToday: num(pt.fedToday, 0), trainedToday: num(pt.trainedToday, 0), xp: num(pt.xp, 0) };
+  const bond = num(pt.bond, base.pet.bond);
+  const petXp = num(pt.xp, 0);
+  // Saves from before BYTE could grow: assume the care that got the bond where it is.
+  p.pet = { bond, hunger: num(pt.hunger, base.pet.hunger), fedToday: num(pt.fedToday, 0), trainedToday: num(pt.trainedToday, 0), xp: petXp, care: num(pt.care, Math.max(0, bond - 1) * 3 + petXp), outfit: cleanOutfit(pt.outfit) };
   p.bossChoices = {};
   if (r.bossChoices && typeof r.bossChoices === 'object' && !Array.isArray(r.bossChoices)) {
     for (const [k, v] of Object.entries(r.bossChoices)) if (v === 'mercy' || v === 'purge') p.bossChoices[k] = v;

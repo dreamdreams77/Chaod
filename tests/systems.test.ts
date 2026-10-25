@@ -573,3 +573,54 @@ test('mini-game result panel: the D-pad moves between PLAY AGAIN and LOBBY and A
   press(s, 'attack');
   assert.deepEqual(calls, ['lobby'], 'B always returns to the lobby');
 });
+
+// ---- BYTE's growth -----------------------------------------------------------------------
+
+import { PET_ITEMS, PET_STAGES, buyOrWearPet, cleanOutfit, petBarkBonus, petBitBonus, petForm, petStage } from '../src/data/pet.ts';
+
+test('BYTE grows through four forms by lifetime care, each with a perk', () => {
+  assert.equal(petStage(0), 0);
+  assert.equal(petStage(14), 0);
+  assert.equal(petStage(15), 1);
+  assert.equal(petStage(39), 1);
+  assert.equal(petStage(40), 2);
+  assert.equal(petStage(500), 3);
+  assert.equal(petBitBonus(0), 0);
+  assert.ok(petBitBonus(3) > petBitBonus(1) && petBitBonus(3) <= 0.12 + 1e-9);
+  assert.ok(petBarkBonus(2) > petBarkBonus(1));
+  assert.deepEqual(PET_STAGES.map((s) => s.at), [...PET_STAGES.map((s) => s.at)].sort((a, b) => a - b));
+});
+
+test('pet outfits: buying wears, choosing a worn item takes it off, forms gate the fancy ones, bad saves are repaired', () => {
+  const p = defaultProfile();
+  p.bits = 300;
+  assert.equal(buyOrWearPet(p, 'nope'), 'unknown');
+  assert.equal(buyOrWearPet(p, 'bow'), 'bought');
+  assert.equal(p.pet.outfit.head, 'bow');
+  assert.equal(p.bits, 270);
+  assert.equal(buyOrWearPet(p, 'bow'), 'removed');
+  assert.equal(p.pet.outfit.head, '');
+  assert.equal(buyOrWearPet(p, 'bow'), 'worn');
+  assert.equal(p.bits, 270, 'wearing an owned item is free');
+  assert.equal(buyOrWearPet(p, 'wings'), 'locked', 'wings need MEGABYTE');
+  p.pet.care = 40;
+  assert.equal(buyOrWearPet(p, 'wings'), 'bought');
+  p.bits = 0;
+  assert.equal(buyOrWearPet(p, 'cape'), 'poor');
+  assert.equal(petForm(p.pet).back, 'wings');
+  // every item has a unique id and a price
+  assert.equal(new Set(PET_ITEMS.map((i) => i.id)).size, PET_ITEMS.length);
+  const fixed = cleanOutfit({ owned: ['bow', 'bow', 'ghost', 7], head: 'shades', face: 'bow', back: 'cape' });
+  assert.deepEqual(fixed, { owned: ['bow'], head: '', face: '', back: '' });
+});
+
+test('old saves keep their growth: care is rebuilt from bond, and a grown BYTE boosts run pay', () => {
+  const old = migrateProfile({ pet: { bond: 5, hunger: 0, xp: 2 } });
+  assert.equal(old.pet.care, 14);
+  assert.deepEqual(old.pet.outfit, { owned: [], head: '', face: '', back: '' });
+  const grown = defaultProfile();
+  grown.pet.care = 80;
+  const base = { mode: 'rampage' as ModeId, cleared: true, score: 1, time: 100, bits: 100, xp: 10, floppies: [], damageTaken: 0, flags: [], chaosSeen: [], bitMultiplier: 1 };
+  const { summary } = applyRun(grown, { ...base, bitMultiplier: 1 + petBitBonus(petStage(grown.pet.care)) });
+  assert.equal(summary.bits, 112);
+});

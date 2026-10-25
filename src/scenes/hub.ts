@@ -14,6 +14,7 @@ import { SHOP, ACHIEVEMENTS, unlockAchievement } from '../data/progression.ts';
 import { QUESTS, MINIS, MiniId } from '../data/quests.ts';
 import { STARS, STAR_BITS, starCount } from '../data/mastery.ts';
 import { COSMETICS, buyOrEquip } from '../data/cosmetics.ts';
+import { PET_ITEMS, PET_STAGES, buyOrWearPet, petForm, petStage } from '../data/pet.ts';
 import { dateKey, dailyFor, currentStreak, challengeUrl, DAILY_BONUS } from '../data/daily.ts';
 import { MODIFIERS } from '../data/progression.ts';
 import { Rng, formatSeed } from '../core/rng.ts';
@@ -329,19 +330,69 @@ export class HubScene implements Scene {
     const pet = this.game.profile.pet;
     const keep = this.menu?.index;
     const care = pet.xp;
+    const stage = petStage(pet.care);
+    const next = PET_STAGES[stage + 1];
     const items: MenuItem[] = [
       { label: 'FEED', value: () => (pet.hunger > 0 ? `HUNGRY ${'●'.repeat(pet.hunger)}` : 'FULL'), sub: 'BYTE gets hungry after each adventure. Feeding builds bond.', onSelect: () => this.feed() },
       { label: 'PLAY FETCH (TRAIN)', value: () => (pet.trainedToday ? 'TIRED' : 'READY'), sub: 'Press Z when the ball is in the green zone. Builds bond.', disabled: pet.trainedToday > 0, onSelect: () => { this.menu = null; this.train = { cursor: 0, dir: 1, zone: 0.35 + Math.random() * 0.3, done: false, result: '', t: 0 }; } },
       { label: `BOND ${pet.bond}/5`, value: () => `CARE ${care}/3`, disabled: true, sub: 'Bond powers GOOD BOY PROTOCOL: a longer bark stun in NIGHTMARE MALL. Bond 3+ sniffs keys.' },
+      { label: `FORM: ${PET_STAGES[stage].name}`, value: () => (next ? `CARE ${pet.care}/${next.at}` : 'FULLY GROWN'), disabled: true, sub: `${PET_STAGES[stage].perk}${next ? ` Next form at ${next.at} care.` : ''}` },
+      { label: 'DRESS UP', value: () => `${pet.outfit.owned.length}/${PET_ITEMS.length} ITEMS`, sub: 'Hats, shades, scarves and wings for BYTE. Bought with bits, worn everywhere BYTE shows up.', onSelect: () => this.petDressMenu() },
       { label: 'BACK', onSelect: () => (this.menu = null) },
     ];
     this.menu = new ListMenu('BYTE — VIRTUAL PET', items, () => (this.menu = null), { x: 90, y: 60, w: 300, accent: '#9dff3f' });
     if (keep !== undefined) this.menu.index = Math.min(keep, items.length - 1);
   }
 
+  private petDressMenu(keep?: number): void {
+    const p = this.game.profile;
+    const o = p.pet.outfit;
+    const stage = petStage(p.pet.care);
+    const row = (it: (typeof PET_ITEMS)[number]): MenuItem => {
+      const owned = o.owned.includes(it.id);
+      const on = o[it.slot] === it.id;
+      const locked = !owned && stage < (it.minStage ?? 0);
+      return {
+        label: it.name,
+        value: () => (on ? 'WORN' : owned ? 'OWNED' : locked ? `NEEDS ${PET_STAGES[it.minStage!].name}` : `${it.cost} BITS`),
+        color: on ? '#ffcf3f' : undefined,
+        disabled: locked,
+        sub: on ? 'Press to take it off.' : owned ? 'Press to wear it.' : locked ? `BYTE has to grow into ${PET_STAGES[it.minStage!].name} first.` : `Buy for ${it.cost} bits and put it on BYTE.`,
+        onSelect: () => {
+          const res = buyOrWearPet(p, it.id);
+          if (res === 'poor') {
+            this.game.audio.sfx('miss');
+            this.game.toast('MADAME POLYGON', 'BYTE LOVES IT. YOUR WALLET DOES NOT.', '#b07aff');
+            return;
+          }
+          this.game.audio.sfx(res === 'bought' ? 'powerup' : 'select');
+          if (res === 'bought') {
+            this.particles.burst(60, 190, ['#9dff3f', '#ffcf3f', '#fff'], 14, 60);
+            this.game.toast('NEW OUTFIT', `BYTE: ${it.name}`, '#9dff3f');
+          }
+          this.save();
+          this.petDressMenu(this.menu?.index);
+        },
+      };
+    };
+    const items: MenuItem[] = [
+      { label: '\u2014 HEAD \u2014', disabled: true },
+      ...PET_ITEMS.filter((i) => i.slot === 'head').map(row),
+      { label: '\u2014 FACE \u2014', disabled: true },
+      ...PET_ITEMS.filter((i) => i.slot === 'face').map(row),
+      { label: '\u2014 BACK \u2014', disabled: true },
+      ...PET_ITEMS.filter((i) => i.slot === 'back').map(row),
+      { label: 'BACK', onSelect: () => this.petMenu() },
+    ];
+    this.menu = new ListMenu(`DRESS UP BYTE \u2014 ${p.bits} BITS`, items, () => this.petMenu(), { x: 60, y: 20, w: 360, rows: 13, accent: '#9dff3f' });
+    this.menu.index = keep ?? 1;
+  }
+
   private addCare(n: number): void {
     const p = this.game.profile;
     const pet = p.pet;
+    const stageBefore = petStage(pet.care);
+    pet.care += n;
     pet.xp += n;
     while (pet.xp >= 3 && pet.bond < 5) {
       pet.xp -= 3;
@@ -349,11 +400,18 @@ export class HubScene implements Scene {
       this.game.toast('BOND UP!', `BYTE BOND ${pet.bond}/5`, '#9dff3f');
       this.game.audio.sfx('levelup');
     }
-    if (pet.bond >= 5) {
-      const got: string[] = [];
-      unlockAchievement(p, 'pet_max', got);
-      this.game.announceAchievements(got);
+    const got: string[] = [];
+    if (pet.bond >= 5) unlockAchievement(p, 'pet_max', got);
+    const stageAfter = petStage(pet.care);
+    if (stageAfter > stageBefore) {
+      unlockAchievement(p, 'pet_evolve', got);
+      if (stageAfter >= 3) unlockAchievement(p, 'pet_giga', got);
+      this.game.audio.sfx('levelup');
+      this.particles.burst(60, 190, ['#ffcf3f', '#fff', '#9dff3f'], 30, 90);
+      this.game.fx.flash('#ffffff', 0.35);
+      this.game.toast('BYTE EVOLVED!', `NOW A ${PET_STAGES[stageAfter].name}. ${PET_STAGES[stageAfter].perk.toUpperCase()}`, '#9dff3f');
     }
+    this.game.announceAchievements(got);
     this.save();
   }
 
@@ -431,7 +489,7 @@ export class HubScene implements Scene {
     const items: MenuItem[] = [{ label: 'WARDROBE', sub: 'Outfits and hats for Cass. Purely for style.', onSelect: () => this.wardrobeMenu() }];
     items.push(...SHOP.map((s) => {
       const owned = !s.repeatable && p.abilities.includes(s.id);
-      const blocked = (s.requires && !p.abilities.includes(s.requires)) || (s.id === 'treats' && p.pet.bond >= 5);
+      const blocked = (s.requires && !p.abilities.includes(s.requires)) || false;
       return {
         label: s.name,
         value: () => (owned ? 'OWNED' : `${s.cost} BITS`),
@@ -719,7 +777,7 @@ export class HubScene implements Scene {
     drawText(ctx, '★', 330, 226, '#ffcf3f', { align: 'center', shadow: null });
     // Pet corner
     rect(ctx, 40, 204, 40, 10, '#3a1a4a');
-    drawByte(ctx, 60, 204, t, p.pet.bond, p.pet.hunger > 1 ? 'sad' : 'happy');
+    drawByte(ctx, 60, 204, t, p.pet.bond, p.pet.hunger > 1 ? 'sad' : 'happy', petForm(p.pet));
     if (p.pet.hunger > 0) drawText(ctx, '♥?', 70, 182, '#9dff3f');
     // Shop
     rect(ctx, 404, 206, 34, 10, '#3a1a4a');
@@ -859,7 +917,7 @@ export class HubScene implements Scene {
     rect(ctx, 110, 124, 260, 8, '#222');
     rect(ctx, 110 + (tr.zone - 0.09) * 260, 124, 0.18 * 260, 8, '#2a8a2a');
     rect(ctx, 110 + tr.cursor * 260 - 3, 120, 6, 16, '#ffcf3f');
-    drawByte(ctx, 110 + tr.cursor * 260, 160, this.t, this.game.profile.pet.bond);
+    drawByte(ctx, 110 + tr.cursor * 260, 160, this.t, this.game.profile.pet.bond, 'happy', petForm(this.game.profile.pet));
     if (tr.done) drawText(ctx, tr.result, W / 2, 146, '#fff', { align: 'center' });
   }
 }

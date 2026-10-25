@@ -24,7 +24,7 @@ export const SHOP: ShopItem[] = [
   { id: 'overclock', name: 'OVERCLOCK CHIP', cost: 150, desc: '+2 energy: more blaster shots, boosts and specials.' },
   { id: 'magnet', name: 'BIT MAGNET', cost: 80, desc: 'Pull nearby bits toward you.' },
   { id: 'nitro', name: 'NITRO TANK', cost: 110, desc: 'Start races with a full boost and boost longer.' },
-  { id: 'treats', name: 'PET TREATS', cost: 40, desc: '+1 BYTE bond (max 5). Bond powers BYTE\'s bark.', repeatable: true },
+  { id: 'treats', name: 'PET TREATS', cost: 40, desc: '+3 care for BYTE: builds bond and helps it grow. Bond powers its bark.', repeatable: true },
 ];
 
 export interface AchievementDef {
@@ -48,6 +48,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'unseen', name: 'MALL RAT', desc: 'Escape the mall without getting caught.' },
   { id: 'no_damage', name: 'UNTOUCHABLE', desc: 'Clear a world without taking damage.' },
   { id: 'pet_max', name: 'BEST FRIENDS', desc: 'Reach bond 5 with BYTE.' },
+  { id: 'pet_evolve', name: 'IT\'S EVOLVING', desc: 'Help BYTE grow into a new form.' },
+  { id: 'pet_giga', name: 'GIGABYTE GOOD BOY', desc: 'Raise BYTE to GIGABYTE.' },
   { id: 'rematch', name: 'BACK FOR MORE', desc: 'Win a boss rematch.' },
   { id: 'beat_rex', name: 'NEW LAP RECORD', desc: 'Beat REX TURBO in NEON PANIC.' },
   { id: 'level5', name: 'LEVELED UP', desc: 'Reach level 5.' },

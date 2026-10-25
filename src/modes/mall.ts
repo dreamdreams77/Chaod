@@ -14,6 +14,7 @@ import { DirectorContext } from '../chaos/director.ts';
 import { generateMall, MallMap, MW, MH, mallWalkable, nextStepToward, MALL_NOTES, MallItem } from '../procgen/mall.ts';
 import { H, W, rect, clamp, hearts, bar, glow } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
+import { petForm, petBarkBonus, petStage } from '../data/pet.ts';
 import { drawByte, drawCass, drawFloppy, Pose } from '../render/actors.ts';
 
 const T = 16;
@@ -166,7 +167,7 @@ export class MallMode extends ModeBase {
       const bond = this.game.profile.pet.bond;
       const d = Math.hypot(this.mx - this.petX, this.my - this.petY);
       if (d < 7 * T) {
-        const stun = this.fusion.param('pet_guardian', 'baseStun', 1.5) + bond * this.fusion.param('pet_guardian', 'stunPerBond', 0.7);
+        const stun = this.fusion.param('pet_guardian', 'baseStun', 1.5) + bond * this.fusion.param('pet_guardian', 'stunPerBond', 0.7) + petBarkBonus(petStage(this.game.profile.pet.care));
         this.mState = 'stunned';
         this.mTimer = stun;
         this.popups.add(this.mx, this.my - 24, `STUNNED ${stun.toFixed(1)}S`, '#9dff3f');
@@ -472,7 +473,7 @@ export class MallMode extends ModeBase {
     this.drawManager(ctx, this.mx - camX, this.my - camY);
     // Pet
     if (this.petOn) {
-      drawByte(ctx, this.petX - camX, this.petY - camY + 6, this.time, this.game.profile.pet.bond, this.mState === 'chase' ? 'alert' : 'happy');
+      drawByte(ctx, this.petX - camX, this.petY - camY + 6, this.time, this.game.profile.pet.bond, this.mState === 'chase' ? 'alert' : 'happy', petForm(this.game.profile.pet));
       if (this.barkT > 0) drawText(ctx, 'WOOF!', this.petX - camX, this.petY - camY - 22, '#9dff3f', { align: 'center' });
       if (this.sniff && Math.floor(this.time * 3) % 2) drawText(ctx, '*SNIFF*', this.petX - camX, this.petY - camY - 14, '#c9a227', { align: 'center' });
     }
