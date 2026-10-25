@@ -387,18 +387,26 @@ export class HubScene implements Scene {
     this.menu = new ListMenu('CHAOS SHRINE — BIAS THE DIRECTOR (x3 WEIGHT)', items, () => (this.menu = null), { x: 60, y: 40, w: 360, accent: '#ff3fa4', footer: 'Chaos orbs in levels summon an event on demand.' });
   }
 
-  private trophyMenu(): void {
+  /** Info card for list rows with nothing to "do": confirm shows the text, then returns to the same row. */
+  private card(name: string, text: string, reopen: (at?: number) => void, who: PortraitId = 'manual'): void {
+    const at = this.menu?.index;
+    this.menu = null;
+    this.game.say([{ who, name, text }], () => reopen(at));
+  }
+
+  private trophyMenu(keep?: number): void {
     const p = this.game.profile;
     const items: MenuItem[] = [
       { label: `LEVEL ${p.level}`, value: () => `${p.xp - xpForLevel(p.level)}/${xpForLevel(p.level + 1) - xpForLevel(p.level)} XP`, disabled: true },
       { label: `FLOPPIES ${p.floppies.length}/15`, value: () => `${p.achievements.length}/${ACHIEVEMENTS.length} TROPHIES`, disabled: true },
-      ...ACHIEVEMENTS.map((a) => ({ label: (p.achievements.includes(a.id) ? '★ ' : '☆ ') + a.name, sub: a.desc, color: p.achievements.includes(a.id) ? '#ffcf3f' : '#777', onSelect: () => {} })),
+      ...ACHIEVEMENTS.map((a) => ({ label: (p.achievements.includes(a.id) ? '★ ' : '☆ ') + a.name, sub: a.desc, color: p.achievements.includes(a.id) ? '#ffcf3f' : '#777', onSelect: () => this.card(a.name, `${a.desc} ${p.achievements.includes(a.id) ? 'Earned!' : 'Not earned yet.'}`, (at) => this.trophyMenu(at)) })),
       { label: '— WHO\'S WHO —', disabled: true },
-      ...Object.values(CAST).map((c) => ({ label: c.name, sub: c.bio, onSelect: () => {} })),
-      ...BOSSES.map((b) => ({ label: `BOSS: ${b.name}`, sub: `${b.title}. ${b.bio}`, color: '#ff6f3f', onSelect: () => {} })),
+      ...Object.values(CAST).map((c) => ({ label: c.name, sub: c.bio, onSelect: () => this.card(c.name, c.bio, (at) => this.trophyMenu(at)) })),
+      ...BOSSES.map((b) => ({ label: `BOSS: ${b.name}`, sub: `${b.title}. ${b.bio}`, color: '#ff6f3f', onSelect: () => this.card(b.name, `${b.title}. ${b.bio}`, (at) => this.trophyMenu(at)) })),
       { label: 'BACK', onSelect: () => (this.menu = null) },
     ];
     this.menu = new ListMenu('TROPHY CASE & ARCHIVES', items, () => (this.menu = null), { x: 40, y: 20, w: 400, rows: 13, accent: '#ffcf3f' });
+    if (keep !== undefined) this.menu.index = Math.min(keep, items.length - 1);
   }
 
   /** Changes whenever any quest advances, so the board only flags real news. */
@@ -407,7 +415,7 @@ export class HubScene implements Scene {
     return p.questsDone.length * 100000 + Object.values(p.questProgress).reduce((a, b) => a + b, 0);
   }
 
-  private questMenu(): void {
+  private questMenu(keep?: number): void {
     const p = this.game.profile;
     this.game.questSeenSig = this.questSig();
     const done = p.questsDone.length;
@@ -421,12 +429,19 @@ export class HubScene implements Scene {
           value: () => (ok ? 'DONE' : `${prog}/${q.goal}`),
           sub: `${q.desc} Reward: ${q.bits} bits + ${q.xp} XP.`,
           color: ok ? '#ffcf3f' : undefined,
-          onSelect: () => {},
+          // Confirm opens the quest card, so A / Z / Enter does something on every row.
+          onSelect: () => {
+            const at = this.menu?.index;
+            this.menu = null;
+            const status = ok ? 'COMPLETE! The reward is already in your pocket.' : `Progress: ${prog}/${q.goal}.`;
+            this.game.say([{ who: 'manual', name: q.title, text: `${q.desc} ${status} Reward: ${q.bits} bits and ${q.xp} XP.` }], () => this.questMenu(at));
+          },
         };
       }),
       { label: 'BACK', onSelect: () => (this.menu = null) },
     ];
     this.menu = new ListMenu('QUEST BOARD \u2014 PAID AUTOMATICALLY WHEN DONE', items, () => (this.menu = null), { x: 50, y: 24, w: 380, rows: 11, accent: '#ffcf3f' });
+    if (keep !== undefined) this.menu.index = Math.min(keep, items.length - 1);
   }
 
   private arcadeMenu(): void {

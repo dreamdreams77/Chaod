@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.4 — confirm works on every list row
+- Pressing A / Z / Enter on a Quest Board quest or a Trophy Case entry (trophies, cast, bosses) now opens an info card with the full description, your progress and the reward, then returns to the same row. Before, those rows only showed their text at the bottom and ignored confirm.
+
 ## 1.4.3 — tap and click support
 - Menus now respond to taps and mouse clicks, not only the D-pad: tap a row to select it, tap it again to activate (on sliders and toggles, the left or right half adjusts), tap outside a panel to go back, tap the panel's top or bottom edge to page. Works in the lobby kiosks and Quest Board, settings, title menu and pause menu; taps also advance dialogue, results and mini-game panels. Live gameplay ignores stray taps.
 
