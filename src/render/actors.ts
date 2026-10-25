@@ -75,8 +75,15 @@ export function drawCass(ctx: CanvasRenderingContext2D, a: Actor, who: 'cass' | 
       r(ctx, -7, -12 + bob + swing, 2, 6, shirt);
       r(ctx, 5, -12 + bob - swing, 2, 6, shirt);
     }
+    // Form shading: the shirt and face are darker on the side away from the light.
+    if (!f) {
+      r(ctx, 3, -13 + bob, 2, 8, 'rgba(0,0,0,0.18)');
+      r(ctx, -5, -6 + bob, 10, 1, 'rgba(0,0,0,0.2)');
+    }
     r(ctx, -4, -20 + bob, 8, 7, skin);
+    if (!f) r(ctx, 2, -19 + bob, 2, 5, 'rgba(120,50,40,0.18)');
     r(ctx, -5, -22 + bob, 10, 4, hair);
+    if (!f) r(ctx, -3, -22 + bob, 4, 1, 'rgba(255,255,255,0.35)');
     r(ctx, -6, -20 + bob, 3, 6, hair);
     r(ctx, 1, -18 + bob, 2, 2, a.pose === 'hurt' || a.pose === 'dizzy' ? '#000' : '#1a1a2e');
     r(ctx, -5, -23 + bob, 10, 1, '#222');

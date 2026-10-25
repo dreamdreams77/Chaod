@@ -32,6 +32,7 @@ export class SettingsScene implements Scene {
     const s = this.game.settings;
     const items: MenuItem[] = [
       { label: 'MASTER VOLUME', value: () => pct(s.master), onAdjust: (d) => { s.master = clamp01(s.master + d * 0.1); this.save(); } },
+      { label: 'MUSIC', value: () => (s.musicOn ? 'ON' : 'OFF'), sub: 'Turns the soundtrack on or off; sound effects stay. Press M anywhere to toggle.', onAdjust: () => { s.musicOn = !s.musicOn; this.save(); } },
       { label: 'MUSIC VOLUME', value: () => pct(s.music), onAdjust: (d) => { s.music = clamp01(s.music + d * 0.1); this.save(); } },
       { label: 'SFX VOLUME', value: () => pct(s.sfx), onAdjust: (d) => { s.sfx = clamp01(s.sfx + d * 0.1); this.save(); this.game.audio.sfx('coin'); } },
       { label: 'MUTE ALL', value: () => (s.muted ? 'ON' : 'OFF'), onAdjust: () => { s.muted = !s.muted; this.save(); } },

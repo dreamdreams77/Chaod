@@ -42,6 +42,8 @@ export interface Settings {
   version: number;
   master: number;
   music: number;
+  /** Music on/off switch, independent of the music volume. */
+  musicOn: boolean;
   sfx: number;
   muted: boolean;
   shake: number; // 0..1
@@ -92,6 +94,7 @@ export function defaultSettings(): Settings {
     version: SETTINGS_VERSION,
     master: 0.8,
     music: 0.6,
+    musicOn: true,
     sfx: 0.8,
     muted: false,
     shake: 1,
@@ -136,6 +139,7 @@ export function migrateSettings(raw: unknown): Settings {
   s.bindings = cloneBindings(s.bindings ?? base.bindings);
   s.master = clamp01(s.master);
   s.music = clamp01(s.music);
+  if (typeof s.musicOn !== 'boolean') s.musicOn = true;
   s.sfx = clamp01(s.sfx);
   s.shake = clamp01(s.shake);
   s.gameSpeed = Math.min(1, Math.max(0.5, Number(s.gameSpeed) || 1));

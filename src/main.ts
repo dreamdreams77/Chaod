@@ -70,6 +70,13 @@ function boot(): void {
   // Audio can only start after a user gesture.
   const unlock = () => audio.unlock();
   window.addEventListener('keydown', unlock);
+  // M toggles the music from anywhere (not while a remap prompt is waiting for a key).
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'KeyM' || e.repeat || e.ctrlKey || e.metaKey || e.altKey || input.captureNext || Object.values(input.bindings).some((keys) => keys.includes('KeyM'))) return;
+    game.settings.musicOn = !game.settings.musicOn;
+    game.saveSettings();
+    game.toast('MUSIC', game.settings.musicOn ? 'ON' : 'OFF', '#3fe0ff');
+  });
   window.addEventListener('pointerdown', unlock);
 
   // Fit the screen inside the page. On touch devices the pad gets its own gutter

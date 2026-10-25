@@ -124,3 +124,9 @@ test('help text switches to touch button names only when touch is in use', () =>
   inp.usingTouch = true;
   assert.equal(inp.label(text), 'D-PAD MOVE • A JUMP • B ATTACK • II PAUSE');
 });
+
+test('music switch defaults on, survives migration and repairs bad values', () => {
+  assert.equal(migrateSettings({}).musicOn, true);
+  assert.equal(migrateSettings({ musicOn: false }).musicOn, false);
+  assert.equal(migrateSettings({ musicOn: 'nope' }).musicOn, true);
+});

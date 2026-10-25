@@ -683,7 +683,16 @@ export class BeatdownMode extends ModeBase {
     for (const p of this.projs) {
       if (!p.alive) continue;
       if (p.kind === 'bullet') {
-        rect(ctx, p.x - 3, p.y - 3, 6, 6, this.director.flag('bouncy') ? '#7dff6b' : p.color);
+        const bc = this.director.flag('bouncy') ? '#7dff6b' : p.color;
+        // Cheap additive halo: two translucent squares read as a soft glow without a gradient per bullet.
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.18;
+        rect(ctx, p.x - 8, p.y - 8, 16, 16, bc);
+        ctx.globalAlpha = 0.3;
+        rect(ctx, p.x - 5, p.y - 5, 10, 10, bc);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+        rect(ctx, p.x - 3, p.y - 3, 6, 6, bc);
         rect(ctx, p.x - 1, p.y - 1, 2, 2, '#fff');
       } else if (p.kind === 'shock') {
         rect(ctx, p.x - 8, p.y - 6, 16, 8, p.color);

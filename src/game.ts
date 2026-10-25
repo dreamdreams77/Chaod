@@ -107,7 +107,7 @@ export class Game {
   // ---- settings / persistence -------------------------------------------------
   applySettings(): void {
     const s = this.settings;
-    this.audio.setVolumes({ master: s.master, music: s.music, sfx: s.sfx, muted: s.muted });
+    this.audio.setVolumes({ master: s.master, music: s.music, sfx: s.sfx, muted: s.muted, musicOn: s.musicOn });
     this.fx.shakeScale = s.shake;
     this.fx.reducedFlash = s.reducedFlash;
     this.input.bindings = s.bindings;
@@ -281,7 +281,7 @@ export class Game {
     }
   }
 
-  readonly pauseItems = ['RESUME', 'RESTART', 'SETTINGS', 'QUIT TO LOBBY'];
+  readonly pauseItems = ['RESUME', 'RESTART', 'SETTINGS', 'MUSIC', 'QUIT TO LOBBY'];
   private updatePause(): void {
     const inp = this.input;
     if (inp.pressed('up')) { this.pauseIndex = (this.pauseIndex + this.pauseItems.length - 1) % this.pauseItems.length; this.audio.sfx('select'); }
@@ -292,6 +292,7 @@ export class Game {
       const item = this.pauseItems[this.pauseIndex];
       if (item === 'RESUME') { this.paused = false; this.audio.muffle(false); }
       else if (item === 'RESTART') this.restart();
+      else if (item === 'MUSIC') { this.settings.musicOn = !this.settings.musicOn; this.saveSettings(); }
       else if (item === 'QUIT TO LOBBY') this.toHub();
       else if (item === 'SETTINGS') {
         const current = this.scene;
@@ -433,13 +434,14 @@ export class Game {
 
   private drawPause(ctx: CanvasRenderingContext2D): void {
     rect(ctx, 0, 0, W, H, '#0b0716b0');
-    frame(ctx, W / 2 - 80, 70, 160, 120, '#1d1233', '#3fe0ff');
-    drawText(ctx, 'PAUSED', W / 2, 80, '#fff', { align: 'center', scale: 2 });
+    frame(ctx, W / 2 - 80, 66, 160, 140, '#1d1233', '#3fe0ff');
+    drawText(ctx, 'PAUSED', W / 2, 76, '#fff', { align: 'center', scale: 2 });
     this.pauseItems.forEach((it, i) => {
       const sel = i === this.pauseIndex;
-      drawText(ctx, (sel ? '▶ ' : '  ') + it, W / 2 - 50, 108 + i * 16, sel ? '#ffcf3f' : '#ccc');
+      const label = it === 'MUSIC' ? `MUSIC: ${this.settings.musicOn ? 'ON' : 'OFF'}` : it;
+      drawText(ctx, (sel ? '▶ ' : '  ') + label, W / 2 - 60, 104 + i * 16, sel ? '#ffcf3f' : '#ccc');
     });
-    drawText(ctx, 'ESC/P TO RESUME', W / 2, 176, '#888', { align: 'center' });
+    drawText(ctx, 'ESC/P TO RESUME • M MUSIC', W / 2, 190, '#888', { align: 'center' });
   }
 
   private drawFatal(ctx: CanvasRenderingContext2D): void {

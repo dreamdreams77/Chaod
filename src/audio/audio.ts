@@ -146,7 +146,7 @@ export class AudioEngine {
   private simClock = 0;
   private lastCues = new Map<string, number>();
   enabled = true;
-  volumes = { master: 0.8, music: 0.6, sfx: 0.8, muted: false };
+  volumes = { master: 0.8, music: 0.6, sfx: 0.8, muted: false, musicOn: true };
   /** Detune applied to the current song in semitones (used by chaos/boss variations). */
   transpose = 0;
 
@@ -187,7 +187,7 @@ export class AudioEngine {
     return !!this.ctx && this.ctx.state === 'running';
   }
 
-  setVolumes(v: { master: number; music: number; sfx: number; muted: boolean }): void {
+  setVolumes(v: { master: number; music: number; sfx: number; muted: boolean; musicOn: boolean }): void {
     this.volumes = { ...v };
     this.applyVolumes();
   }
@@ -195,7 +195,7 @@ export class AudioEngine {
     if (!this.ctx || !this.master || !this.musicBus || !this.sfxBus) return;
     const t = this.ctx.currentTime;
     this.master.gain.setTargetAtTime(this.volumes.muted ? 0 : this.volumes.master, t, 0.02);
-    this.musicBus.gain.setTargetAtTime(this.volumes.music * 0.35, t, 0.02);
+    this.musicBus.gain.setTargetAtTime(this.volumes.musicOn ? this.volumes.music * 0.35 : 0, t, 0.02);
     this.sfxBus.gain.setTargetAtTime(this.volumes.sfx * 0.6, t, 0.02);
   }
 
