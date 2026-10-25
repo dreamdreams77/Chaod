@@ -196,7 +196,7 @@ test('applyRun is pure and rewards clears', () => {
   assert.equal(JSON.stringify(p), snapshot, 'input profile untouched');
   assert.equal(summary.bits, 100);
   const questBits = QUESTS.filter((q) => summary.quests.includes(q.id)).reduce((n, q) => n + q.bits, 0);
-  assert.equal(profile.bits, summary.bits + questBits, 'run bits plus exactly the finished quests');
+  assert.equal(profile.bits, summary.bits + questBits + summary.newStars.length * 40 + summary.dailyBonus, 'run bits plus exactly the finished quests, stars and daily bonus');
   assert.equal(profile.cleared.rampage.clears, 1);
   assert.equal(summary.newFloppies, 1);
   assert.ok(summary.achievements.includes('first_clear'));
@@ -465,4 +465,40 @@ test('daily runs flow through applyRun and count for DAILY GRINDER', () => {
 test('old saves gain a clean daily record', () => {
   assert.deepEqual(migrateProfile({ version: 2 }).daily, { key: '', best: 0, cleared: false, streak: 0, lastClear: '' });
   assert.equal(migrateProfile({ daily: { key: 5, best: 'x', streak: -3 } }).daily.streak, 0);
+});
+
+// ---- Mastery stars -----------------------------------------------------------------------
+
+test('mastery stars: each goal is checked on cleared runs only, and paid once', async () => {
+  const { starsEarned, awardStars, PAR_SECONDS, STAR_BITS } = await import('../src/data/mastery.ts');
+  const p = defaultProfile();
+  p.floppies = ['neon-0', 'neon-1', 'neon-2'];
+  const base = { mode: 'neon' as ModeId, cleared: true, damageTaken: 0, time: PAR_SECONDS.neon - 1 };
+  assert.deepEqual(starsEarned(p, base).sort(), ['clean', 'collector', 'fast']);
+  assert.deepEqual(starsEarned(p, { ...base, cleared: false }), [], 'a failed run earns nothing');
+  assert.ok(!starsEarned(p, { ...base, damageTaken: 1 }).includes('clean'));
+  assert.ok(!starsEarned(p, { ...base, time: PAR_SECONDS.neon }).includes('fast'), 'par itself is not fast enough');
+  const before = p.bits;
+  assert.equal(awardStars(p, base).length, 3);
+  assert.equal(p.bits, before + 3 * STAR_BITS);
+  assert.equal(awardStars(p, base).length, 0, 'stars are only paid the first time');
+  assert.equal(p.bits, before + 3 * STAR_BITS);
+});
+
+test('mastery stars flow through applyRun and feed STAR COLLECTOR', () => {
+  let p = defaultProfile();
+  const r1 = applyRun(p, run({ mode: 'rampage', cleared: true, damageTaken: 0, time: 100, floppies: ['rampage-0', 'rampage-1', 'rampage-2'] }));
+  assert.equal(r1.summary.newStars.length, 3);
+  assert.deepEqual([...(r1.profile.stars.rampage ?? [])].sort(), ['clean', 'collector', 'fast']);
+  p = r1.profile;
+  const r2 = applyRun(p, run({ mode: 'neon', cleared: true, damageTaken: 0, time: 90, floppies: ['neon-0', 'neon-1', 'neon-2'] }));
+  assert.ok(r2.summary.quests.includes('star_collector'), 'six stars complete the quest');
+  const again = applyRun(r2.profile, run({ mode: 'neon', cleared: true, damageTaken: 0, time: 90 }));
+  assert.equal(again.summary.newStars.length, 0);
+});
+
+test('star data in old or corrupt saves is repaired', () => {
+  assert.deepEqual(migrateProfile({ version: 2 }).stars, {});
+  const p = migrateProfile({ stars: { rampage: ['clean', 'clean', 'bogus', 'fast'], neon: 'x', hacker: ['clean'] } });
+  assert.deepEqual(p.stars, { rampage: ['clean', 'fast'] });
 });

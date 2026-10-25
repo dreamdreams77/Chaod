@@ -41,6 +41,8 @@ export interface Profile {
   questsDone: string[];
   /** Lobby mini-game personal bests and play counts. */
   mini: Record<string, { best: number; plays: number }>;
+  /** Mastery stars earned per world (see data/mastery.ts). */
+  stars: Partial<Record<ModeId, string[]>>;
   /** Daily challenge record (see data/daily.ts). */
   daily: { key: string; best: number; cleared: boolean; streak: number; lastClear: string };
 }
@@ -96,6 +98,7 @@ export function defaultProfile(): Profile {
     questProgress: {},
     questsDone: [],
     mini: {},
+    stars: {},
     daily: { key: '', best: 0, cleared: false, streak: 0, lastClear: '' },
   };
 }
@@ -136,6 +139,13 @@ export function migrateProfile(raw: unknown): Profile {
   p.questProgress = {};
   if (r.questProgress && typeof r.questProgress === 'object' && !Array.isArray(r.questProgress)) {
     for (const [k, v] of Object.entries(r.questProgress)) if (Number.isFinite(v) && v >= 0) p.questProgress[k] = v;
+  }
+  p.stars = {};
+  if (r.stars && typeof r.stars === 'object' && !Array.isArray(r.stars)) {
+    for (const m of MODE_IDS) {
+      const v = (r.stars as Record<string, unknown>)[m];
+      if (Array.isArray(v)) p.stars[m] = v.filter((x): x is string => x === 'clean' || x === 'fast' || x === 'collector').filter((x, i, a) => a.indexOf(x) === i);
+    }
   }
   const dr = (r.daily ?? {}) as Partial<Profile['daily']>;
   p.daily = {

@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.0 — mastery stars
+- Each world has three optional goals — UNTOUCHED (clear without damage), SPEEDY (beat the par time) and COLLECTOR (all three floppies) — shown as pips under its cabinet and listed in the cabinet menu. Each star pays 40 bits and XP once; new quest STAR COLLECTOR (6 stars).
+
 ## 1.7.0 — daily challenge and shareable runs
 - DAILY CHALLENGE: a sign in the lobby (and the lobby menu) offers one seeded run a day: same world, seed and modifier for every player (UTC date). Clearing it pays a bonus that grows with your streak (up to +120 bits); your best score of the day and your streak are saved. New quest: DAILY GRINDER (clear 3 dailies).
 - COPY CHALLENGE LINK builds a `?seed=…&mode=…` link; opening one adds FRIEND'S CHALLENGE to the daily menu so you play the identical run. Shared and daily runs always roll their modifier from the seed so everyone plays the same game.

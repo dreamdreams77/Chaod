@@ -12,6 +12,7 @@ import { INTRO, KEVIN_LINES, MODE_INFO, POLYGON_INTRO, REX_LINES, manualLines, i
 import { MODE_IDS, ModeId, ChaosCategory, xpForLevel } from '../core/save.ts';
 import { SHOP, ACHIEVEMENTS, unlockAchievement } from '../data/progression.ts';
 import { QUESTS, MINIS, MiniId } from '../data/quests.ts';
+import { STARS, starCount } from '../data/mastery.ts';
 import { dateKey, dailyFor, currentStreak, challengeUrl, DAILY_BONUS } from '../data/daily.ts';
 import { MODIFIERS } from '../data/progression.ts';
 import { Rng, formatSeed } from '../core/rng.ts';
@@ -283,6 +284,10 @@ export class HubScene implements Scene {
     if (isBoss && p.bossesDefeated.includes(bossId)) items.push({ label: 'BOSS REMATCH (HARDER)', sub: 'Tougher boss, faster patterns, a rematch trophy.', onSelect: () => { this.menu = null; this.game.startMode(mode, { rematch: true }); } });
     const floppies = [0, 1, 2].map((i) => (p.floppies.includes(`${mode}-${i}`) ? '■' : '□')).join(' ');
     items.push({ label: `BEST ${rec.bestScore}  CLEARS ${rec.clears}`, value: () => `DISKS ${floppies}`, disabled: true });
+    const have = new Set(p.stars[mode] ?? []);
+    for (const s of STARS) {
+      items.push({ label: `${have.has(s.id) ? '\u2605' : '\u2606'} ${s.name}`, value: () => (have.has(s.id) ? 'EARNED' : 'TODO'), sub: `${s.desc(mode)} Worth 40 bits.`, color: have.has(s.id) ? '#ffcf3f' : '#9a9ab8', onSelect: () => {} });
+    }
     const muts = MUTATIONS.filter((m) => m.modes.includes(mode));
     for (const m of muts) {
       const on = p.mutationsUnlocked.includes(m.id) && !p.mutationsDisabled.includes(m.id) && isUnlockSatisfied(m.unlock, p);
@@ -731,6 +736,9 @@ export class HubScene implements Scene {
     rect(ctx, x + 18, y + 31, 3, 3, '#3fe0ff');
     const cleared = this.game.profile.cleared[m].clears > 0;
     if (cleared) drawText(ctx, '★', x + 16, y + 40, '#ffcf3f', { align: 'center', shadow: null });
+    // Mastery stars: three pips under the screen, gold when earned.
+    const stars = starCount(this.game.profile, m);
+    if (on) for (let i = 0; i < 3; i++) rect(ctx, x + 8 + i * 6, y + 49, 4, 4, i < stars ? '#ffcf3f' : '#3a3050');
     drawText(ctx, info.title.split(' ')[0], x + 16, y + 56, on ? info.color : '#555', { align: 'center' });
   }
 

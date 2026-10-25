@@ -6,6 +6,7 @@ import { MODE_IDS, ModeId, Profile, levelForXp } from '../core/save.ts';
 import { newlyUnlocked } from '../fusion/engine.ts';
 import { QuestDef, MiniId, MINIS, advanceQuests } from './quests.ts';
 import { applyDailyResult } from './daily.ts';
+import { awardStars } from './mastery.ts';
 
 export interface ShopItem {
   id: string;
@@ -85,6 +86,8 @@ export interface RunSummary {
   /** Bits paid for clearing today's daily challenge, and the streak it leaves. */
   dailyBonus: number;
   dailyStreak: number;
+  /** Mastery stars first earned on this run. */
+  newStars: string[];
   /** Quest ids completed by this run. */
   quests: string[];
 }
@@ -138,17 +141,18 @@ export function applyRun(profile: Profile, r: RunResult): { profile: Profile; su
     }
   }
   // Quest rewards count toward level-based achievements, so settle them first.
+  const newStars = awardStars(p, r);
   let dailyBonus = 0;
   let dailyStreak = 0;
   if (r.challenge === 'daily' && r.dailyKey) ({ bonus: dailyBonus, streak: dailyStreak } = applyDailyResult(p, r.dailyKey, r.score, r.cleared));
-  const quests = advanceQuests(p, { kind: 'run', r, newFloppies, paidBits: bits }).map((q) => q.id);
+  const quests = advanceQuests(p, { kind: 'run', r, newFloppies, paidBits: bits, newStars: newStars.length }).map((q) => q.id);
   if (p.level >= 5) unlockAchievement(p, 'level5', achievements);
   // Virtual-pet care loop: BYTE gets hungry and ready to play again after every adventure.
   p.pet.hunger = Math.min(3, p.pet.hunger + 1);
   p.pet.trainedToday = 0;
   const muts = newlyUnlocked(p).map((m) => m.id);
   for (const m of muts) p.mutationsUnlocked.push(m);
-  return { profile: p, summary: { bits, xp, levelBefore, levelAfter: p.level, newFloppies, achievements, mutations: muts, firstClear, dailyBonus, dailyStreak, quests } };
+  return { profile: p, summary: { bits, xp, levelBefore, levelAfter: p.level, newFloppies, achievements, mutations: muts, firstClear, dailyBonus, dailyStreak, newStars, quests } };
 }
 
 export function structuredCloneSafe<T>(v: T): T {
