@@ -154,6 +154,12 @@ export class Input {
     return (this.held('down') ? 1 : 0) - (this.held('up') ? 1 : 0);
   }
 
+  /** A one-frame press, for taps on the screen itself. */
+  pulse(a: Action): void {
+    this.setVirtual(a, true);
+    this.setVirtual(a, false);
+  }
+
   /** Programmatic input (touch buttons, automated tests). */
   setVirtual(a: Action, isDown: boolean): void {
     if (isDown && !this.touchDown.has(a)) {

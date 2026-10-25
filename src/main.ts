@@ -75,6 +75,12 @@ function boot(): void {
   // Audio can only start after a user gesture.
   const unlock = () => audio.unlock();
   window.addEventListener('keydown', unlock);
+  // Tapping or clicking the screen drives menus (the touch pad still works for everything).
+  canvas.addEventListener('pointerdown', (e) => {
+    const r = canvas.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return;
+    game.tap(((e.clientX - r.left) * W) / r.width, ((e.clientY - r.top) * H) / r.height);
+  });
   // M toggles the music from anywhere (not while a remap prompt is waiting for a key).
   window.addEventListener('keydown', (e) => {
     if (e.code !== 'KeyM' || e.repeat || e.ctrlKey || e.metaKey || e.altKey || input.captureNext || Object.values(input.bindings).some((keys) => keys.includes('KeyM'))) return;

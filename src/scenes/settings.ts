@@ -98,6 +98,11 @@ export class SettingsScene implements Scene {
     }
   }
 
+  tap(x: number, y: number): boolean {
+    if (!this.capture) this.menu.tap(x, y, this.game);
+    return true;
+  }
+
   update(dt: number): void {
     this.t += dt;
     this.eraseArmed = Math.max(0, this.eraseArmed - dt);

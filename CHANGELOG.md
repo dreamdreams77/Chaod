@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.3 — tap and click support
+- Menus now respond to taps and mouse clicks, not only the D-pad: tap a row to select it, tap it again to activate (on sliders and toggles, the left or right half adjusts), tap outside a panel to go back, tap the panel's top or bottom edge to page. Works in the lobby kiosks and Quest Board, settings, title menu and pause menu; taps also advance dialogue, results and mini-game panels. Live gameplay ignores stray taps.
+
 ## 1.4.2 — automatic builds
 - A `build` GitHub Actions workflow typechecks, tests and rebuilds the game on every push and pull request, and on `main` commits the refreshed root `index.html` so the published page can never fall behind the source.
 

@@ -54,6 +54,19 @@ export class TitleScene implements Scene {
     this.game.goto(this.game.hubFactory());
   }
 
+  tap(x: number, y: number): boolean {
+    if (this.panel === 'menu') {
+      // The first tap only starts the music, like pressing any key.
+      if (!this.started) {
+        this.started = true;
+        this.game.audio.unlock();
+        this.game.music('title');
+      } else this.menu.tap(x, y, this.game);
+      return true;
+    }
+    return false;
+  }
+
   update(dt: number): void {
     this.t += dt;
     const inp = this.game.input;

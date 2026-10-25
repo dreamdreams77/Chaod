@@ -29,6 +29,8 @@ export interface Scene {
   director?: ChaosDirector;
   /** Called with the result of a FATAL EXCEPTION minigame. */
   onFatal?(win: boolean): void;
+  /** A tap or click at logical screen coordinates; return true if handled. */
+  tap?(x: number, y: number): boolean;
 }
 
 interface DialogState {
@@ -279,6 +281,29 @@ export class Game {
         }
       }
     }
+  }
+
+  /** Taps and clicks on the screen: menus are touchable, everything else falls back to CONFIRM. */
+  tap(x: number, y: number): void {
+    if (this.transition || this.fatal) return;
+    if (this.dialog) {
+      this.input.pulse('confirm');
+      return;
+    }
+    if (this.paused) {
+      const row = Math.floor((y - 100) / 16);
+      if (x >= W / 2 - 80 && x <= W / 2 + 80 && row >= 0 && row < this.pauseItems.length) {
+        if (row === this.pauseIndex) this.input.pulse('confirm');
+        else {
+          this.pauseIndex = row;
+          this.audio.sfx('select');
+        }
+      } else if (x < W / 2 - 80 || x > W / 2 + 80 || y < 66 || y > 206) this.input.pulse('back');
+      return;
+    }
+    if (this.scene.tap?.(x, y)) return;
+    // Splash screens, results and mini-game panels just advance; live gameplay ignores stray taps.
+    if (!this.scene.pausable) this.input.pulse('confirm');
   }
 
   readonly pauseItems = ['RESUME', 'RESTART', 'SETTINGS', 'MUSIC', 'QUIT TO LOBBY'];

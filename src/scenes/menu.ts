@@ -18,6 +18,8 @@ export interface MenuItem {
 export class ListMenu {
   index = 0;
   scroll = 0;
+  /** Where the menu was last drawn, so taps can be mapped to rows. */
+  private geom: { x: number; y: number; w: number; h: number; count: number } | null = null;
   constructor(
     public title: string,
     public items: MenuItem[],
@@ -64,6 +66,53 @@ export class ListMenu {
     }
   }
 
+  /**
+   * Touch/mouse support. Tapping a row selects it; tapping the selected row activates it
+   * (sliders and toggles adjust left or right by which half you tap). Tapping outside the
+   * panel goes back; tapping the title strip or footer pages up or down. Returns true if handled.
+   */
+  tap(px: number, py: number, game: Game): boolean {
+    const g = this.geom;
+    if (!g) return false;
+    const rows = this.opts.rows ?? 12;
+    if (px < g.x || px > g.x + g.w || py < g.y || py > g.y + g.h) {
+      if (!this.onBack) return false;
+      game.audio.sfx('back');
+      this.onBack();
+      return true;
+    }
+    const n = this.items.length;
+    if (n === 0) return true;
+    const rel = Math.floor((py - (g.y + 21)) / 13);
+    if (rel < 0) {
+      this.index = Math.max(0, this.index - rows);
+      game.audio.sfx('select');
+      return true;
+    }
+    if (rel >= g.count) {
+      this.index = Math.min(n - 1, this.index + rows);
+      game.audio.sfx('select');
+      return true;
+    }
+    const idx = this.scroll + rel;
+    const it = this.items[idx];
+    if (!it) return true;
+    if (idx !== this.index) {
+      this.index = idx;
+      game.audio.sfx('select');
+      return true;
+    }
+    if (it.disabled) return true;
+    if (it.onAdjust && !it.onSelect) {
+      it.onAdjust(px < g.x + g.w / 2 ? -1 : 1);
+      game.audio.sfx('select');
+    } else if (it.onSelect) {
+      game.audio.sfx('confirm');
+      it.onSelect();
+    } else if (it.onAdjust) it.onAdjust(1);
+    return true;
+  }
+
   draw(ctx: CanvasRenderingContext2D, t: number): void {
     const x = this.opts.x ?? 90;
     const y = this.opts.y ?? 40;
@@ -75,6 +124,7 @@ export class ListMenu {
     const visible = this.items.slice(this.scroll, this.scroll + rows);
     const hasSub = !!this.opts.footer || this.items.some((i) => i.sub);
     const h = 24 + visible.length * 13 + (hasSub ? 26 : 6);
+    this.geom = { x, y, w, h, count: visible.length };
     frame(ctx, x, y, w, h, '#0b0716f0', accent);
     drawText(ctx, this.title, x + w / 2, y + 7, accent, { align: 'center' });
     rect(ctx, x + 8, y + 17, w - 16, 1, accent + '66');

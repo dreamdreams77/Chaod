@@ -85,6 +85,12 @@ export class HubScene implements Scene {
     this.game.saveProfile();
   }
 
+  /** Taps drive the open kiosk menu; with no menu a tap interacts with whatever you stand next to. */
+  tap(x: number, y: number): boolean {
+    if (this.menu) return this.menu.tap(x, y, this.game) || true;
+    return false;
+  }
+
   update(dt: number): void {
     this.t += dt;
     this.particles.update(dt);
