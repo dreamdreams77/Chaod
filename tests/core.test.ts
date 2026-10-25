@@ -130,3 +130,10 @@ test('music switch defaults on, survives migration and repairs bad values', () =
   assert.equal(migrateSettings({ musicOn: false }).musicOn, false);
   assert.equal(migrateSettings({ musicOn: 'nope' }).musicOn, true);
 });
+
+test('the repo-root index.html is the built game (GitHub Pages serves it), not the source template', async () => {
+  const { readFileSync } = await import('node:fs');
+  const root = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.ok(!root.includes('src="./src/main.ts"'), 'root index.html still points at the TypeScript source: run `npm run build`');
+  assert.ok(root.includes('<script>'), 'root index.html has the game script inlined');
+});

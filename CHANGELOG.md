@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.1 — fix: game not loading on GitHub Pages
+- The root `index.html` had become a source template pointing at `src/main.ts`, which browsers cannot run, so the published page showed an empty black screen. `npm run build` now also writes the finished game to the root `index.html`; the template lives in `index.template.html`. A test guards against committing the template as the root page again.
+
 ## 1.4.0 — third mini-game
 - BYTE BREAKOUT joins the arcade: bounce the ball off your cartridge and smash a 10×5 brick wall (top row takes two hits, ball speeds up as the wall thins). Three lives, 90 seconds, 4 bits per 5 points, plus a BRICK BOSS quest (52+ points). Ten quests in total.
 - Simulated players earn about 23-25 bits per minute in BYTE BREAKOUT, in line with the other mini-games.

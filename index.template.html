@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#0b0716" />
+<meta name="description" content="CHAOS.exe: The 90s Gaming Multiverse — an original browser game where every genre collides." />
+<title>CHAOS.exe</title>
+<meta name="claude:viewport-fit-sides" content="cover" />
+<style>
+  /* Single-look arcade cabinet: one deliberately dark theme. */
+  :root { --bg: #0b0716; --fg: #f4eefe; --accent: #ff3fa4; --edge: #1d1233; --err-bg: #2a0010; --err-fg: #ffd0dc; color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); overflow: hidden; box-sizing: border-box; }
+  body { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; align-items: center; justify-content: center; font-family: ui-monospace, monospace; touch-action: none; -webkit-user-select: none; user-select: none; }
+  #screen { position: relative; display: block; line-height: 0; --s: 2; }
+  #game { image-rendering: pixelated; image-rendering: crisp-edges; display: block; outline: none; background: #000; box-shadow: 0 0 0 2px var(--edge), 0 0 60px #ff3fa433; max-width: 100%; filter: saturate(1.15) contrast(1.05) brightness(1.03); }
+  #game:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+  /* Display-resolution CRT: one soft scanline per game pixel row (even at any scale), plus a gentle vignette. */
+  #crt { position: absolute; inset: 0; pointer-events: none; background:
+      linear-gradient(rgba(0,0,0,0) 55%, rgba(0,0,0,0.2) 100%) 0 0 / 100% calc(var(--s) * 1px),
+      radial-gradient(ellipse at center, rgba(0,0,0,0) 62%, rgba(0,0,0,0.38) 100%); mix-blend-mode: multiply; }
+  .crt-off #crt { display: none; }
+  /* Touch pad sits OUTSIDE the game screen: below it in portrait, in the side gutters in landscape. */
+  #touch { position: fixed; inset: 0; pointer-events: none; display: none; }
+  #touch.on { display: block; }
+  #touch .zone { position: absolute; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); width: 164px; height: 164px; }
+  #touch .dpad { left: max(10px, env(safe-area-inset-left, 0px)); }
+  #touch .acts { right: max(10px, env(safe-area-inset-right, 0px)); }
+  #touch button { position: absolute; pointer-events: auto; width: 52px; height: 52px; border-radius: 14px; border: 2px solid #ffffff44; background: #ffffff14; color: #fff; font: bold 15px ui-monospace, monospace; touch-action: none; -webkit-tap-highlight-color: transparent; }
+  #touch .acts button { border-radius: 50%; }
+  #touch button.small { width: 42px; height: 30px; border-radius: 8px; font-size: 12px; }
+  #touch button.off { opacity: 0.45; text-decoration: line-through; }
+  #touch button.active { background: #ff3fa477; border-color: #ff3fa4; }
+  #err { position: fixed; left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); padding: 10px; background: var(--err-bg); border: 1px solid var(--accent); color: var(--err-fg); font: 12px ui-monospace, monospace; display: none; white-space: pre-wrap; z-index: 10; }
+  noscript { padding: 24px; }
+</style>
+</head>
+<body>
+<div id="screen"><canvas id="game" width="480" height="270" tabindex="0" aria-label="CHAOS.exe game canvas"></canvas><div id="crt" aria-hidden="true"></div></div>
+<div id="touch" aria-hidden="true"></div>
+<div id="err" role="alert"></div>
+<noscript>CHAOS.exe needs JavaScript to run.</noscript>
+<script type="module" src="./src/main.ts"></script>
+</body>
+</html>
