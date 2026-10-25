@@ -225,9 +225,12 @@ export function rect(ctx: CanvasRenderingContext2D, x: number, y: number, w: num
 
 /** Bordered panel with a faint top highlight. */
 export function frame(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, fill: string, border: string): void {
+  // Soft drop shadow, then border, fill, a top highlight and a bottom inner shade.
+  rect(ctx, x + 2, y + 3, w, h, 'rgba(0,0,0,0.35)');
   rect(ctx, x, y, w, h, border);
   rect(ctx, x + 1, y + 1, w - 2, h - 2, fill);
   rect(ctx, x + 2, y + 2, w - 4, 1, 'rgba(255,255,255,0.12)');
+  rect(ctx, x + 1, y + h - 3, w - 2, 2, 'rgba(0,0,0,0.22)');
 }
 
 export function bar(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, frac: number, fill: string, back = '#000', border = '#fff'): void {

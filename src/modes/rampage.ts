@@ -890,6 +890,12 @@ export class RampageMode extends ModeBase {
       rect(ctx, x, 190 - peak, 4, peak + 80, '#93b4f4');
       if (peak > 96) rect(ctx, x, 190 - peak, 4, 4, '#ffffff');
     }
+    // Haze between layers sells the distance.
+    const haze = ctx.createLinearGradient(0, 130, 0, 215);
+    haze.addColorStop(0, 'rgba(210,230,255,0)');
+    haze.addColorStop(1, 'rgba(210,230,255,0.35)');
+    ctx.fillStyle = haze;
+    ctx.fillRect(0, 130, W, 85);
     // Far hills
     for (let x = 0; x < W; x += 4) {
       const wx = x + camX * 0.2;
@@ -953,6 +959,7 @@ export class RampageMode extends ModeBase {
         break;
       }
       case '=':
+        rect(ctx, sx, sy + 7, TILE, 3, 'rgba(0,0,0,0.18)');
         rect(ctx, sx, sy, TILE, 5, '#ffcf3f');
         rect(ctx, sx, sy + 5, TILE, 2, '#a07a10');
         break;

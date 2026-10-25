@@ -354,7 +354,19 @@ export class RhythmMode extends ModeBase {
     }
     if (this.combo >= 30) drawText(ctx, 'FEVER!', 60, 90 + Math.sin(this.time * 6) * 3, '#ffcf3f', { align: 'center', scale: 2 });
     // Highway
-    rect(ctx, 156, TOP, 168, H - TOP, '#05021099');
+    // Highway with depth: fades into the distance, glowing rails, faint floor reflection of the stage.
+    const hw = ctx.createLinearGradient(0, TOP, 0, H);
+    hw.addColorStop(0, 'rgba(5,2,16,0.35)');
+    hw.addColorStop(0.55, 'rgba(18,8,48,0.7)');
+    hw.addColorStop(1, 'rgba(40,16,90,0.8)');
+    ctx.fillStyle = hw;
+    ctx.fillRect(156, TOP, 168, H - TOP);
+    ctx.globalAlpha = 0.35 + pulse * 0.25;
+    rect(ctx, 154, TOP, 2, H - TOP, pal.accent);
+    rect(ctx, 324, TOP, 2, H - TOP, pal.accent2);
+    ctx.globalAlpha = 0.12;
+    for (let i = 1; i < 4; i++) rect(ctx, 156 + i * 42, TOP, 1, H - TOP, '#ffffff');
+    ctx.globalAlpha = 1;
     const remix = this.director.flag('remix') ? 1.35 : 1;
     const pps = this.scroll * remix;
     for (let col = 0; col < 4; col++) {
@@ -385,8 +397,15 @@ export class RhythmMode extends ModeBase {
           const len = this.beatToSec(n.len ?? 0) * pps;
           rect(ctx, x - 4, Math.max(TOP, y - len), 8, Math.min(len, y - TOP), LANE_COL[n.lane] + '88');
         }
+        // Drop shadow + soft glow lift notes off the highway.
+        ctx.globalAlpha = 0.35;
+        rect(ctx, x - 14, y - 3, 28, 12, '#000');
+        ctx.globalAlpha = 0.22;
+        rect(ctx, x - 17, y - 9, 34, 18, LANE_COL[n.lane]);
+        ctx.globalAlpha = 1;
         rect(ctx, x - 14, y - 6, 28, 12, LANE_COL[n.lane]);
         rect(ctx, x - 12, y - 4, 24, 3, '#ffffff99');
+        rect(ctx, x - 14, y + 4, 28, 2, 'rgba(0,0,0,0.3)');
         drawText(ctx, ARROWS[this.perm[n.lane]], x, y - 3, '#000', { align: 'center', shadow: null });
       }
       // Static bolts (parry on the line)
