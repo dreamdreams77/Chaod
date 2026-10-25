@@ -12,6 +12,9 @@ import { INTRO, KEVIN_LINES, MODE_INFO, POLYGON_INTRO, REX_LINES, manualLines, i
 import { MODE_IDS, ModeId, ChaosCategory, xpForLevel } from '../core/save.ts';
 import { SHOP, ACHIEVEMENTS, unlockAchievement } from '../data/progression.ts';
 import { QUESTS, MINIS, MiniId } from '../data/quests.ts';
+import { dateKey, dailyFor, currentStreak, challengeUrl, DAILY_BONUS } from '../data/daily.ts';
+import { MODIFIERS } from '../data/progression.ts';
+import { Rng, formatSeed } from '../core/rng.ts';
 import { startMini } from './arcade.ts';
 import { MUTATIONS, GENRES, describeUnlock, isUnlockSatisfied } from '../fusion/registry.ts';
 
@@ -55,6 +58,7 @@ export class HubScene implements Scene {
     this.things.push({ id: 'shrine', x: 40, y: 120, label: 'CHAOS SHRINE', r: 16 });
     this.things.push({ id: 'quests', x: 188, y: 168, label: 'QUEST BOARD', r: 26 });
     this.things.push({ id: 'arcade', x: 292, y: 186, label: 'MINI-GAME ARCADE', r: 18 });
+    this.things.push({ id: 'daily', x: 118, y: 196, label: 'DAILY CHALLENGE', r: 22 });
     this.things.push({ id: 'trophy', x: 330, y: 236, label: 'TROPHY CASE', r: 16 });
     this.things.push({ id: 'rex', x: 150, y: 236, label: 'REX TURBO', r: 14 });
     this.things.push({ id: 'kevin', x: 0, y: 112, label: 'KEVIN FROM QA', r: 14 });
@@ -200,6 +204,7 @@ export class HubScene implements Scene {
   private openPauseMenu(): void {
     this.menu = new ListMenu('LOBBY MENU', [
       { label: 'PLAY A WORLD', sub: 'Pick a world to play right now, without walking to its cabinet.', onSelect: () => this.worldPicker() },
+      { label: 'DAILY CHALLENGE', sub: 'A new seeded run every day, with a streak bonus and a shareable link.', onSelect: () => this.dailyMenu() },
       { label: 'QUEST BOARD', sub: 'Your quests and rewards.', onSelect: () => this.questMenu() },
       { label: 'MINI-GAME ARCADE', sub: 'Five quick games that pay bits.', onSelect: () => this.arcadeMenu() },
       { label: 'RESUME', onSelect: () => (this.menu = null) },
@@ -236,6 +241,7 @@ export class HubScene implements Scene {
       case 'shrine': return this.shrineMenu();
       case 'trophy': return this.trophyMenu();
       case 'quests': return this.questMenu();
+      case 'daily': return this.dailyMenu();
       case 'arcade': return this.arcadeMenu();
       case 'rex': return this.say('rex', 'REX TURBO', REX_LINES(p.achievements.includes('beat_rex')));
       case 'kevin': {
@@ -496,7 +502,7 @@ export class HubScene implements Scene {
   }
 
   /** PLAY NOW starts the game for this quest right away; world quests also offer a world list. */
-  private questActions(id: string, play: 'worlds' | 'arcade' | MiniId, ok: boolean): MenuItem[] {
+  private questActions(id: string, play: 'worlds' | 'arcade' | 'daily' | MiniId, ok: boolean): MenuItem[] {
     const verb = ok ? 'PLAY AGAIN' : 'PLAY NOW';
     if (play === 'worlds') {
       const m = this.questWorld(id);
@@ -506,6 +512,7 @@ export class HubScene implements Scene {
       ];
     }
     if (play === 'arcade') return [{ label: verb, sub: 'Open the mini-game arcade.', onSelect: () => this.arcadeMenu() }];
+    if (play === 'daily') return [{ label: verb, sub: 'Open today\'s daily challenge.', onSelect: () => this.dailyMenu() }];
     const title = MINIS.find((x) => x.id === play)?.title ?? 'the game';
     return [{ label: `${verb}: ${title}`, sub: `Start ${title}.`, onSelect: () => { this.menu = null; startMini(this.game, play); } }];
   }
@@ -535,6 +542,52 @@ export class HubScene implements Scene {
     ];
     this.menu = new ListMenu('QUEST BOARD \u2014 PAID AUTOMATICALLY WHEN DONE', items, () => (this.menu = null), { x: 50, y: 24, w: 380, rows: 11, accent: '#ffcf3f' });
     if (keep !== undefined) this.menu.index = Math.min(keep, items.length - 1);
+  }
+
+  /** Today's run for this player, and the modifier that seed rolls (same for everyone). */
+  private todaysRun(): { key: string; mode: ModeId; seed: number; modifier: string } {
+    const p = this.game.profile;
+    const key = dateKey();
+    const d = dailyFor(key, MODE_IDS.filter((m) => isModeUnlocked(m, p.cleared)));
+    return { ...d, modifier: new Rng(d.seed).fork(77).pick(MODIFIERS).name };
+  }
+
+  private copyLink(mode: ModeId, seed: number): void {
+    const url = challengeUrl(`${location.origin}${location.pathname}`, { mode, seed });
+    const done = () => this.game.toast('LINK COPIED', 'SEND IT TO A FRIEND', '#3fe0ff');
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(done, () => window.prompt('Copy this challenge link:', url));
+    else window.prompt('Copy this challenge link:', url);
+  }
+
+  private dailyMenu(keep?: number): void {
+    const p = this.game.profile;
+    const t = this.todaysRun();
+    const rec = p.daily.key === t.key ? p.daily : null;
+    const streak = currentStreak(p.daily, t.key);
+    const info = MODE_INFO[t.mode];
+    const items: MenuItem[] = [
+      { label: 'TODAY', value: () => `${info.title}  #${formatSeed(t.seed)}`, disabled: true, color: info.color },
+      { label: 'MODIFIER', value: () => t.modifier, disabled: true },
+      { label: 'BEST TODAY', value: () => (rec ? `${rec.best}${rec.cleared ? '  \u2605 CLEARED' : ''}` : '\u2014'), disabled: true },
+      { label: 'STREAK', value: () => `${streak} DAY${streak === 1 ? '' : 'S'}`, disabled: true },
+      {
+        label: rec?.cleared ? 'PLAY AGAIN (NO BONUS)' : `PLAY TODAY'S RUN  +${DAILY_BONUS + 10 * Math.min(streak + 1, 7)} BITS`,
+        sub: 'Same world, seed and modifier for everyone today. One clear per day pays the bonus.',
+        onSelect: () => { this.menu = null; this.game.startMode(t.mode, { seed: t.seed, daily: t.key }); },
+      },
+      { label: 'COPY CHALLENGE LINK', sub: 'Anyone who opens the link plays this exact run.', onSelect: () => this.copyLink(t.mode, t.seed) },
+    ];
+    const shared = this.game.sharedChallenge;
+    if (shared && isModeUnlocked(shared.mode, p.cleared)) {
+      items.push({
+        label: `FRIEND'S CHALLENGE: ${MODE_INFO[shared.mode].title} #${formatSeed(shared.seed)}`,
+        sub: 'From the link you opened. Same run as whoever sent it.',
+        onSelect: () => { this.menu = null; this.game.startMode(shared.mode, { seed: shared.seed }); },
+      });
+    }
+    items.push({ label: 'BACK', onSelect: () => (this.menu = null) });
+    this.menu = new ListMenu(`DAILY CHALLENGE \u2014 ${t.key}`, items, () => (this.menu = null), { x: 40, y: 40, w: 400, accent: '#ffcf3f' });
+    this.menu.index = keep ?? 4;
   }
 
   private arcadeMenu(): void {
@@ -607,6 +660,7 @@ export class HubScene implements Scene {
       drawText(ctx, '\u25BC', 72, 30 + bob, '#7dff6b', { align: 'center' });
     }
     this.drawQuestBoard(ctx);
+    this.drawDailySign(ctx);
     this.drawMiniCabinet(ctx);
     this.drawStation(ctx, 440, 120, 'LAB', '#ff3fd2');
     this.drawStation(ctx, 40, 120, 'SHRINE', '#ff3fa4');
@@ -697,6 +751,19 @@ export class HubScene implements Scene {
     }
     drawText(ctx, 'QUESTS', x, y + 4, '#ffcf3f', { align: 'center' });
     if (this.questSig() !== this.game.questSeenSig && p.questsDone.length < QUESTS.length && Math.floor(this.t * 2) % 2) drawText(ctx, '!', x, y - 54, '#ffcf3f', { align: 'center', scale: 2 });
+  }
+
+  private drawDailySign(ctx: CanvasRenderingContext2D): void {
+    const x = 118, y = 196;
+    const done = this.game.profile.daily.key === dateKey() && this.game.profile.daily.cleared;
+    rect(ctx, x - 12, y - 2, 26, 4, 'rgba(0,0,0,0.35)');
+    rect(ctx, x - 1, y - 24, 2, 24, '#3a2410');
+    rect(ctx, x - 14, y - 40, 28, 20, '#f4eefe');
+    rect(ctx, x - 14, y - 40, 28, 6, done ? '#7dff6b' : '#ff3fa4');
+    for (let i = 0; i < 3; i++) rect(ctx, x - 10 + i * 8, y - 29, 5, 3, '#9a9ab8');
+    if (done) rect(ctx, x - 6, y - 25, 12, 3, '#7dff6b');
+    drawText(ctx, 'DAILY', x, y + 4, done ? '#7dff6b' : '#ffcf3f', { align: 'center' });
+    if (!done && Math.floor(this.t * 2) % 2) drawText(ctx, '!', x, y - 54, '#ffcf3f', { align: 'center', scale: 2 });
   }
 
   private drawMiniCabinet(ctx: CanvasRenderingContext2D): void {

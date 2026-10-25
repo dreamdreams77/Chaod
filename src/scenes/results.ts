@@ -76,11 +76,14 @@ class ResultsScene implements Scene {
       ['CHAOS EVENTS', `${this.r.chaosSeen.length}`, '#ff3fa4'],
       ['SEED', formatSeed(this.seed), '#b07aff'],
     ];
+    if (this.s.dailyBonus > 0) rows.splice(3, 0, ['DAILY BONUS', `+${this.s.dailyBonus} BITS  (STREAK ${this.s.dailyStreak})`, '#ffcf3f']);
+    else if (this.r.challenge === 'daily') rows.splice(3, 0, ['DAILY', this.r.cleared ? 'ALREADY CLEARED TODAY' : 'CLEAR IT FOR THE BONUS', '#9a9ab8']);
+    const gap = rows.length > 7 ? 11 : 12;
     rows.forEach(([k, v, c], i) => {
       const show = this.t > 0.2 + i * 0.12;
       if (!show) return;
-      drawText(ctx, k, 76, 86 + i * 12, '#aaa');
-      drawText(ctx, v, 196, 86 + i * 12, c);
+      drawText(ctx, k, 76, 84 + i * gap, '#aaa');
+      drawText(ctx, v, 196, 84 + i * gap, c);
     });
     const prof = this.game.profile;
     const lo = xpForLevel(prof.level);

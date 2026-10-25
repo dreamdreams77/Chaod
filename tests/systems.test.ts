@@ -401,3 +401,68 @@ test('new arcade quests complete at their thresholds', () => {
   assert.ok(s.outcome.quests.some((q) => q.id === 'tower_builder'));
   assert.ok(!applyMini(defaultProfile(), 'stack', 23).outcome.quests.some((q) => q.id === 'tower_builder'));
 });
+
+// ---- Daily challenge and shared links ----------------------------------------------------
+
+test('the daily run is deterministic, uses only unlocked non-boss worlds, and differs by day', async () => {
+  const { dailyFor, dateKey, addDays } = await import('../src/data/daily.ts');
+  const all: ModeId[] = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm'];
+  assert.deepEqual(dailyFor('2026-10-25', all), dailyFor('2026-10-25', all));
+  const seen = new Set<string>();
+  for (let i = 0; i < 40; i++) {
+    const d = dailyFor(addDays('2026-01-01', i), all);
+    assert.ok(['rampage', 'neon', 'mall'].includes(d.mode), 'bosses are never the daily');
+    assert.ok(d.seed >= 0 && d.seed < 1000000);
+    seen.add(d.mode + d.seed);
+  }
+  assert.ok(seen.size > 30, 'a different run most days');
+  assert.equal(dailyFor('2026-10-25', ['rampage']).mode, 'rampage', 'a new player only gets what is unlocked');
+  assert.equal(dateKey(new Date('2026-03-04T23:59:59Z')), '2026-03-04');
+  assert.equal(addDays('2026-12-31', 1), '2027-01-01');
+});
+
+test('challenge links round-trip and reject junk', async () => {
+  const { parseChallenge, challengeUrl } = await import('../src/data/daily.ts');
+  const url = challengeUrl('https://x.test/Chaod/', { mode: 'neon', seed: 42 });
+  assert.equal(url, 'https://x.test/Chaod/?seed=000042&mode=neon');
+  assert.deepEqual(parseChallenge(url.slice(url.indexOf('?'))), { mode: 'neon', seed: 42 });
+  for (const bad of ['', '?seed=1', '?mode=neon', '?seed=abc&mode=neon', '?seed=1234567&mode=neon', '?seed=12&mode=hacker', '?seed=-5&mode=mall']) {
+    assert.equal(parseChallenge(bad), null, bad);
+  }
+});
+
+test('daily clears pay once per day, build a streak, and lapse when a day is missed', async () => {
+  const { applyDailyResult, currentStreak, DAILY_BONUS } = await import('../src/data/daily.ts');
+  const p = defaultProfile();
+  const a = applyDailyResult(p, '2026-05-01', 120, false);
+  assert.equal(a.bonus, 0, 'a failed daily pays nothing');
+  assert.equal(p.daily.best, 120);
+  const b = applyDailyResult(p, '2026-05-01', 300, true);
+  assert.equal(b.bonus, DAILY_BONUS + 10);
+  assert.equal(p.daily.best, 300);
+  assert.equal(applyDailyResult(p, '2026-05-01', 400, true).bonus, 0, 'only once a day');
+  const c = applyDailyResult(p, '2026-05-02', 10, true);
+  assert.equal(c.streak, 2);
+  assert.equal(c.bonus, DAILY_BONUS + 20);
+  assert.equal(currentStreak(p.daily, '2026-05-03'), 2, 'still alive the next day');
+  assert.equal(currentStreak(p.daily, '2026-05-05'), 0, 'lapsed');
+  const d = applyDailyResult(p, '2026-05-09', 10, true);
+  assert.equal(d.streak, 1, 'a missed day restarts the streak');
+});
+
+test('daily runs flow through applyRun and count for DAILY GRINDER', () => {
+  let p = defaultProfile();
+  for (const day of ['2026-06-01', '2026-06-02', '2026-06-03']) {
+    const r = applyRun(p, run({ cleared: true, challenge: 'daily', dailyKey: day }));
+    assert.ok(r.summary.dailyBonus > 0);
+    p = r.profile;
+  }
+  assert.ok(p.questsDone.includes('daily_grinder'));
+  const shared = applyRun(defaultProfile(), run({ cleared: true, challenge: 'shared' }));
+  assert.equal(shared.summary.dailyBonus, 0, 'shared-link runs never pay the daily bonus');
+});
+
+test('old saves gain a clean daily record', () => {
+  assert.deepEqual(migrateProfile({ version: 2 }).daily, { key: '', best: 0, cleared: false, streak: 0, lastClear: '' });
+  assert.equal(migrateProfile({ daily: { key: 5, best: 'x', streak: -3 } }).daily.streak, 0);
+});

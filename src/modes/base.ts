@@ -16,6 +16,15 @@ import { MODE_INFO } from '../data/story.ts';
 
 const BUMP: Record<ChaosIntensity, ChaosIntensity> = { off: 'off', low: 'normal', normal: 'high', high: 'high' };
 
+/** How a run was started. Every mode takes these; most flags are handled here in the base. */
+export interface ModeOpts {
+  rematch?: boolean;
+  /** Fixed seed (shared links and the daily challenge); also forces the seeded modifier. */
+  seed?: number;
+  /** UTC date key when this is the daily challenge. */
+  daily?: string;
+}
+
 export abstract class ModeBase implements Scene {
   abstract id: string;
   pausable = true;
@@ -45,14 +54,15 @@ export abstract class ModeBase implements Scene {
     this.hintT = 0;
   }
 
-  constructor(readonly game: Game, readonly mode: ModeId, readonly opts: { rematch?: boolean } = {}) {
-    this.seed = game.newSeed();
+  constructor(readonly game: Game, readonly mode: ModeId, readonly opts: ModeOpts = {}) {
+    this.seed = opts.seed ?? game.newSeed();
     this.rng = new Rng(this.seed);
     const p = game.profile;
     this.fusion = new FusionEngine(mode, p);
     // Replays of cleared worlds roll a seeded challenge modifier for variety.
     const replay = p.cleared[mode].clears > 0;
-    this.modifier = replay && !opts.rematch ? this.rng.fork(77).pick(MODIFIERS) : null;
+    // Shared and daily runs always roll their modifier from the seed, so everyone plays the same run.
+    this.modifier = (replay || opts.seed !== undefined) && !opts.rematch ? this.rng.fork(77).pick(MODIFIERS) : null;
     let intensity = game.settings.chaos;
     if (this.modifier?.id === 'chaotic') intensity = BUMP[intensity];
     if (this.modifier?.id === 'calm') intensity = 'off';
@@ -165,6 +175,8 @@ export abstract class ModeBase implements Scene {
       chaosSeen: [...this.chaosSeen],
       bitMultiplier: this.fusion.rewardMultiplier() + (this.modifier?.bitBonus ?? 0),
       rematch: this.opts.rematch,
+      challenge: this.opts.daily ? 'daily' : this.opts.seed !== undefined ? 'shared' : undefined,
+      dailyKey: this.opts.daily,
       ...extra,
     };
     showResults(this.game, result, this.seed);

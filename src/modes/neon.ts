@@ -10,7 +10,7 @@
  * Chaos flags honoured: fog, reverse, mecha, palette/film/vhs (global).
  */
 import type { Game } from '../game.ts';
-import { ModeBase } from './base.ts';
+import { ModeBase, ModeOpts } from './base.ts';
 import { DirectorContext } from '../chaos/director.ts';
 import { generateNeon, NeonTrack, SEG_LEN, LANES, TrackObj } from '../procgen/neon.ts';
 import { H, W, PAL, rect, clamp, approach, hearts, bar, glow } from '../render/gfx.ts';
@@ -61,7 +61,7 @@ export class NeonMode extends ModeBase {
   private sabotageT = 4;
   private shadowObjs: TrackObj[] = [];
 
-  constructor(game: Game, opts: { rematch?: boolean } = {}) {
+  constructor(game: Game, opts: ModeOpts = {}) {
     super(game, 'neon', opts);
     this.track = generateNeon(this.seed, game.settings.difficulty === 'hard' ? 1 : game.settings.difficulty === 'easy' ? 0 : 0.5);
     this.hp = this.stats.maxHp;

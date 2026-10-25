@@ -8,6 +8,7 @@ import { Game } from './game.ts';
 import { Input, setupTouch } from './core/input.ts';
 import { TouchGestures } from './core/gestures.ts';
 import { setTextFilter } from './render/font.ts';
+import { parseChallenge } from './data/daily.ts';
 import { AudioEngine } from './audio/audio.ts';
 import { SaveStore, browserKV, ModeId } from './core/save.ts';
 import { W, H } from './render/gfx.ts';
@@ -64,6 +65,7 @@ function boot(): void {
       case 'rhythm': return new RhythmMode(game, opts);
     }
   };
+  game.sharedChallenge = parseChallenge(location.search);
   game.scene = game.titleFactory();
   game.scene.enter?.();
 

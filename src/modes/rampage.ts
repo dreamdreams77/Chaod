@@ -8,7 +8,7 @@
  * Chaos flags honoured: gravity_flip, low_gravity, note_floor, giant, bouncy, reverse, enemies_racers.
  */
 import type { Game } from '../game.ts';
-import { ModeBase } from './base.ts';
+import { ModeBase, ModeOpts } from './base.ts';
 import { DirectorContext, ActiveEvent } from '../chaos/director.ts';
 import { generateRampage, RampageLevel, TILE, ROWS } from '../procgen/rampage.ts';
 import { H, W, PAL, rect, clamp, approach, hearts, glow } from '../render/gfx.ts';
@@ -72,7 +72,7 @@ export class RampageMode extends ModeBase {
   winScore = 0;
   private lastBeatPhase = 0;
 
-  constructor(game: Game, opts: { rematch?: boolean } = {}) {
+  constructor(game: Game, opts: ModeOpts = {}) {
     super(game, 'rampage', opts);
     this.level = generateRampage(this.seed, {
       beatPlatforms: this.fusion.has('beat_platforms'),

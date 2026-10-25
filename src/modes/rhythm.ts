@@ -9,7 +9,7 @@
  * Chaos flags honoured: lane_mirror (keys follow mirrored receptors), remix (faster scroll).
  */
 import type { Game } from '../game.ts';
-import { ModeBase } from './base.ts';
+import { ModeBase, ModeOpts } from './base.ts';
 import { DirectorContext, ActiveEvent } from '../chaos/director.ts';
 import { generateBlock, Note, BLOCK_BEATS, judge, WINDOWS, Grade } from '../procgen/chart.ts';
 import { H, W, PAL, rect, hearts, bar } from '../render/gfx.ts';
@@ -65,7 +65,7 @@ export class RhythmMode extends ModeBase {
   private chartRng: Rng;
   readonly scroll: number;
 
-  constructor(game: Game, opts: { rematch?: boolean } = {}) {
+  constructor(game: Game, opts: ModeOpts = {}) {
     super(game, 'rhythm', opts);
     this.hp = this.stats.maxHp;
     this.bMaxHp = Math.round(110 * { easy: 0.8, normal: 1, hard: 1.25 }[game.settings.difficulty] * (opts.rematch ? 1.25 : 1));

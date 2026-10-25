@@ -13,6 +13,7 @@ import { drawPortrait, drawKevin } from './render/actors.ts';
 import type { Line } from './data/story.ts';
 import { ACHIEVEMENTS } from './data/progression.ts';
 import type { GestureMode } from './core/gestures.ts';
+import type { ModeOpts } from './modes/base.ts';
 import type { Action } from './core/input.ts';
 import type { ChaosDirector } from './chaos/director.ts';
 
@@ -91,7 +92,7 @@ export class Game {
   /** Factory for restarting the current gameplay scene. */
   private lastStart: (() => Scene) | null = null;
   settingsReturn: (() => Scene) | null = null;
-  modeFactory!: (mode: ModeId, opts: { rematch?: boolean }) => Scene;
+  modeFactory!: (mode: ModeId, opts: ModeOpts) => Scene;
   hubFactory!: () => Scene;
   titleFactory!: () => Scene;
   settingsFactory!: (back: () => Scene) => Scene;
@@ -149,7 +150,7 @@ export class Game {
     }
     this.transition = { t: 0, next, banner };
   }
-  startMode(mode: ModeId, opts: { rematch?: boolean } = {}): void {
+  startMode(mode: ModeId, opts: ModeOpts = {}): void {
     this.lastStart = () => this.modeFactory(mode, opts);
     this.profile.runsStarted++;
     this.goto(this.lastStart());
@@ -396,6 +397,8 @@ export class Game {
   // ---- drawing -----------------------------------------------------------------
   /** Keeps the song frozen while Settings is open from the pause menu. */
   holdAudio = false;
+  /** A run from a shared link (?seed=&mode=), offered in the lobby's daily menu. */
+  sharedChallenge: { mode: ModeId; seed: number } | null = null;
   /** Cabinets the lobby has already shown as powered this session, so unlocks from a run get announced once. */
   cabinetsSeen: Set<ModeId> | null = null;
   /** Quest-board progress signature the player last looked at (drives the board's "!" marker). */

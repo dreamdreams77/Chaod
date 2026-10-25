@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.0 — daily challenge and shareable runs
+- DAILY CHALLENGE: a sign in the lobby (and the lobby menu) offers one seeded run a day: same world, seed and modifier for every player (UTC date). Clearing it pays a bonus that grows with your streak (up to +120 bits); your best score of the day and your streak are saved. New quest: DAILY GRINDER (clear 3 dailies).
+- COPY CHALLENGE LINK builds a `?seed=…&mode=…` link; opening one adds FRIEND'S CHALLENGE to the daily menu so you play the identical run. Shared and daily runs always roll their modifier from the seed so everyone plays the same game.
+
 ## 1.6.5 — touch wording everywhere
 - On phones, all on-screen text (dialogue, menus, hints, descriptions) now says the pad's button names: "HOLD X TO RUN" reads "HOLD B TO RUN", Z reads A, ESC reads II, ARROWS reads D-PAD, "ANY KEY" reads "ANY BUTTON". "RED X" (the Glitch Rhythm note) and single-letter art are left alone. Keyboard players see the original wording.
 

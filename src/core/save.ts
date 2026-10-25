@@ -41,6 +41,8 @@ export interface Profile {
   questsDone: string[];
   /** Lobby mini-game personal bests and play counts. */
   mini: Record<string, { best: number; plays: number }>;
+  /** Daily challenge record (see data/daily.ts). */
+  daily: { key: string; best: number; cleared: boolean; streak: number; lastClear: string };
 }
 
 export interface Settings {
@@ -94,6 +96,7 @@ export function defaultProfile(): Profile {
     questProgress: {},
     questsDone: [],
     mini: {},
+    daily: { key: '', best: 0, cleared: false, streak: 0, lastClear: '' },
   };
 }
 
@@ -134,6 +137,14 @@ export function migrateProfile(raw: unknown): Profile {
   if (r.questProgress && typeof r.questProgress === 'object' && !Array.isArray(r.questProgress)) {
     for (const [k, v] of Object.entries(r.questProgress)) if (Number.isFinite(v) && v >= 0) p.questProgress[k] = v;
   }
+  const dr = (r.daily ?? {}) as Partial<Profile['daily']>;
+  p.daily = {
+    key: typeof dr.key === 'string' ? dr.key.slice(0, 10) : '',
+    best: Number.isFinite(dr.best) ? Math.max(0, dr.best as number) : 0,
+    cleared: dr.cleared === true,
+    streak: Number.isFinite(dr.streak) ? Math.max(0, Math.floor(dr.streak as number)) : 0,
+    lastClear: typeof dr.lastClear === 'string' ? dr.lastClear.slice(0, 10) : '',
+  };
   p.mini = {};
   if (r.mini && typeof r.mini === 'object' && !Array.isArray(r.mini)) {
     for (const [k, v] of Object.entries(r.mini)) {

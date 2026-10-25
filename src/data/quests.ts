@@ -34,7 +34,7 @@ export interface QuestDef {
   bits: number;
   xp: number;
   /** Where PLAY NOW takes you: the world list, the arcade menu, or straight into one mini-game. */
-  play: 'worlds' | 'arcade' | MiniId;
+  play: 'worlds' | 'arcade' | 'daily' | MiniId;
 }
 
 export const QUESTS: QuestDef[] = [
@@ -44,6 +44,7 @@ export const QUESTS: QuestDef[] = [
   { id: 'chaos_tourist', title: 'CHAOS TOURIST', desc: 'Witness 5 different chaos events in one run (Chaos NORMAL or HIGH).', goal: 1, bits: 70, xp: 35, play: 'worlds' },
   { id: 'speed_demon', title: 'SPEED DEMON', desc: 'Clear a world (not a boss) in under 150 seconds.', goal: 1, bits: 90, xp: 45, play: 'worlds' },
   { id: 'disk_diver', title: 'DISK DIVER', desc: 'Find 4 new floppy disks.', goal: 4, bits: 60, xp: 30, play: 'worlds' },
+  { id: 'daily_grinder', title: 'DAILY GRINDER', desc: 'Clear 3 daily challenges (any days).', goal: 3, bits: 90, xp: 40, play: 'daily' },
   { id: 'arcade_regular', title: 'ARCADE REGULAR', desc: 'Play 5 lobby mini-games and score in each.', goal: 5, bits: 50, xp: 20, play: 'arcade' },
   { id: 'arcade_ace', title: 'ARCADE ACE', desc: 'Score 50+ in CART CATCH.', goal: 1, bits: 70, xp: 30, play: 'catch' },
   { id: 'brick_boss', title: 'BRICK BOSS', desc: 'Score 52+ in BYTE BREAKOUT (the wall has 60 points).', goal: 1, bits: 70, xp: 30, play: 'breakout' },
@@ -69,6 +70,7 @@ export function questGain(q: QuestDef, ev: QuestEvent): number {
       case 'chaos_tourist': return r.chaosSeen.length >= 5 ? 1 : 0;
       case 'speed_demon': return r.cleared && !r.boss && r.time < 150 ? 1 : 0;
       case 'disk_diver': return ev.newFloppies;
+      case 'daily_grinder': return r.cleared && r.challenge === 'daily' ? 1 : 0;
     }
     return 0;
   }

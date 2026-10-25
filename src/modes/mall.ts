@@ -9,7 +9,7 @@
  * Chaos flags honoured: lights_on + monster_haste (power surge), tiny.
  */
 import type { Game } from '../game.ts';
-import { ModeBase } from './base.ts';
+import { ModeBase, ModeOpts } from './base.ts';
 import { DirectorContext } from '../chaos/director.ts';
 import { generateMall, MallMap, MW, MH, mallWalkable, nextStepToward, MALL_NOTES, MallItem } from '../procgen/mall.ts';
 import { H, W, rect, clamp, hearts, bar, glow } from '../render/gfx.ts';
@@ -60,7 +60,7 @@ export class MallMode extends ModeBase {
   private sniff = false;
   private noteIndex = 0;
 
-  constructor(game: Game, opts: { rematch?: boolean } = {}) {
+  constructor(game: Game, opts: ModeOpts = {}) {
     super(game, 'mall', opts);
     this.map = generateMall(this.seed);
     this.px = this.map.start.x * T + 8;

@@ -9,7 +9,7 @@
  * Chaos flags honoured: low_gravity, giant, bouncy, boss_steal (boss copies your special).
  */
 import type { Game } from '../game.ts';
-import { ModeBase } from './base.ts';
+import { ModeBase, ModeOpts } from './base.ts';
 import { DirectorContext } from '../chaos/director.ts';
 import { H, W, PAL, rect, clamp, approach, hearts, bar, backdrop, glow } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
@@ -75,7 +75,7 @@ export class BeatdownMode extends ModeBase {
   lines = 0;
   readonly rematchMult: number;
 
-  constructor(game: Game, opts: { rematch?: boolean } = {}) {
+  constructor(game: Game, opts: ModeOpts = {}) {
     super(game, 'beatdown', opts);
     this.hp = this.stats.maxHp;
     this.energy = this.stats.energy;
