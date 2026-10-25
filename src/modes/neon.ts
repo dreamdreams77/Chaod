@@ -396,6 +396,19 @@ export class NeonMode extends ModeBase {
         if (y % 8 < 6 || y < 20) rect(ctx, sx - r, 60 + y, r * 2, 2, y < 22 ? '#ffe23f' : '#ff6f3f');
       }
     }
+    if (!night) {
+      // Stars twinkle in the upper sky; a second, paler mountain range sits behind the first.
+      for (let i = 0; i < 40; i++) {
+        const sx = (i * 97) % W;
+        const sy = (i * 53) % 60;
+        if ((i + Math.floor(this.time * 2)) % 5) rect(ctx, sx, sy, 1, 1, '#ffffffaa');
+      }
+      for (let x = 0; x < W; x += 3) {
+        const wx = x + this.skyX * 2;
+        const h = 30 + Math.abs(Math.sin(wx * 0.011 + 2)) * 30;
+        rect(ctx, x, 134 - h, 3, h, '#5a1a8a');
+      }
+    }
     // Mountains (parallax shifts with curves)
     for (let x = 0; x < W; x += 3) {
       const wx = x + this.skyX * 4;
@@ -440,6 +453,7 @@ export class NeonMode extends ModeBase {
       const rumble = night ? (alt ? '#b3122e' : '#300') : alt ? '#3fe0ff' : '#ff3fa4';
       const road = night ? (alt ? '#141012' : '#181416') : alt ? '#2a2440' : '#26203a';
       this.quad(ctx, 0, Y1, W, 0, Y2, W, grass);
+      if (!night && alt && !fog) rect(ctx, 0, Y1, W, 1, 'rgba(63,224,255,0.16)'); // receding neon grid
       this.quad(ctx, X1, Y1, W1 * 1.12, X2, Y2, W2 * 1.12, rumble);
       this.quad(ctx, X1, Y1, W1, X2, Y2, W2, road);
       if (alt) {
@@ -456,6 +470,15 @@ export class NeonMode extends ModeBase {
       maxy = Y2;
     }
 
+    // Horizon glow melts the far road into the sky (aerial perspective).
+    {
+      const hz = ctx.createLinearGradient(0, 110, 0, 190);
+      hz.addColorStop(0, night ? 'rgba(179,18,46,0)' : 'rgba(255,63,164,0)');
+      hz.addColorStop(0.35, night ? 'rgba(179,18,46,0.22)' : 'rgba(255,63,164,0.3)');
+      hz.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = hz;
+      ctx.fillRect(0, 110, W, 80);
+    }
     // Sprites back to front
     const objs = this.allObjects();
     const startIdx = baseSeg;

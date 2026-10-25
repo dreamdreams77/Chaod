@@ -391,9 +391,28 @@ export class HubScene implements Scene {
         if (k === 4) rect(ctx, x + 3, y + 10, 3, 3, '#ffcf3f44');
       }
     }
-    // Back wall with neon trim
-    rect(ctx, 0, 0, W, CAB_Y + 30, '#120a24');
+    // Back wall with neon trim: darker toward the ceiling, glow spilling onto the floor
+    const wall = ctx.createLinearGradient(0, 0, 0, CAB_Y + 30);
+    wall.addColorStop(0, '#0a0518');
+    wall.addColorStop(1, '#1c1038');
+    ctx.fillStyle = wall;
+    ctx.fillRect(0, 0, W, CAB_Y + 30);
     rect(ctx, 0, CAB_Y + 28, W, 2, pal.accent);
+    const spill = ctx.createLinearGradient(0, CAB_Y + 30, 0, CAB_Y + 70);
+    spill.addColorStop(0, 'rgba(255,63,164,0.28)');
+    spill.addColorStop(1, 'rgba(255,63,164,0)');
+    ctx.fillStyle = spill;
+    ctx.fillRect(0, CAB_Y + 30, W, 40);
+    // Light pools under each cabinet
+    [56, 136, 216, 296, 376].forEach((cx, i) => {
+      const on = isModeUnlocked(MODE_IDS[i], p.cleared);
+      ctx.globalAlpha = on ? 0.22 + Math.sin(t * 2 + i) * 0.04 : 0.08;
+      rect(ctx, cx - 6, CAB_Y + 34, 44, 4, on ? MODE_INFO[MODE_IDS[i]].color : '#8a7aa0');
+      rect(ctx, cx - 2, CAB_Y + 38, 36, 3, on ? MODE_INFO[MODE_IDS[i]].color : '#8a7aa0');
+      ctx.globalAlpha = 1;
+    });
+    // Contact shadows for the big props
+    for (const [sx, sy, sw] of [[214, 160, 52], [316, 243, 28], [40, 213, 40], [404, 215, 34]]) rect(ctx, sx + 2, sy, sw, 4, 'rgba(0,0,0,0.35)');
     drawText(ctx, 'THE LOBBY OF LOST SAVES', W / 2, 8, pal.accent2, { align: 'center', scale: 2 });
     // Cabinets
     const cabX = [56, 136, 216, 296, 376];

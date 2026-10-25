@@ -409,10 +409,20 @@ export class MallMode extends ModeBase {
         const sx = tx * T - camX, sy = ty * T - camY;
         if (c === '#') {
           rect(ctx, sx, sy, T, T, '#1a1418');
-          if (this.tileAt(tx, ty + 1) !== '#') rect(ctx, sx, sy + T - 4, T, 4, '#2a2124');
+          if (this.tileAt(tx, ty - 1) !== '#') rect(ctx, sx, sy, T, 2, '#2e262a'); // lit top edge
+          if (this.tileAt(tx, ty + 1) !== '#') {
+            // Wall face: lighter band over a darker base reads as height.
+            rect(ctx, sx, sy + T - 6, T, 6, '#2a2124');
+            rect(ctx, sx, sy + T - 6, T, 1, '#3a3034');
+            rect(ctx, sx, sy + T - 2, T, 2, '#120d10');
+          }
         } else {
           rect(ctx, sx, sy, T, T, (tx + ty) % 2 ? '#3a3430' : '#443d38');
+          // Walls cast soft shade onto the floor beside them; polished tiles catch a faint sheen.
+          if (this.tileAt(tx, ty - 1) === '#') rect(ctx, sx, sy, T, 5, 'rgba(0,0,0,0.32)');
+          else rect(ctx, sx, sy, T, 1, 'rgba(255,255,255,0.04)');
           if (c === 's') {
+            rect(ctx, sx + 2, sy + T - 3, T - 2, 4, 'rgba(0,0,0,0.35)');
             rect(ctx, sx + 1, sy + 2, T - 2, T - 4, '#5a4a3a');
             rect(ctx, sx + 2, sy + 4, 4, 3, `hsl(${(tx * 47) % 360},40%,40%)`);
             rect(ctx, sx + 9, sy + 4, 4, 3, `hsl(${(ty * 83) % 360},40%,40%)`);
@@ -435,6 +445,11 @@ export class MallMode extends ModeBase {
       if (it.taken) continue;
       const sx = it.x * T + 8 - camX, sy = it.y * T + 8 - camY;
       if (sx < -16 || sy < -16 || sx > W + 16 || sy > H + 16) continue;
+      if (it.kind !== 'locker') {
+        ctx.globalAlpha = 0.3;
+        rect(ctx, sx - 5, sy + 4, 10, 3, '#000');
+        ctx.globalAlpha = 1;
+      }
       switch (it.kind) {
         case 'key': rect(ctx, sx - 5, sy - 3, 10, 7, '#c9a227'); rect(ctx, sx - 3, sy - 1, 3, 3, '#fff'); break;
         case 'battery': rect(ctx, sx - 3, sy - 5, 6, 10, '#6b8f71'); rect(ctx, sx - 1, sy - 6, 2, 1, '#ccc'); break;
@@ -443,6 +458,7 @@ export class MallMode extends ModeBase {
         case 'floppy': drawFloppy(ctx, sx, sy, this.time); break;
         case 'chaos': rect(ctx, sx - 5, sy - 5, 10, 10, `hsl(${(this.time * 200) % 360},100%,60%)`); break;
         case 'locker':
+          rect(ctx, sx - 5, sy + 6, 13, 3, 'rgba(0,0,0,0.35)');
           rect(ctx, sx - 6, sy - 10, 12, 18, this.hiddenLocker === it ? '#4a6a6a' : '#3a5a5a');
           for (let k = 0; k < 3; k++) rect(ctx, sx - 4, sy - 8 + k * 3, 8, 1, '#1a2a2a');
           break;
@@ -528,6 +544,22 @@ export class MallMode extends ModeBase {
     d.fillRect(ex - 14, ey - 14, 40, 52);
     // The Manager's eyes are always visible in the dark.
     ctx.drawImage(this.dark, 0, 0);
+    // Warm light spill: additive glow where the flashlight and the pet's glow reach.
+    if (this.battery > 0 && !this.hidden) {
+      const len = 60 + this.battery * 80;
+      const warm = ctx.createRadialGradient(px, py, 4, px, py, len);
+      warm.addColorStop(0, 'rgba(255,220,150,0.16)');
+      warm.addColorStop(1, 'rgba(255,220,150,0)');
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = warm;
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      const a = Math.atan2(this.facing.y, this.facing.x);
+      ctx.arc(px, py, len, a - 0.5, a + 0.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+    }
     const mx = this.mx - camX, my = this.my - camY;
     const eye = this.mState === 'chase' ? '#ff2040' : '#ffe9a0';
     rect(ctx, mx - 3, my - 31, 2, 2, eye);
