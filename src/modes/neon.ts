@@ -585,7 +585,7 @@ export class NeonMode extends ModeBase {
       }
       case 'boost': {
         const w = 500 * s, h = 60 * s;
-        rect(ctx, sx - w / 2, y - h, w, h, Math.floor(this.time * 10) % 2 ? '#3fe0ff' : '#ff3fd2');
+        rect(ctx, sx - w / 2, y - h, w, h, Math.floor(this.time * 5) % 2 ? '#3fe0ff' : '#ff3fd2');
         drawText(ctx, '>>', sx, y - h - 8, '#fff', { align: 'center', scale: Math.max(1, Math.round(s * 300)) });
         break;
       }

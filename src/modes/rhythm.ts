@@ -424,7 +424,7 @@ export class RhythmMode extends ModeBase {
         if (!b.alive) continue;
         const y = JUDGE_Y - this.beatToSec(b.beat - beat) * pps * 1.5;
         if (y < TOP) {
-          rect(ctx, LANE_X[b.lane] - 16, TOP, 32, 4, Math.floor(this.time * 10) % 2 ? '#ff3f3f' : '#600');
+          rect(ctx, LANE_X[b.lane] - 16, TOP, 32, 4, Math.floor(this.time * 5) % 2 ? '#ff3f3f' : '#600');
           continue;
         }
         for (let k = 0; k < 4; k++) rect(ctx, LANE_X[b.lane] - 8 + Math.random() * 16, y - 8 + k * 4, 3, 3, '#fff');

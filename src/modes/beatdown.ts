@@ -669,7 +669,7 @@ export class BeatdownMode extends ModeBase {
     }
     this.drawBoss(ctx);
     // Player
-    if (!(this.iframes > 0 && Math.floor(this.time * 20) % 2) && !(this.hp <= 0 && this.deadT > 0.2)) {
+    if (!(this.iframes > 0 && Math.floor(this.time * 10) % 2) && !(this.hp <= 0 && this.deadT > 0.2)) {
       const pose: Pose = this.hp <= 0 ? 'hurt' : this.blocking ? 'block' : this.attackT > 0 ? 'attack' : !this.onGround ? 'jump' : Math.abs(this.vx) > 10 ? 'run' : 'idle';
       drawCass(ctx, { x: this.px, y: this.py, facing: this.facing, pose, t: this.time, scale: this.giant ? 2 : 1 }, this.game.profile.character);
       if (this.attackT > 0) {
@@ -738,7 +738,7 @@ export class BeatdownMode extends ModeBase {
     for (let i = 0; i < 6; i++) rect(ctx, -26 + (i % 3) * 18, -54 + Math.floor(i / 3) * 18, 17, 17, fl ? '#fff' : BCOL[(i + 1) % BCOL.length]);
     // core — glows when exposed
     const exposed = m === 'stuck' || m === 'tired' || m === 'dizzy';
-    rect(ctx, -6, -46, 12, 12, exposed ? (Math.floor(this.time * 12) % 2 ? '#fff' : '#7dff6b') : '#2a2a3a');
+    rect(ctx, -6, -46, 12, 12, exposed ? (Math.floor(this.time * 6) % 2 ? '#fff' : '#7dff6b') : '#2a2a3a');
     // head
     rect(ctx, -14, -74, 28, 20, fl ? '#fff' : '#ff3f3f');
     rect(ctx, -9, -68, 6, 4, '#000');
@@ -753,7 +753,7 @@ export class BeatdownMode extends ModeBase {
     ctx.restore();
     // Telegraphs: big readable warning icons
     if ((m === 'punch' && this.bT > 0.25) || m === 'throw' || m === 'steal' || (m === 'stomp' && this.bvy < 0)) {
-      if (Math.floor(this.time * 10) % 2) drawText(ctx, '!', x, y - 110, '#ff3f3f', { align: 'center', scale: 3 });
+      if (Math.floor(this.time * 6) % 2) drawText(ctx, '!', x, y - 110, '#ff3f3f', { align: 'center', scale: 3 });
     }
     if (exposed && m !== 'dizzy') drawText(ctx, 'HIT THE CORE!', x, y - 100, '#7dff6b', { align: 'center' });
   }

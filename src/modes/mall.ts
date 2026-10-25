@@ -476,7 +476,7 @@ export class MallMode extends ModeBase {
       if (this.sniff && Math.floor(this.time * 3) % 2) drawText(ctx, '*SNIFF*', this.petX - camX, this.petY - camY - 14, '#c9a227', { align: 'center' });
     }
     // Player
-    if (!this.hidden && !(this.iframes > 0 && Math.floor(this.time * 16) % 2)) {
+    if (!this.hidden && !(this.iframes > 0 && Math.floor(this.time * 10) % 2)) {
       const pose: Pose = this.hp <= 0 ? 'hurt' : this.moving ? 'run' : 'idle';
       drawCass(ctx, { x: this.px - camX, y: this.py - camY + 8, facing: this.facing.x < 0 ? -1 : 1, pose, t: this.time * (this.running ? 1.5 : 0.8), scale: this.director.flag('tiny') ? 0.5 : 0.8 }, this.game.profile.character);
     }

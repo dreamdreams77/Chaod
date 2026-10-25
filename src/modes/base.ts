@@ -178,7 +178,7 @@ export abstract class ModeBase implements Scene {
     const tele = this.director.telegraphing();
     let row = y + 12;
     if (tele) {
-      const blink = Math.floor(this.time * 8) % 2 === 0;
+      const blink = Math.floor(this.time * 5) % 2 === 0;
       frame(ctx, W / 2 - 110, 22, 220, 30, blink ? '#3a0828ee' : '#200418ee', '#ff3fa4');
       drawText(ctx, `⚠ INCOMING: ${tele.def.name}`, W / 2, 27, '#ffcf3f', { align: 'center' });
       drawText(ctx, tele.def.blurb.slice(0, 34), W / 2, 39, '#fff', { align: 'center' });

@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.6.4 — calmer flashing
+- The beat-bridge platforms in Retro Rampage warned of their change by flickering about 8 times a second; they now pulse about 3 times a second (and stay steady-bright with Reduced Flashing on). Invulnerability blinks, the INCOMING chaos warning, boss weak-point and warning marks, rhythm static bolts and Neon boost pads were all slowed to roughly 3-5 blinks a second. A test now fails if any on/off blink in a world is added faster than that.
+
 ## 1.6.3 — world quests start a world
 - PLAY NOW on a world quest (BIT HOARDER, GAME CLEARER, UNTOUCHABLE, CHAOS TOURIST, SPEED DEMON, DISK DIVER) starts a world straight away (RETRO RAMPAGE for speed runs, otherwise your first uncleared world), with CHOOSE ANOTHER WORLD below it. It used to open another list first.
 

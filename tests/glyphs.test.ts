@@ -28,3 +28,13 @@ test('all displayed characters have glyphs', () => {
   }
   assert.deepEqual([...missing.entries()], []);
 });
+
+test('no big on/off blinks faster than 6 per second (photosensitivity guard)', () => {
+  const offenders: string[] = [];
+  for (const f of files(new URL('../src/modes', import.meta.url).pathname)) {
+    readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
+      for (const m of line.matchAll(/Math\.floor\((?:this\.)?time \* (\d+)\) % 2/g)) if (Number(m[1]) > 12) offenders.push(`${f}:${i + 1} (${m[1]})`);
+    });
+  }
+  assert.deepEqual(offenders, []);
+});

@@ -840,7 +840,7 @@ export class RampageMode extends ModeBase {
       }
     }
     // Player
-    if (this.dead <= 0 && !(this.iframes > 0 && Math.floor(this.time * 20) % 2)) {
+    if (this.dead <= 0 && !(this.iframes > 0 && Math.floor(this.time * 10) % 2)) {
       const cx = this.px + this.pw / 2 - camX;
       if (this.ship) this.drawShip(ctx, cx, this.py + this.ph / 2);
       else {
@@ -980,7 +980,8 @@ export class RampageMode extends ModeBase {
         const on = phase === mine;
         const col = c === 'B' ? '#ff3fd2' : '#3fffe0';
         if (on) {
-          const blink = warn && Math.floor(this.time * 16) % 2 === 0;
+          // Slow, gentle warning pulse (about 3 flashes a second); steady bright when reduced flashing is on.
+          const blink = warn && (this.game.settings.reducedFlash || Math.floor(this.time * 6) % 2 === 0);
           rect(ctx, sx, sy, TILE, 6, blink ? '#ffffff' : col);
           rect(ctx, sx + 2, sy + 2, TILE - 4, 2, '#ffffff88');
         } else {
@@ -1058,7 +1059,7 @@ export class RampageMode extends ModeBase {
     rect(ctx, x + 4, y - 1, 6, 2, '#fff');
     rect(ctx, x - 5, y - 6, 6, 3, '#ff3fa4');
     rect(ctx, x - 5, y + 3, 6, 3, '#ff3fa4');
-    rect(ctx, x - 10, y - 1, 3, 2, Math.floor(this.time * 20) % 2 ? '#ffcf3f' : '#ff6f3f');
+    rect(ctx, x - 10, y - 1, 3, 2, Math.floor(this.time * 12) % 2 ? '#ffcf3f' : '#ff6f3f');
     rect(ctx, x - 1, y - 2, 3, 2, '#f2c49b');
   }
 
