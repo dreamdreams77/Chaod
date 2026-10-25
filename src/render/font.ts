@@ -136,8 +136,20 @@ export interface TextOpts {
   shadow?: string | null;
 }
 
+let textFilter: ((text: string) => string) | null = null;
+
+/**
+ * Installs a rewrite applied to every string drawn (used to show touch button names instead of
+ * keyboard keys on phones). Single characters are left alone so glyph-only draws such as the
+ * rhythm "X" glitch note are never rewritten.
+ */
+export function setTextFilter(fn: ((text: string) => string) | null): void {
+  textFilter = fn;
+}
+
 export function drawText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color = '#fff', opts: TextOpts = {}): void {
   if (!text) return;
+  if (textFilter && text.length > 1) text = textFilter(text);
   const scale = opts.scale ?? 1;
   const w = textWidth(text, scale);
   let px = x;

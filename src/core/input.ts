@@ -63,13 +63,23 @@ export class Input {
   /** Rewrites keyboard names in on-screen help to the touch pad's buttons when touch is in use. */
   label(text: string): string {
     if (!this.usingTouch) return text;
+    const hit = this.labelCache.get(text);
+    if (hit !== undefined) return hit;
+    if (this.labelCache.size > 800) this.labelCache.clear();
+    const out = this.rewriteLabel(text);
+    this.labelCache.set(text, out);
+    return out;
+  }
+  private readonly labelCache = new Map<string, string>();
+  private rewriteLabel(text: string): string {
     return text
       .replace(/\bARROWS( \(OR WASD\))?/g, 'D-PAD')
       .replace(/\bARROW KEYS( \(OR WASD\))?/g, 'D-PAD')
       .replace(/\bZ\b/g, 'A')
-      .replace(/\bX\b/g, 'B')
+      // "RED X" names the glitch note in Glitch Rhythm, not the key. (No lookbehind: older Safari cannot parse it.)
+      .replace(/(\w+ )?\bX\b/g, (m, pre: string | undefined) => (pre && /^red $/i.test(pre) ? m : (pre ?? '') + 'B'))
       .replace(/\bESC\b/g, 'II')
-      .replace(/\bUP\+C\b/g, 'UP+C');
+      .replace(/\bANY KEY\b/g, 'ANY BUTTON');
   }
 
   constructor(bindings: Bindings) {

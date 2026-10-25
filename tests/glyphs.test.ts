@@ -38,3 +38,15 @@ test('no big on/off blinks faster than 6 per second (photosensitivity guard)', (
   }
   assert.deepEqual(offenders, []);
 });
+
+test('the text filter never rewrites single-character draws (glitch note "X")', async () => {
+  const { setTextFilter, drawText } = await import('../src/render/font.ts');
+  const drawn: string[] = [];
+  const g = { drawImage() {} } as unknown as CanvasRenderingContext2D;
+  (globalThis as unknown as { document: unknown }).document = { createElement: () => ({ width: 0, height: 0, getContext: () => ({ fillRect() {}, set fillStyle(_v: string) {} }) }) };
+  setTextFilter((t) => { drawn.push(t); return t.replace(/X/g, 'B'); });
+  drawText(g, 'X', 0, 0);
+  drawText(g, 'HOLD X', 0, 0);
+  setTextFilter(null);
+  assert.deepEqual(drawn, ['HOLD X'], 'only multi-character strings reach the filter');
+});

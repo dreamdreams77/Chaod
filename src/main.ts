@@ -7,6 +7,7 @@
 import { Game } from './game.ts';
 import { Input, setupTouch } from './core/input.ts';
 import { TouchGestures } from './core/gestures.ts';
+import { setTextFilter } from './render/font.ts';
 import { AudioEngine } from './audio/audio.ts';
 import { SaveStore, browserKV, ModeId } from './core/save.ts';
 import { W, H } from './render/gfx.ts';
@@ -82,6 +83,8 @@ function boot(): void {
     if (r.width === 0 || r.height === 0) return null;
     return [((e.clientX - r.left) * W) / r.width, ((e.clientY - r.top) * H) / r.height];
   };
+  // On phones every on-screen string shows the touch pad's button names (A/B/C, D-PAD, II).
+  setTextFilter((t) => input.label(t));
   const gestures = new TouchGestures(input, () => game.gestureMode(), (x) => game.scene.laneAt?.(x) ?? null);
   let dragId: number | null = null;
   canvas.addEventListener('pointerdown', (e) => {

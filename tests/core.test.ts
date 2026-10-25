@@ -220,3 +220,14 @@ test('Input.pulse adds a press edge without releasing a button the pad is alread
   assert.equal(inp.pressed('jump'), true, 'fresh press edge');
   assert.equal(inp.held('jump'), true, 'still held');
 });
+
+test('touch wording: keys become pad buttons, but "RED X" and words like XP stay', () => {
+  const inp = new Input(DEFAULT_BINDINGS);
+  const t = 'HOLD X TO RUN (NOISY!). Z HIDES YOU IN A LOCKER. C MAKES BYTE BARK. ESC PAUSES';
+  assert.equal(inp.label(t), t, 'unchanged with a keyboard');
+  inp.usingTouch = true;
+  assert.equal(inp.label(t), 'HOLD B TO RUN (NOISY!). A HIDES YOU IN A LOCKER. C MAKES BYTE BARK. II PAUSES');
+  assert.equal(inp.label('AVOID RED X GLITCH NOTES AND THE red X TOO'), 'AVOID RED X GLITCH NOTES AND THE red X TOO');
+  assert.equal(inp.label('PRESS ANY KEY'), 'PRESS ANY BUTTON');
+  assert.equal(inp.label('XP'), 'XP');
+});

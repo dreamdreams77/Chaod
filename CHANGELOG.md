@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.6.5 — touch wording everywhere
+- On phones, all on-screen text (dialogue, menus, hints, descriptions) now says the pad's button names: "HOLD X TO RUN" reads "HOLD B TO RUN", Z reads A, ESC reads II, ARROWS reads D-PAD, "ANY KEY" reads "ANY BUTTON". "RED X" (the Glitch Rhythm note) and single-letter art are left alone. Keyboard players see the original wording.
+
 ## 1.6.4 — calmer flashing
 - The beat-bridge platforms in Retro Rampage warned of their change by flickering about 8 times a second; they now pulse about 3 times a second (and stay steady-bright with Reduced Flashing on). Invulnerability blinks, the INCOMING chaos warning, boss weak-point and warning marks, rhythm static bolts and Neon boost pads were all slowed to roughly 3-5 blinks a second. A test now fails if any on/off blink in a world is added faster than that.
 
