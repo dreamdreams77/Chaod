@@ -125,3 +125,4 @@ MIT — see [LICENSE](LICENSE). All characters, art, music and writing are origi
 
 `tools/cover.html` (rebuild with `node tools/cover.mjs`) is a small page for fixing the lettering on AI-generated cover pictures: open the picture, place the box over the sign, and it draws the title in the game's own pixel font. `docs/cover.png` is the current cover.
 `docs/trailer.png` is the launch-trailer banner, built from live captures of every world by `node tools/trailer.mjs` (run `npm run build` first).
+`docs/trailer.mp4` is a 60-second silent gameplay trailer (every world plus the 1927 MODE chaos event), built with `node tools/video.mjs` (needs ffmpeg; run `npm run build` first).
