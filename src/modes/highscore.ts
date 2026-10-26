@@ -13,7 +13,7 @@
 import type { Game } from '../game.ts';
 import { ModeBase, ModeOpts } from './base.ts';
 import type { DirectorContext } from '../chaos/director.ts';
-import { H, W, PAL, backdrop, glow, rect, bar, hearts, clamp } from '../render/gfx.ts';
+import { H, W, PAL, backdrop, glow, rect, bar, hearts, clamp, bulletShape } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { drawCass, drawHighScore } from '../render/actors.ts';
 import { HIGHSCORE_DEFEAT, HIGHSCORE_INTRO } from '../data/story.ts';
@@ -531,6 +531,7 @@ export class HighScoreMode extends ModeBase {
 
   private drawBullet(ctx: CanvasRenderingContext2D, b: Bullet): void {
     glow(ctx, b.x, b.y, 7, GLOWS[b.hue], 0.5);
+    if (this.game.settings.shapes) return bulletShape(ctx, b.x, b.y, b.hue, HUES[b.hue]);
     rect(ctx, b.x - 2, b.y - 2, 5, 5, HUES[b.hue]);
     rect(ctx, b.x - 1, b.y - 1, 3, 3, '#ffffff');
   }

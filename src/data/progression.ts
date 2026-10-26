@@ -63,6 +63,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'bolt_all', name: 'ROBOT MASTER', desc: 'Defeat all four robot masters in BOLT BRIGADE.' },
   { id: 'bolt_fortress', name: 'FORTRESS BREAKER', desc: 'Clear the BOLT BRIGADE fortress.' },
   { id: 'secret_dash', name: 'WHO\'S A GOOD DOG', desc: 'Play DEMO DASH in the secret cabinet.' },
+  { id: 'rival_beaten', name: 'RIVAL BEATEN', desc: 'Beat a friend\'s score on a shared challenge link.' },
   { id: 'boss_highscore', name: 'NEW HIGH SCORE', desc: 'Defeat THE HIGH SCORE and complete the Manual.' },
   { id: 'perfect_score', name: 'PERFECT SCORE', desc: 'Defeat THE HIGH SCORE without being hit.' },
   { id: 'gauntlet', name: 'GAUNTLET RUNNER', desc: 'Win the whole BOSS GAUNTLET in one go.' },
@@ -92,6 +93,14 @@ export interface RunResult {
   /** Set on daily challenge runs (with the UTC date) and on runs started from a shared link. */
   challenge?: 'daily' | 'shared';
   dailyKey?: string;
+  /** The friend's score this shared run was chasing. */
+  beat?: number;
+  /** The seed of a shared run (a friend bonus pays once per seed and score). */
+  seed?: number;
+  /** False when the score is not comparable to a plain run on the same seed (endless, rush, perks, nightmare, rematch, ULTRA). */
+  comparable?: boolean;
+  /** A BLOCK PARTY ULTRA score attack: pays like a clear but never counts as clearing the world. */
+  ultra?: boolean;
   /** Set on a finished ENDLESS RUN: rounds cleared before falling (or banking). */
   endless?: { rounds: number };
 }
@@ -116,6 +125,8 @@ export interface RunSummary {
   weekly: string[];
   /** Title of today's lobby errand if this run finished it. */
   errand: string | null;
+  /** Result against a friend's score on a shared link: 'beat' (bonus paid) or 'missed'. */
+  friend: 'beat' | 'again' | 'missed' | null;
 }
 
 export function unlockAchievement(p: Profile, id: string, out: string[]): void {
@@ -125,12 +136,18 @@ export function unlockAchievement(p: Profile, id: string, out: string[]): void {
   }
 }
 
+/** Bits for beating a friend's score on a shared link. */
+export const FRIEND_BONUS = 40;
+/** How many beaten links the profile remembers (oldest forgotten first). */
+export const RIVALS_KEPT = 60;
+
 export function applyRun(profile: Profile, r: RunResult, today: string = weekKey(), day: string = dateKey()): { profile: Profile; summary: RunSummary } {
   const p: Profile = structuredCloneSafe(profile);
   const achievements: string[] = [];
   const levelBefore = p.level;
   // Failed runs still pay out partially: failure should be entertaining, not a wipe.
   // An ENDLESS RUN never "clears"; it pays more of its haul the further it got (full pay from round 5).
+  // ULTRA pays like a clear, but a win there is not "clearing the world" (no clear record, stars or quests).
   const pay = r.cleared ? 1 : r.endless ? Math.min(1, 0.5 + 0.1 * r.endless.rounds) : 0.5;
   const bits = Math.round(r.bits * r.bitMultiplier * pay);
   const xp = Math.round(r.xp * pay);
@@ -144,24 +161,26 @@ export function applyRun(profile: Profile, r: RunResult, today: string = weekKey
       newFloppies++;
     }
   }
+  const run: RunResult = r.ultra ? { ...r, cleared: false } : r;
+  if (r.ultra) p.ultraBest = Math.max(p.ultraBest, r.score);
   if (r.endless) {
     const e = p.endless[r.mode] ?? { rounds: 0, score: 0 };
     p.endless[r.mode] = { rounds: Math.max(e.rounds, r.endless.rounds), score: Math.max(e.score, r.score) };
     if (r.endless.rounds >= 5) unlockAchievement(p, 'endless5', achievements);
   }
   const rec = p.cleared[r.mode];
-  const firstClear = r.cleared && rec.clears === 0;
-  if (r.cleared) {
+  const firstClear = run.cleared && rec.clears === 0;
+  if (run.cleared) {
     rec.clears++;
     rec.bestScore = Math.max(rec.bestScore, r.score);
     rec.bestTime = rec.bestTime === 0 ? r.time : Math.min(rec.bestTime, r.time);
     unlockAchievement(p, 'first_clear', achievements);
-    if (r.damageTaken === 0) unlockAchievement(p, 'no_damage', achievements);
+    if (run.damageTaken === 0) unlockAchievement(p, 'no_damage', achievements);
   }
-  if (r.boss && r.cleared && !p.bossesDefeated.includes(r.boss)) p.bossesDefeated.push(r.boss);
-  if (r.boss && r.cleared) unlockAchievement(p, `boss_${r.boss}`, achievements);
+  if (run.boss && run.cleared && !p.bossesDefeated.includes(run.boss)) p.bossesDefeated.push(run.boss);
+  if (run.boss && run.cleared) unlockAchievement(p, `boss_${run.boss}`, achievements);
   if (['frostbyte', 'flarebot', 'sproutron', 'voltwire'].every((m) => p.bossesDefeated.includes(m))) unlockAchievement(p, 'bolt_all', achievements);
-  if (r.rematch && r.cleared) unlockAchievement(p, 'rematch', achievements);
+  if (run.rematch && run.cleared) unlockAchievement(p, 'rematch', achievements);
   for (const e of r.chaosSeen) if (!p.chaosEventsSeen.includes(e)) p.chaosEventsSeen.push(e);
   if (p.chaosEventsSeen.length >= 10) unlockAchievement(p, 'chaos10', achievements);
   for (const f of r.flags) unlockAchievement(p, f, achievements);
@@ -175,12 +194,25 @@ export function applyRun(profile: Profile, r: RunResult, today: string = weekKey
     }
   }
   // Quest rewards count toward level-based achievements, so settle them first.
-  const newStars = awardStars(p, r);
+  const newStars = awardStars(p, run);
   let dailyBonus = 0;
   let dailyStreak = 0;
-  if (r.challenge === 'daily' && r.dailyKey) ({ bonus: dailyBonus, streak: dailyStreak } = applyDailyResult(p, r.dailyKey, r.score, r.cleared));
+  if (r.challenge === 'daily' && r.dailyKey) ({ bonus: dailyBonus, streak: dailyStreak } = applyDailyResult(p, r.dailyKey, r.score, run.cleared));
   p.level = levelForXp(p.xp); // stars and the daily bonus add XP
-  const runEvent = { kind: 'run' as const, r, newFloppies, paidBits: bits, newStars: newStars.length };
+  const runEvent = { kind: 'run' as const, r: run, newFloppies, paidBits: bits, newStars: newStars.length };
+  // A friend's score on a shared link: beat it for a bonus.
+  let friend: RunSummary['friend'] = null;
+  if (r.challenge === 'shared' && r.beat) {
+    friend = r.cleared && r.score > r.beat ? 'beat' : 'missed';
+    const key = `${r.mode}-${r.seed ?? 0}-${r.beat}`;
+    // Each link pays once: replaying one (or editing the score in the URL) is not a bit farm.
+    if (friend === 'beat' && !p.rivalsBeaten.includes(key)) {
+      p.rivalsBeaten.push(key);
+      if (p.rivalsBeaten.length > RIVALS_KEPT) p.rivalsBeaten.shift();
+      p.bits += FRIEND_BONUS;
+      unlockAchievement(p, 'rival_beaten', achievements);
+    } else if (friend === 'beat') friend = 'again';
+  }
   const quests = advanceQuests(p, runEvent).map((q) => q.id);
   const weekly = advanceWeekly(p, runEvent, today, seasonPay(day));
   const errand = advanceErrand(p, runEvent, day)?.title ?? null;
@@ -195,7 +227,7 @@ export function applyRun(profile: Profile, r: RunResult, today: string = weekKey
     // Curses are opt-in: they arrive switched off.
     if (MUTATION_BY_ID.get(m)?.cursed) p.mutationsDisabled.push(m);
   }
-  return { profile: p, summary: { bits, xp, levelBefore, levelAfter: p.level, newFloppies, achievements, mutations: muts, firstClear, dailyBonus, dailyStreak, newStars, quests, weekly, errand } };
+  return { profile: p, summary: { bits, xp, levelBefore, levelAfter: p.level, newFloppies, achievements, mutations: muts, firstClear, dailyBonus, dailyStreak, newStars, quests, weekly, errand, friend } };
 }
 
 /** Weekly goals pay extra while the lobby is dressed for a season. */

@@ -10,7 +10,7 @@ import { drawText, wrap } from '../render/font.ts';
 import { drawByte, drawCass, drawCoreIcon, drawKevin, drawManual, drawPolygon, drawRex, drawDemo, PortraitId } from '../render/actors.ts';
 import { GAUNTLET_LEGS, INTRO, KEVIN_LINES, MODE_INFO, lockHint, POLYGON_INTRO, REX_LINES, manualLines, isModeUnlocked, ENDING, CAST, BOSSES } from '../data/story.ts';
 import { MODE_IDS, ModeId, ChaosCategory, TOTAL_FLOPPIES, xpForLevel } from '../core/save.ts';
-import { SHOP, ACHIEVEMENTS, unlockAchievement } from '../data/progression.ts';
+import { SHOP, ACHIEVEMENTS, FRIEND_BONUS, unlockAchievement } from '../data/progression.ts';
 import { QUESTS, MINIS, MiniId, secretCabinetOpen } from '../data/quests.ts';
 import { STARS, STAR_BITS, starCount } from '../data/mastery.ts';
 import { COSMETICS, buyOrEquip } from '../data/cosmetics.ts';
@@ -20,6 +20,10 @@ import { Giver, errandFor, errandView } from '../data/errands.ts';
 import { SWEEP_BITS, weekKey, weeklyFor, weeklyView } from '../data/weekly.ts';
 import { dateKey, dailyFor, currentStreak, challengeUrl, DAILY_BONUS } from '../data/daily.ts';
 import { Season, seasonFor } from '../data/season.ts';
+import { JUKEBOX, jukeboxChoice } from '../data/jukebox.ts';
+import type { TrackId } from '../audio/audio.ts';
+import { TITLES, activeTitle } from '../data/titles.ts';
+import { formatPlayTime, formatTime, worldRecords } from '../data/records.ts';
 import { MODIFIERS } from '../data/progression.ts';
 import { Rng, formatSeed } from '../core/rng.ts';
 import { startMini } from './arcade.ts';
@@ -76,6 +80,7 @@ export class HubScene implements Scene {
     this.things.push({ id: 'arcade', x: 292, y: 186, label: 'MINI-GAME ARCADE', r: 18 });
     this.things.push({ id: 'daily', x: 118, y: 196, label: 'DAILY CHALLENGE', r: 22 });
     this.things.push({ id: 'trophy', x: 330, y: 236, label: 'TROPHY CASE', r: 16 });
+    this.things.push({ id: 'jukebox', x: 345, y: 162, label: 'JUKEBOX', r: 16 });
     this.things.push({ id: 'rex', x: 150, y: 236, label: 'REX TURBO', r: 14 });
     this.things.push({ id: 'dash', x: 462, y: 192, label: 'SECRET CABINET', r: 16, visible: () => secretCabinetOpen(this.game.profile) });
     this.things.push({ id: 'kevin', x: 0, y: 112, label: 'KEVIN FROM QA', r: 14 });
@@ -92,7 +97,7 @@ export class HubScene implements Scene {
 
   enter(): void {
     const p = this.game.profile;
-    this.game.music(this.season?.track ?? (p.endingSeen ? 'ending' : 'hub'));
+    this.game.music(this.lobbyTrack());
     if (this.season) {
       const seen = `${this.season.id}-${new Date().getUTCFullYear()}`;
       if (p.seasonSeen !== seen) {
@@ -254,6 +259,7 @@ export class HubScene implements Scene {
       ...(this.game.profile.bossesDefeated.includes('highscore') ? [{ label: 'BOSS GAUNTLET', sub: 'BRICKLORD MAX, DJ STATIC, the keeper in OVERTIME, then THE HIGH SCORE, with health carried over. Pays double bits.', color: '#ffcf3f', onSelect: () => { this.menu = null; this.game.startMode('beatdown', { rematch: true, rush: { leg: 1, legs: GAUNTLET_LEGS } }); } }] : []),
       { label: 'DAILY CHALLENGE', sub: 'A new seeded run every day, with a streak bonus and a shareable link.', onSelect: () => this.dailyMenu() },
       { label: 'QUEST BOARD', sub: 'Your quests and rewards.', onSelect: () => this.questMenu() },
+      { label: 'RECORDS & TITLES', value: () => activeTitle(this.game.profile).name, sub: 'Your best runs in every world, your stats, and the title you wear on results and share cards.', onSelect: () => this.recordsMenu() },
       { label: 'MINI-GAME ARCADE', sub: 'Five quick games that pay bits.', onSelect: () => this.arcadeMenu() },
       { label: 'RESUME', onSelect: () => (this.menu = null) },
       ...(this.game.profile.tutorial.done ? [] : [{ label: 'SKIP TOUR', sub: 'Hide the first-visit tour hints.', onSelect: () => { this.game.profile.tutorial.done = true; this.save(); this.menu = null; } }]),
@@ -301,6 +307,7 @@ export class HubScene implements Scene {
       case 'lab': return this.labMenu();
       case 'shrine': return this.shrineMenu();
       case 'trophy': return this.trophyMenu();
+      case 'jukebox': return this.jukeboxMenu();
       case 'quests': return this.questMenu();
       case 'daily': return this.dailyMenu();
       case 'arcade': return this.arcadeMenu();
@@ -407,6 +414,7 @@ export class HubScene implements Scene {
       const e = p.endless[mode];
       items.push({ label: 'ENDLESS RUN', value: () => (e ? `BEST ${e.rounds} ROUND${e.rounds === 1 ? '' : 'S'}` : 'NEW'), sub: 'Round after round on fresh seeds, a bit tougher each time. Heal 1 heart between rounds; pause to bank your haul. Pays more the further you get.', color: '#ff6f3f', onSelect: () => { this.menu = null; this.game.startMode(mode, { endless: { round: 1 } }); } });
     }
+    if (mode === 'blocks' && rec.clears) items.push({ label: 'ULTRA (2:00 SCORE ATTACK)', value: () => (p.ultraBest ? `BEST ${p.ultraBest}` : 'NEW'), sub: 'Two minutes on the clock. Reach the target score to win and be paid in full. No disks, no world clear, just points.', color: '#ffcf3f', onSelect: () => { this.menu = null; this.game.startMode(mode, { variant: 'ultra' }); } });
     if (p.endingSeen) items.push({ label: 'NIGHTMARE MODE', sub: 'One less heart, double damage, chaos cranked, bits pay double. For those who rebooted the Core.', color: '#ff3f6b', onSelect: () => { this.menu = null; this.game.startMode(mode, { nightmare: true }); } });
     items.push({ label: `BEST ${rec.bestScore}  CLEARS ${rec.clears}`, value: () => `DISKS ${floppies}`, disabled: true });
     const have = new Set(p.stars[mode] ?? []);
@@ -818,6 +826,121 @@ export class HubScene implements Scene {
     this.menu.index = actions.length ? items.length - 1 - actions.length : items.length - 1;
   }
 
+  /** What plays in the lobby: the jukebox pick, else the season's tune, else the usual music. */
+  private lobbyTrack(): TrackId {
+    const p = this.game.profile;
+    return jukeboxChoice(p) ?? this.season?.track ?? (p.endingSeen ? 'ending' : 'hub');
+  }
+
+  private jukeboxMenu(keep?: number): void {
+    const p = this.game.profile;
+    const s = this.game.settings;
+    const now = this.lobbyTrack();
+    const items: MenuItem[] = [
+      { label: 'MUSIC', value: () => (s.musicOn ? 'ON' : 'OFF'), sub: 'The soundtrack switch (M anywhere). The jukebox is silent while it is off.', onAdjust: () => { s.musicOn = !s.musicOn; this.game.saveSettings(); }, onSelect: () => { s.musicOn = !s.musicOn; this.game.saveSettings(); } },
+      { label: 'AUTO', value: () => (p.jukebox === '' || jukeboxChoice(p) === null ? '\u25b6 ON' : ''), sub: 'The lobby\'s usual music, with the season\'s tune when there is one.', onSelect: () => { p.jukebox = ''; this.save(); this.game.music(this.lobbyTrack()); this.jukeboxMenu(this.menu?.index); } },
+      ...JUKEBOX.map((t) => {
+        const got = t.test(p);
+        return {
+          label: got ? t.name : '???',
+          value: () => (got && now === t.id && jukeboxChoice(p) === t.id ? '\u25b6 PLAYING' : ''),
+          sub: got ? 'Select to play it in the lobby.' : `LOCKED. ${t.hint}`,
+          color: got ? '#ddd' : '#666',
+          onSelect: got ? () => { p.jukebox = t.id; this.save(); this.game.music(t.id); this.game.audio.sfx('select'); this.jukeboxMenu(this.menu?.index); } : undefined,
+        };
+      }),
+      { label: 'BACK', onSelect: () => (this.menu = null) },
+    ];
+    this.menu = new ListMenu(`JUKEBOX \u2014 ${JUKEBOX.filter((t) => t.test(p)).length}/${JUKEBOX.length} TRACKS`, items, () => (this.menu = null), { x: 60, y: 20, w: 360, rows: 12, accent: '#ff3fd2' });
+    if (keep !== undefined) this.menu.index = Math.min(keep, items.length - 1);
+  }
+
+  private drawJukebox(ctx: CanvasRenderingContext2D): void {
+    const x = 345, y = 162, t = this.t;
+    const s = this.game.settings;
+    const on = s.musicOn && !s.muted;
+    rect(ctx, x - 14, y - 2, 28, 4, 'rgba(0,0,0,0.35)');
+    // cabinet body with a rounded top
+    rect(ctx, x - 12, y - 30, 24, 30, '#3a1050');
+    rect(ctx, x - 10, y - 34, 20, 4, '#3a1050');
+    rect(ctx, x - 7, y - 37, 14, 3, '#3a1050');
+    rect(ctx, x - 12, y - 30, 24, 2, '#ff3fd2');
+    // glowing window with colour bars that dance while music plays
+    rect(ctx, x - 8, y - 29, 16, 15, '#120420');
+    for (let i = 0; i < 4; i++) {
+      const h = on ? 3 + Math.floor((Math.sin(t * 6 + i * 1.7) * 0.5 + 0.5) * 9) : 3;
+      rect(ctx, x - 7 + i * 4, y - 15 - h, 3, h, ['#3fe0ff', '#7dff6b', '#ffcf3f', '#ff3fa4'][i]);
+    }
+    // record slot and buttons
+    rect(ctx, x - 8, y - 11, 16, 3, '#222');
+    rect(ctx, x - 5, y - 10, 10, 1, '#ffcf3f');
+    rect(ctx, x - 8, y - 6, 3, 3, '#ff3f3f');
+    rect(ctx, x + 5, y - 6, 3, 3, '#3fe0ff');
+    glow(ctx, x, y - 20, 36, '255,63,210', on ? 0.22 + Math.sin(t * 4) * 0.06 : 0.1);
+    // notes drift up while it plays (no allocation: positions come from the clock)
+    if (on) {
+      for (let i = 0; i < 3; i++) {
+        const k = (t * 0.6 + i / 3) % 1;
+        drawText(ctx, i % 2 ? '\u266b' : '\u266a', x + Math.sin(k * 6 + i) * 8 + (i - 1) * 8, y - 40 - k * 22, i === 1 ? '#3fe0ff' : '#ff3fd2', { align: 'center', shadow: null });
+      }
+    }
+    drawText(ctx, 'JUKEBOX', x, y + 4, '#ff3fd2', { align: 'center' });
+  }
+
+  private recordsMenu(keep?: number): void {
+    const p = this.game.profile;
+    const back = () => this.openPauseMenu();
+    const items: MenuItem[] = [
+      { label: 'TITLE', value: () => activeTitle(p).name, sub: 'Pick which earned title you wear.', color: '#ffcf3f', onSelect: () => this.titleMenu() },
+      { label: 'PLAY TIME', value: () => formatPlayTime(p.playTime), disabled: true },
+      { label: 'RUNS STARTED', value: () => String(p.runsStarted), disabled: true },
+      { label: 'DAILY STREAK', value: () => `${currentStreak(p.daily, dateKey())} DAYS`, disabled: true },
+      { label: 'LEVEL', value: () => String(p.level), disabled: true },
+      { label: '— BEST RUNS —', disabled: true },
+      ...worldRecords(p).map((r) => {
+        const info = MODE_INFO[r.mode];
+        const rows: Array<[string, string]> = [
+          ['CLEARS', String(r.clears)],
+          ['BEST SCORE', String(r.bestScore)],
+          ['BEST TIME', formatTime(r.bestTime)],
+          ['STARS', `${r.stars}/3`],
+          ['ENDLESS BEST', r.endlessRounds ? `${r.endlessRounds} ROUNDS` : '--'],
+          ['FLOPPIES', `${r.floppies}/3`],
+        ];
+        return {
+          label: info.title,
+          value: () => (r.clears ? `${r.bestScore}  ${'\u2605'.repeat(r.stars)}${'\u2606'.repeat(3 - r.stars)}` : 'NOT CLEARED'),
+          color: r.clears ? info.color : '#777',
+          sub: rows.map(([k, v]) => `${k} ${v}`).join('   '),
+          onSelect: () => this.card(info.title, 'Your records for this world.', (at) => this.recordsMenu(at), rows),
+        };
+      }),
+      { label: 'BACK', onSelect: back },
+    ];
+    this.menu = new ListMenu('RECORDS', items, back, { x: 40, y: 20, w: 400, rows: 13, accent: '#3fe0ff' });
+    if (keep !== undefined) this.menu.index = Math.min(keep, items.length - 1);
+  }
+
+  private titleMenu(): void {
+    const p = this.game.profile;
+    const worn = activeTitle(p).id;
+    const items: MenuItem[] = [
+      { label: (p.title === '' ? '\u25b6 ' : '') + 'AUTO', sub: 'Wear the newest title you have earned.', color: p.title === '' ? '#ffcf3f' : '#ddd', onSelect: () => { p.title = ''; this.save(); this.game.audio.sfx('select'); this.titleMenu(); } },
+      ...TITLES.map((t) => {
+        const got = t.test(p);
+        return {
+          label: (t.id === p.title && t.id === worn ? '\u25b6 ' : '') + (got ? t.name : '???'),
+          sub: got ? t.desc : `LOCKED: ${t.desc}`,
+          color: got ? (t.id === p.title && t.id === worn ? '#ffcf3f' : '#ddd') : '#666',
+          onSelect: got ? () => { p.title = t.id; this.save(); this.game.audio.sfx('select'); this.titleMenu(); } : undefined,
+        };
+      }),
+      { label: 'BACK', onSelect: () => this.recordsMenu(0) },
+    ];
+    this.menu = new ListMenu('TITLES', items, () => this.recordsMenu(0), { x: 60, y: 20, w: 360, rows: 13, accent: '#ffcf3f' });
+    this.menu.index = p.title === '' ? 0 : Math.max(0, TITLES.findIndex((t) => t.id === worn) + 1);
+  }
+
   private trophyMenu(keep?: number): void {
     const p = this.game.profile;
     const items: MenuItem[] = [
@@ -961,8 +1084,8 @@ export class HubScene implements Scene {
     if (shared && isModeUnlocked(shared.mode, p.cleared)) {
       items.push({
         label: `FRIEND'S CHALLENGE: ${MODE_INFO[shared.mode].title} #${formatSeed(shared.seed)}`,
-        sub: 'From the link you opened. Same run as whoever sent it.',
-        onSelect: () => { this.menu = null; this.game.startMode(shared.mode, { seed: shared.seed }); },
+        sub: shared.beat ? `From the link you opened: the same run, and your friend scored ${shared.beat}. Beat it for ${FRIEND_BONUS} bits.` : 'From the link you opened. Same run as whoever sent it.',
+        onSelect: () => { this.menu = null; this.game.startMode(shared.mode, { seed: shared.seed, beat: shared.beat }); },
       });
     }
     items.push({ label: 'BACK', onSelect: () => (this.menu = null) });
@@ -1046,6 +1169,7 @@ export class HubScene implements Scene {
     this.drawSecretCabinet(ctx);
     this.drawDailySign(ctx);
     this.drawMiniCabinet(ctx);
+    this.drawJukebox(ctx);
     this.drawStation(ctx, 440, 140, 'LAB', '#ff3fd2');
     this.drawStation(ctx, 40, 140, 'SHRINE', '#ff3fa4');
     rect(ctx, 316, 222, 28, 22, '#3a2a10');

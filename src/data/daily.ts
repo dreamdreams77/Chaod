@@ -54,6 +54,8 @@ export function currentStreak(d: DailyRecord, today: string): number {
 export interface Challenge {
   mode: ModeId;
   seed: number;
+  /** A friend's score on this seed: beat it for a bonus. */
+  beat?: number;
 }
 
 /** Reads `?seed=123456&mode=neon` from a URL query string; null if absent or malformed. */
@@ -62,11 +64,13 @@ export function parseChallenge(search: string): Challenge | null {
   const seed = q.get('seed');
   const mode = q.get('mode');
   if (!seed || !/^\d{1,6}$/.test(seed) || !mode || !(MODE_IDS as string[]).includes(mode)) return null;
-  return { mode: mode as ModeId, seed: Number(seed) };
+  const beat = q.get('beat');
+  const target = beat && /^\d{1,9}$/.test(beat) && Number(beat) > 0 ? Number(beat) : undefined;
+  return target === undefined ? { mode: mode as ModeId, seed: Number(seed) } : { mode: mode as ModeId, seed: Number(seed), beat: target };
 }
 
 export function challengeUrl(base: string, c: Challenge): string {
-  return `${base}?seed=${c.seed.toString().padStart(6, '0')}&mode=${c.mode}`;
+  return `${base}?seed=${c.seed.toString().padStart(6, '0')}&mode=${c.mode}${c.beat && Math.floor(c.beat) > 0 ? `&beat=${Math.floor(c.beat)}` : ''}`;
 }
 
 /** Records a finished daily run on the profile (mutating it); returns the bonus paid, if any. */

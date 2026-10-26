@@ -11,7 +11,7 @@ import type { Game } from '../game.ts';
 import { ModeBase, ModeOpts } from './base.ts';
 import type { DirectorContext } from '../chaos/director.ts';
 import { FIELD, GOAL, GOALS_TO_WIN, PatternId, PitchPlan, Pickup, generatePitch } from '../procgen/pitch.ts';
-import { H, W, PAL, glow, rect, bar, hearts, clamp, approach } from '../render/gfx.ts';
+import { H, W, PAL, glow, rect, bar, hearts, clamp, approach, bulletShape } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { drawCass } from '../render/actors.ts';
 import type { Rng } from '../core/rng.ts';
@@ -671,6 +671,7 @@ export class PenaltyMode extends ModeBase {
   private drawBullet(ctx: CanvasRenderingContext2D, b: Bullet): void {
     const c = HUES[b.hue];
     glow(ctx, b.x, b.y, 7, b.hue === 0 ? '255,159,63' : b.hue === 1 ? '255,63,210' : '63,224,255', 0.5);
+    if (this.game.settings.shapes) return bulletShape(ctx, b.x, b.y, b.hue, c);
     rect(ctx, b.x - 2, b.y - 2, 5, 5, c);
     rect(ctx, b.x - 1, b.y - 1, 3, 3, '#ffffff');
   }

@@ -1,5 +1,5 @@
 import type { Game, Scene } from '../game.ts';
-import { RunResult, RunSummary, applyRun, ACHIEVEMENTS } from '../data/progression.ts';
+import { RunResult, RunSummary, applyRun, ACHIEVEMENTS, FRIEND_BONUS } from '../data/progression.ts';
 import { MUTATION_BY_ID } from '../fusion/registry.ts';
 import { MODE_INFO } from '../data/story.ts';
 import { formatSeed } from '../core/rng.ts';
@@ -9,6 +9,7 @@ import { xpForLevel } from '../core/save.ts';
 import { QUEST_BY_ID } from '../data/quests.ts';
 import { STARS, STAR_BITS } from '../data/mastery.ts';
 import { buildCard, shareCard } from '../core/share.ts';
+import { activeTitle, unlockedTitles } from '../data/titles.ts';
 import { WEEKLY_BY_ID } from '../data/weekly.ts';
 
 export function showResults(game: Game, result: RunResult, seed: number): void {
@@ -16,6 +17,8 @@ export function showResults(game: Game, result: RunResult, seed: number): void {
   const { profile, summary } = applyRun(before, result);
   game.profile = profile;
   game.saveProfile();
+  const had = new Set(unlockedTitles(before).map((t) => t.id));
+  for (const t of unlockedTitles(profile)) if (!had.has(t.id)) game.toast('NEW TITLE', t.name, '#ffcf3f');
   game.goto(new ResultsScene(game, result, summary, seed));
 }
 
@@ -47,7 +50,7 @@ class ResultsScene implements Scene {
     if (this.sharing) return;
     this.sharing = true;
     this.game.audio.sfx('card');
-    const card = buildCard(this.r, this.seed, this.game.profile, `${location.origin}${location.pathname}`);
+    const card = buildCard(this.r, this.seed, this.game.profile, `${location.origin}${location.pathname}`, activeTitle(this.game.profile).name);
     void shareCard(card, this.game.profile.level).then((res) => {
       this.sharing = false;
       if (res === 'shared') this.game.toast('SHARED', 'NICE RUN!', '#3fe0ff');
@@ -100,12 +103,15 @@ class ResultsScene implements Scene {
     const info = MODE_INFO[this.r.mode];
     drawText(ctx, info.title, W / 2, 18, info.color, { align: 'center', scale: 2 });
     const endless = this.r.endless;
-    const head = endless ? `ENDLESS: ${endless.rounds} ROUND${endless.rounds === 1 ? '' : 'S'}` : this.r.cleared ? (this.r.boss ? 'BOSS DEFEATED!' : 'WORLD CLEARED!') : 'GAME OVER... SORT OF';
+    const head = endless ? `ENDLESS: ${endless.rounds} ROUND${endless.rounds === 1 ? '' : 'S'}` : this.r.ultra ? (this.r.cleared ? 'TARGET HIT!' : 'ULTRA OVER') : this.r.cleared ? (this.r.boss ? 'BOSS DEFEATED!' : 'WORLD CLEARED!') : 'GAME OVER... SORT OF';
     drawText(ctx, head, W / 2, 42, this.r.cleared || endless ? '#7dff6b' : '#ff6f3f', { align: 'center', scale: 2 });
     if (endless) {
       const best = this.game.profile.endless[this.r.mode];
       const bestRounds = best?.rounds ?? 0;
       drawText(ctx, `BEST: ${bestRounds} ROUND${bestRounds === 1 ? '' : 'S'}.  ${endless.rounds >= 5 ? 'FULL PAYOUT!' : 'GO FIVE ROUNDS FOR THE FULL PAYOUT.'}`, W / 2, 62, '#ccc', { align: 'center' });
+    } else if (this.r.ultra) {
+      const best = this.game.profile.ultraBest;
+      drawText(ctx, `ULTRA BEST: ${best}.${this.r.cleared ? '' : '  Half pay: reach the target score for full pay.'}`, W / 2, 62, '#ccc', { align: 'center' });
     } else if (!this.r.cleared) drawText(ctx, 'You keep half your bits and XP. Failure is just a genre.', W / 2, 62, '#ccc', { align: 'center' });
 
     frame(ctx, 60, 76, W - 120, 132, '#1d1233ee', '#3fe0ff');
@@ -118,6 +124,7 @@ class ResultsScene implements Scene {
       ['CHAOS EVENTS', `${this.r.chaosSeen.length}`, '#ff3fa4'],
       ['SEED', formatSeed(this.seed), '#b07aff'],
     ];
+    if (this.s.friend) rows.splice(3, 0, ['FRIEND\'S SCORE', this.s.friend === 'beat' ? `${this.r.beat} \u2014 BEATEN! +${FRIEND_BONUS} BITS` : this.s.friend === 'again' ? `${this.r.beat} \u2014 BEATEN (PAID BEFORE)` : `${this.r.beat} \u2014 NOT YET`, this.s.friend === 'missed' ? '#9a9ab8' : '#7dff6b']);
     if (this.s.dailyBonus > 0) rows.splice(3, 0, ['DAILY BONUS', `+${this.s.dailyBonus} BITS  (STREAK ${this.s.dailyStreak})`, '#ffcf3f']);
     else if (this.r.challenge === 'daily') rows.splice(3, 0, ['DAILY', this.r.cleared ? 'ALREADY CLEARED TODAY' : 'CLEAR IT FOR THE BONUS', '#9a9ab8']);
     const gap = rows.length > 7 ? 11 : 12;
@@ -131,6 +138,7 @@ class ResultsScene implements Scene {
     const lo = xpForLevel(prof.level);
     const hi = xpForLevel(prof.level + 1);
     drawText(ctx, `LV ${prof.level}`, 76, 176, '#7dff6b');
+    drawText(ctx, activeTitle(prof).name, W - 76, 176, '#ffcf3f', { align: 'right' });
     bar(ctx, 116, 177, 200, 5, (prof.xp - lo) / Math.max(1, hi - lo), '#7dff6b', '#102010', '#ffffff55');
     drawText(ctx, `${prof.bits} BITS TOTAL`, 76, 190, '#ffcf3f');
     if (this.s.achievements.length) {

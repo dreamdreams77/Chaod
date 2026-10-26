@@ -800,9 +800,10 @@ test('share cards say what happened and link worlds, not the final boss', () => 
   const r = { mode: 'neon' as ModeId, cleared: true, score: 1234, time: 88.4, bits: 0, xp: 0, floppies: [], damageTaken: 2, flags: [], chaosSeen: ['a', 'b'], bitMultiplier: 1 };
   const p = defaultProfile();
   p.stars.neon = ['clean', 'fast'];
-  const c = buildCard(r, 4321, p, 'https://x.test/play');
+  const c = buildCard(r, 4321, p, 'https://x.test/play', 'ROOKIE TESTER');
+  assert.equal(c.player, 'ROOKIE TESTER');
   assert.equal(c.headline, 'WORLD CLEARED');
-  assert.equal(c.link, 'https://x.test/play?seed=004321&mode=neon');
+  assert.equal(c.link, 'https://x.test/play?seed=004321&mode=neon&beat=1234', 'the link carries the score to beat');
   assert.ok(c.text.includes('1234') && c.text.includes(c.link));
   assert.ok(c.rows.some(([k, v]) => k === 'MASTERY' && v === '★★☆'));
   const e = buildCard({ ...r, cleared: false, endless: { rounds: 1 } }, 5, p, 'https://x.test/play');
@@ -810,6 +811,11 @@ test('share cards say what happened and link worlds, not the final boss', () => 
   const hs = buildCard({ ...r, mode: 'highscore' as ModeId, boss: 'highscore' }, 5, p, 'https://x.test/play');
   assert.equal(hs.link, '', 'the final boss has no seed link');
   assert.equal(hs.headline, 'BOSS DEFEATED');
+  assert.equal(buildCard({ ...r, comparable: false }, 4321, p, 'https://x.test/play').link, 'https://x.test/play?seed=004321&mode=neon', 'an incomparable score is not set as the one to beat');
+  assert.equal(buildCard({ ...r, cleared: false, endless: { rounds: 3 } }, 4321, p, 'https://x.test/play').link.includes('beat='), false);
+  const ultra = buildCard({ ...r, mode: 'blocks' as ModeId, ultra: true }, 5, p, 'https://x.test/play');
+  assert.equal(ultra.link, '', 'an ULTRA run has no replay link');
+  assert.equal(ultra.headline, 'ULTRA TARGET HIT');
 });
 
 test('old saves skip the lobby tour; new ones get it; loadouts and errand state are validated', () => {
@@ -821,4 +827,112 @@ test('old saves skip the lobby tour; new ones get it; loadouts and errand state 
   assert.deepEqual(p.loadouts, [{ name: 'MY BUILD IS ', on: ['a', 'b'] }, null, null]);
   assert.deepEqual(p.errand, { key: '2026-11-05', progress: 0, done: false, asked: true, thanked: false });
   assert.equal(p.seasonSeen, '');
+});
+
+// ---- 3.3.0: friend scores, records, titles, ULTRA ---------------------------------------------
+
+test('challenge links carry a score to beat, and junk scores are dropped', async () => {
+  const { parseChallenge, challengeUrl } = await import('../src/data/daily.ts');
+  const url = challengeUrl('https://x.test/Chaod/', { mode: 'blocks', seed: 7, beat: 4200 });
+  assert.equal(url, 'https://x.test/Chaod/?seed=000007&mode=blocks&beat=4200');
+  assert.deepEqual(parseChallenge(url.slice(url.indexOf('?'))), { mode: 'blocks', seed: 7, beat: 4200 });
+  assert.equal(challengeUrl('https://x.test/', { mode: 'neon', seed: 1, beat: 0.5 }), 'https://x.test/?seed=000001&mode=neon', 'a score that rounds to zero is left out');
+  for (const bad of ['&beat=0', '&beat=-3', '&beat=abc', '&beat=1234567890', '&beat=1e3']) {
+    assert.deepEqual(parseChallenge(`?seed=7&mode=blocks${bad}`), { mode: 'blocks', seed: 7 }, bad);
+  }
+});
+
+test('beating a friend\'s score pays a bonus once per run and earns RIVAL BEATEN; missing it pays nothing extra', () => {
+  const day = ['2026-03-02', '2026-03-03'] as const;
+  const won = applyRun(defaultProfile(), run({ challenge: 'shared', beat: 900, score: 1000, seed: 7 }), ...day);
+  assert.equal(won.summary.friend, 'beat');
+  assert.ok(won.summary.achievements.includes('rival_beaten'));
+  const plain = applyRun(defaultProfile(), run({ challenge: 'shared', score: 1000 }), ...day);
+  assert.equal(plain.summary.friend, null);
+  assert.equal(won.profile.bits - plain.profile.bits, 40);
+  const lost = applyRun(defaultProfile(), run({ challenge: 'shared', beat: 1000, score: 1000 }), ...day);
+  assert.equal(lost.summary.friend, 'missed', 'a tie is not a win');
+  assert.equal(lost.profile.bits, plain.profile.bits);
+  const daily = applyRun(defaultProfile(), run({ challenge: 'daily', beat: 1, score: 5 }), ...day);
+  assert.equal(daily.summary.friend, null, 'only shared links have a friend');
+  // The same link pays once; a loss never pays; the memory is bounded.
+  const again = applyRun(won.profile, run({ challenge: 'shared', beat: 900, score: 1200, seed: 7 }), ...day);
+  assert.equal(again.summary.friend, 'again');
+  assert.equal(again.profile.bits - won.profile.bits, 100, 'only the run itself pays, no second bonus');
+  const loss = applyRun(defaultProfile(), run({ challenge: 'shared', beat: 1, score: 50, seed: 8, cleared: false }), ...day);
+  assert.equal(loss.summary.friend, 'missed', 'a lost run cannot claim the bonus');
+  let p = defaultProfile();
+  for (let i = 0; i < 80; i++) p = applyRun(p, run({ challenge: 'shared', beat: 10, score: 99, seed: i }), ...day).profile;
+  assert.equal(p.rivalsBeaten.length, 60);
+});
+
+test('titles unlock from progress, fall back when unearned, and survive a bad save', async () => {
+  const { TITLES, activeTitle, unlockedTitles } = await import('../src/data/titles.ts');
+  assert.equal(new Set(TITLES.map((t) => t.id)).size, TITLES.length, 'ids are unique');
+  assert.ok(TITLES.every((t) => t.name.length <= 16), 'names fit the menus');
+  const p = defaultProfile();
+  assert.deepEqual(unlockedTitles(p).map((t) => t.id), ['rookie']);
+  p.title = 'gold';
+  assert.equal(activeTitle(p).id, 'rookie', 'an unearned choice falls back');
+  p.title = '';
+  for (const m of MODE_IDS) p.cleared[m].clears = 1;
+  p.floppies = Array.from({ length: 12 }, (_, i) => `f${i}`);
+  const got = unlockedTitles(p).map((t) => t.id);
+  assert.ok(got.includes('hopper') && got.includes('fluid') && got.includes('jockey'));
+  p.title = 'fluid';
+  assert.equal(activeTitle(p).id, 'fluid');
+  p.title = '';
+  assert.equal(activeTitle(p).id, TITLES.filter((t) => t.test(p)).pop()!.id, 'AUTO wears the newest earned title');
+  assert.equal(migrateProfile({ title: 5 }).title, '');
+  assert.deepEqual(migrateProfile({ rivalsBeaten: ['a', 3, 'x'.repeat(80)] }).rivalsBeaten, ['a']);
+  assert.equal(migrateProfile({ title: 'x'.repeat(50) }).title.length, 16);
+});
+
+test('records gather per-world numbers and format times', async () => {
+  const { worldRecords, formatTime, formatPlayTime } = await import('../src/data/records.ts');
+  const p = defaultProfile();
+  p.cleared.neon = { clears: 2, bestScore: 900, bestTime: 75.25 };
+  p.floppies = ['neon-0', 'neon-2', 'mall-1'];
+  p.endless.neon = { rounds: 4, score: 100 };
+  const recs = worldRecords(p);
+  assert.equal(recs.length, 10, 'every world, the final boss included');
+  const n = recs.find((r) => r.mode === 'neon')!;
+  assert.deepEqual([n.clears, n.bestScore, n.floppies, n.endlessRounds], [2, 900, 2, 4]);
+  assert.equal(formatTime(75.5), '1:15.5');
+  assert.equal(formatTime(0), '--:--');
+  assert.equal(formatTime(5), '0:05.0');
+  assert.equal(formatPlayTime(59), '0M');
+  assert.equal(formatPlayTime(3 * 3600 + 120), '3H 2M');
+});
+
+test('ULTRA pays like a clear but never counts as clearing the world', () => {
+  const r = run({ mode: 'blocks' as ModeId, ultra: true, cleared: true, score: 4000, floppies: [], bits: 100 });
+  const { profile, summary } = applyRun(defaultProfile(), r, '2026-03-02', '2026-03-03');
+  assert.equal(summary.bits, 100, 'full pay for hitting the target');
+  assert.equal(profile.cleared.blocks.clears, 0);
+  assert.equal(summary.firstClear, false);
+  assert.equal(profile.ultraBest, 4000);
+  const worse = applyRun(profile, { ...r, score: 100, cleared: false }, '2026-03-02', '2026-03-03');
+  assert.equal(worse.profile.ultraBest, 4000, 'the best only goes up');
+  assert.equal(worse.summary.bits, 50, 'missing the target pays half');
+  assert.equal(migrateProfile({ ultraBest: -4 }).ultraBest, 0);
+});
+
+test('jukebox: every track is listed once and exists, unlocks come from play, a locked pick falls back to the lobby music', async () => {
+  const { JUKEBOX, jukeboxChoice } = await import('../src/data/jukebox.ts');
+  const { TRACKS } = await import('../src/audio/audio.ts');
+  assert.equal(new Set(JUKEBOX.map((t) => t.id)).size, JUKEBOX.length);
+  for (const t of JUKEBOX) assert.ok(t.id in TRACKS, `${t.id} is a real track`);
+  const used = new Set<string>(JUKEBOX.map((t) => t.id));
+  for (const id of Object.keys(TRACKS)) assert.ok(used.has(id) || id === 'none', `${id} is on the jukebox`);
+  assert.ok(JUKEBOX.every((t) => t.test(defaultProfile()) || t.hint.length > 0), 'locked tracks say how to unlock');
+  const p = defaultProfile();
+  assert.equal(jukeboxChoice(p), null);
+  p.jukebox = 'blocks';
+  assert.equal(jukeboxChoice(p), null, 'locked until the world is cleared');
+  p.cleared.blocks.clears = 1;
+  assert.equal(jukeboxChoice(p), 'blocks');
+  p.jukebox = 'nope';
+  assert.equal(jukeboxChoice(p), null);
+  assert.equal(migrateProfile({ jukebox: 7 }).jukebox, '');
 });

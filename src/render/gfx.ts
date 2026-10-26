@@ -243,6 +243,42 @@ export function glow(ctx: CanvasRenderingContext2D, x: number, y: number, radius
   ctx.globalCompositeOperation = 'source-over';
 }
 
+/**
+ * CLEAR SHAPES (accessibility): a dark pattern on a block cell, one per colour index, so pieces
+ * can be told apart without relying on hue. `size` is the cell's inner width.
+ */
+export function cellPattern(ctx: CanvasRenderingContext2D, px: number, py: number, size: number, color: number): void {
+  const m = 'rgba(0,0,0,0.55)';
+  const c = Math.floor(size / 2);
+  switch (color) {
+    case 2: rect(ctx, px + 2, py + c - 1, size - 4, 2, m); break; // horizontal bar
+    case 3: rect(ctx, px + c - 1, py + 2, 2, size - 4, m); break; // vertical bar
+    case 4: rect(ctx, px + c - 1, py + c - 1, 3, 3, m); break; // dot
+    case 5: for (let i = 2; i < size - 2; i += 2) rect(ctx, px + i, py + i, 2, 2, m); break; // diagonal
+    case 6: rect(ctx, px + 2, py + c - 1, size - 4, 2, m); rect(ctx, px + c - 1, py + 2, 2, size - 4, m); break; // plus
+    case 7: rect(ctx, px + 2, py + 2, size - 4, 1, m); rect(ctx, px + 2, py + size - 3, size - 4, 1, m); rect(ctx, px + 2, py + 2, 1, size - 4, m); rect(ctx, px + size - 3, py + 2, 1, size - 4, m); break; // ring
+    case 8: for (let y = 2; y < size - 2; y += 4) for (let x = 2 + (y % 8 === 2 ? 0 : 2); x < size - 2; x += 4) rect(ctx, px + x, py + y, 2, 2, m); break; // checker (garbage)
+    default: break; // colour 1 stays plain
+  }
+}
+
+/** CLEAR SHAPES: a bullet marker per hue (square, plus, diamond) drawn over the usual glow. */
+export function bulletShape(ctx: CanvasRenderingContext2D, x: number, y: number, hue: number, color: string): void {
+  if (hue === 1) {
+    rect(ctx, x - 1, y - 4, 3, 9, color);
+    rect(ctx, x - 4, y - 1, 9, 3, color);
+    rect(ctx, x - 1, y - 1, 3, 3, '#ffffff');
+  } else if (hue >= 2) {
+    rect(ctx, x - 1, y - 4, 3, 2, color);
+    rect(ctx, x - 3, y - 2, 7, 5, color);
+    rect(ctx, x - 1, y + 3, 3, 2, color);
+    rect(ctx, x - 1, y - 1, 3, 3, '#ffffff');
+  } else {
+    rect(ctx, x - 2, y - 2, 5, 5, color);
+    rect(ctx, x - 1, y - 1, 3, 3, '#ffffff');
+  }
+}
+
 export function rect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string): void {
   ctx.fillStyle = color;
   ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));

@@ -48,6 +48,10 @@ export interface ModeOpts {
   rematch?: boolean;
   /** Fixed seed (shared links and the daily challenge); also forces the seeded modifier. */
   seed?: number;
+  /** A friend's score to beat on a shared seed (from the link). */
+  beat?: number;
+  /** BLOCK PARTY's alternate rules: ULTRA is a two-minute score attack. */
+  variant?: 'ultra';
   /** UTC date key when this is the daily challenge. */
   daily?: string;
   /** NIGHTMARE mode (unlocked by the ending): harder, but bits pay double. */
@@ -176,7 +180,12 @@ export abstract class ModeBase implements Scene {
   abstract draw(ctx: CanvasRenderingContext2D): void;
 
   private roundAnnounced = false;
+  private beatAnnounced = false;
   tickShared(dt: number): void {
+    if (this.opts.beat && !this.beatAnnounced && !this.game.inDialog) {
+      this.beatAnnounced = true;
+      this.game.toast('FRIEND\'S CHALLENGE', `BEAT THEIR SCORE: ${this.opts.beat}`, '#3fe0ff');
+    }
     if (this.endlessRound && !this.roundAnnounced && !this.game.inDialog) {
       this.roundAnnounced = true;
       this.game.toast(`ENDLESS ROUND ${this.endlessRound}`, this.endlessRound === 1 ? 'HOW FAR CAN YOU GET?' : this.endlessRound >= 5 ? 'DOUBLE DAMAGE. GOOD LUCK.' : 'A LITTLE TOUGHER. +1 HEART.', '#ff6f3f');
@@ -296,6 +305,10 @@ export abstract class ModeBase implements Scene {
       rematch: this.opts.rematch,
       challenge: this.opts.daily ? 'daily' : this.opts.seed !== undefined ? 'shared' : undefined,
       dailyKey: this.opts.daily,
+      ultra: this.opts.variant === 'ultra' ? true : undefined,
+      seed: this.seed,
+      comparable: this.opts.endless || this.opts.rush || this.opts.perks?.length || this.opts.nightmare || this.opts.rematch || this.opts.variant ? false : undefined,
+      beat: this.opts.seed !== undefined && !this.opts.daily ? this.opts.beat : undefined,
       ...extra,
     };
     if (end) {
@@ -347,8 +360,9 @@ export abstract class ModeBase implements Scene {
 
   drawRunInfo(ctx: CanvasRenderingContext2D, x: number, y: number): void {
     drawText(ctx, `BITS ${this.runBits}`, x, y, '#ffcf3f');
-    drawText(ctx, `DISKS ${this.foundFloppies.length}/3`, x, y + 9, '#3fe0ff');
+    if (this.opts.variant !== 'ultra') drawText(ctx, `DISKS ${this.foundFloppies.length}/3`, x, y + 9, '#3fe0ff');
     if (this.endlessRound) drawText(ctx, `ENDLESS ROUND ${this.endlessRound}`, x, y + 27, '#ff6f3f');
+    if (this.opts.beat) drawText(ctx, `BEAT ${this.opts.beat}`, x, y + 45, '#3fe0ff');
     if (this.modifier) drawText(ctx, `MOD: ${this.modifier.name}`, x, y + 18, '#b07aff');
     if (this.perkList.length) drawText(ctx, `PERKS: ${this.perkList.map((p) => p.name).join(', ')}`.slice(0, 40), x, y + 36, '#7dff6b');
   }

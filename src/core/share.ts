@@ -22,12 +22,14 @@ export interface Card {
   link: string;
   /** One line for the share text. */
   text: string;
+  /** The title the player wears (data/titles.ts). */
+  player: string;
 }
 
-export function buildCard(r: RunResult, seed: number, p: Pick<Profile, 'stars' | 'level' | 'endless'>, base: string): Card {
+export function buildCard(r: RunResult, seed: number, p: Pick<Profile, 'stars' | 'level' | 'endless'>, base: string, player = ''): Card {
   const info = MODE_INFO[r.mode];
   const stars = starCount(p, r.mode);
-  const headline = r.endless ? `ENDLESS: ${r.endless.rounds} ROUND${r.endless.rounds === 1 ? '' : 'S'}` : r.cleared ? (r.boss ? 'BOSS DEFEATED' : 'WORLD CLEARED') : 'GAME OVER';
+  const headline = r.ultra ? (r.cleared ? 'ULTRA TARGET HIT' : 'ULTRA: SHORT OF THE TARGET') : r.endless ? `ENDLESS: ${r.endless.rounds} ROUND${r.endless.rounds === 1 ? '' : 'S'}` : r.cleared ? (r.boss ? 'BOSS DEFEATED' : 'WORLD CLEARED') : 'GAME OVER';
   const rows: Array<[string, string]> = [
     ['TIME', `${r.time.toFixed(1)}S`],
     ['DAMAGE TAKEN', `${r.damageTaken}`],
@@ -36,7 +38,8 @@ export function buildCard(r: RunResult, seed: number, p: Pick<Profile, 'stars' |
   ];
   if (r.mode !== 'highscore') rows.splice(2, 0, ['MASTERY', `${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}`]);
   if (r.challenge === 'daily') rows.push(['DAILY CHALLENGE', r.dailyKey ?? 'TODAY']);
-  const link = (MODE_IDS as string[]).includes(r.mode) ? challengeUrl(base, { mode: r.mode as ModeId, seed }) : '';
+  // An ULTRA run has no replay link: the link starts the normal world on that seed.
+  const link = (MODE_IDS as string[]).includes(r.mode) && !r.ultra ? challengeUrl(base, { mode: r.mode as ModeId, seed, beat: r.score > 0 && r.comparable !== false && !r.endless ? r.score : undefined }) : '';
   return {
     title: info.title,
     color: info.color,
@@ -45,7 +48,8 @@ export function buildCard(r: RunResult, seed: number, p: Pick<Profile, 'stars' |
     score: r.score,
     rows,
     link,
-    text: `${info.title} on CHAOS.EXE: ${headline}, score ${r.score}${link ? `. Beat my seed: ${link}` : ''}`,
+    player,
+    text: `${info.title} on CHAOS.EXE: ${headline}, score ${r.score}${link ? `. Can you beat my score on the same seed? ${link}` : ''}`,
   };
 }
 
@@ -60,7 +64,7 @@ export function drawCard(ctx: CanvasRenderingContext2D, c: Card, level: number):
   rect(ctx, 8, 8, 2, H - 16, c.color);
   rect(ctx, W - 10, 8, 2, H - 16, c.color);
   drawText(ctx, 'CHAOS.EXE', 20, 18, '#ff3fa4', { scale: 2 });
-  drawText(ctx, `PLAYER LV ${level}`, W - 20, 22, '#9a9ab8', { align: 'right' });
+  drawText(ctx, `${c.player ? `${c.player}  ` : ''}LV ${level}`, W - 20, 22, '#9a9ab8', { align: 'right' });
   drawText(ctx, c.title, W / 2, 52, c.color, { align: 'center', scale: 3 });
   drawText(ctx, c.headline, W / 2, 84, c.headlineColor, { align: 'center', scale: 2 });
   drawText(ctx, `${c.score}`, W / 2, 112, '#ffffff', { align: 'center', scale: 4 });

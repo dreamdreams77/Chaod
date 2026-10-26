@@ -474,7 +474,7 @@ export class Game {
     this.questSeenSig = null;
   }
   /** A run from a shared link (?seed=&mode=), offered in the lobby's daily menu. */
-  sharedChallenge: { mode: ModeId; seed: number } | null = null;
+  sharedChallenge: { mode: ModeId; seed: number; beat?: number } | null = null;
   /** Cabinets the lobby has already shown as powered this session, so unlocks from a run get announced once. */
   cabinetsSeen: Set<ModeId> | null = null;
   /** Quest-board progress signature the player last looked at (drives the board's "!" marker). */

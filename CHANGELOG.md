@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.3.0 — friend challenges, records, titles, ULTRA and clear shapes
+- **Friend-score challenges**: a share card's link now carries the score as well as the seed. Whoever opens it gets a FRIEND'S CHALLENGE entry on the lobby's world picker ("beat their score on the same seed"), a BEAT line during the run, and on the results screen either BEATEN! (+40 bits and the RIVAL BEATEN trophy, once per link, and only for a cleared run) or NOT YET. Old links without a score still work. Scores that are not comparable to a plain run (endless, boss rush, perks, nightmare, rematch, ULTRA) are left out of the link.
+- **RECORDS & TITLES** in the lobby menu: play time, runs, daily streak and, for every world, clears, best score and time, stars, endless best and disks. Sixteen **titles** (ROOKIE TESTER to GOLD STANDARD) unlock from play, can be picked there (or left on AUTO, which wears the newest), are shown on the results screen and the share card, and announce themselves with a toast when earned.
+- **BLOCK PARTY ULTRA** (on the cabinet once the world is cleared): two minutes on the clock, no line goal; reach the target score (3000 Easy, 6000 Normal, 10000 Hard) to win and be paid in full, otherwise half; after the target is passed, running out of hearts still counts as a win. It never counts as clearing the world, collects no disks and has its own best score. Its share card carries no replay link.
+- **A JUKEBOX** in the lobby (between the Quest Board and the Trophy Case): all 22 tracks of the soundtrack, unlocked by clearing the world they belong to (the boss, ending and seasonal tunes by beating the boss, the reboot and visiting in season). Pick one to play it in the lobby, AUTO returns to the usual music, and the music switch is on the first row. Your pick is remembered and plays whenever you come back to the lobby.
+- **CLEAR SHAPES** (Settings, accessibility): a pattern on every BLOCK PARTY piece and a different shape for each colour of bullet in PENALTY STORM and THE HIGH SCORE, so colour is never the only clue.
+- Fixed in review: the friend bonus could be farmed from an edited link, ULTRA's best mixed score formulas and its clock paused during line clears.
+- Tests cover the link format, the friend bonus, titles, records, ULTRA and the save migration; a scripted player was used to set ULTRA's targets.
+
+
 ## 3.2.0 — vibration and a sound-effects switch
 - **SOUND EFFECTS** can now be switched off on its own (Settings, and the pause menu), separately from the music switch and from MUTE ALL.
 - **Vibration** on phones and tablets that support it: short buzzes for damage, bombs, boss slams, parries, level-ups, disks, power-ups and goals. It is deliberately sparing (no buzz for every coin or explosion), a weak buzz never cuts off a stronger one, and it works with the sound off. Switch it on or off in Settings or the pause menu (the row only appears on a touch device that can vibrate; iPhones cannot). Turning it on gives a test buzz.

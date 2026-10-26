@@ -801,6 +801,56 @@ test('BLOCK PARTY: reaching the line goal wins with all three disks; topping out
   assert.equal(t.phase, 'lost');
 });
 
+test('BLOCK PARTY ULTRA: a two-minute clock, no line goal, no disks; the target score decides win or loss', () => {
+  const { game } = blocksGame();
+  const m = new BlocksMode(game, { variant: 'ultra' });
+  for (let i = 0; i < 160; i++) m.update(1 / 60);
+  assert.equal(m.ultra, true);
+  assert.equal(m.phase, 'play');
+  const t0 = m.timeLeft;
+  for (let i = 0; i < 60; i++) m.update(1 / 60);
+  assert.ok(t0 - m.timeLeft > 0.9 && t0 - m.timeLeft < 1.1, 'the clock runs in real time');
+  m.lines = 500;
+  for (let x = 0; x < BLOCK_COLS; x++) if (x > 3) m.board[BLOCK_ROWS - 1][x] = 8;
+  m.cur = { id: 'I', rot: 0, x: 0, y: 0 };
+  m.hardDrop();
+  for (let i = 0; i < 40; i++) m.update(1 / 60);
+  assert.equal(m.phase, 'play', 'lines never win an ULTRA run');
+  assert.equal(m.foundFloppies.length, 0, 'ULTRA collects no disks');
+  m.score = m.ultraTarget;
+  m.timeLeft = 0.01;
+  for (let i = 0; i < 10; i++) m.update(1 / 60);
+  assert.equal(m.phase, 'won');
+
+  const { game: g2 } = blocksGame();
+  const l = new BlocksMode(g2, { variant: 'ultra' });
+  for (let i = 0; i < 160; i++) l.update(1 / 60);
+  l.timeLeft = 0.01;
+  for (let i = 0; i < 10; i++) l.update(1 / 60);
+  assert.equal(l.phase, 'lost', 'time up under the target is a loss');
+  for (let i = 0; i < 200; i++) l.update(1 / 60);
+  assert.equal(g2.profile.cleared.blocks.clears, 0);
+
+  // The clock keeps running through line-clear animations, and a top-out after the target still wins.
+  const { game: g3 } = blocksGame();
+  const c = new BlocksMode(g3, { variant: 'ultra' });
+  for (let i = 0; i < 160; i++) c.update(1 / 60);
+  for (let x = 0; x < BLOCK_COLS; x++) if (x > 3) c.board[BLOCK_ROWS - 1][x] = 8;
+  c.cur = { id: 'I', rot: 0, x: 0, y: 0 };
+  c.hardDrop();
+  assert.equal(c.phase, 'clear');
+  const before = c.timeLeft;
+  c.update(0.1);
+  assert.ok(before - c.timeLeft > 0.09, 'the clear animation does not pause the clock');
+  c.score = c.ultraTarget;
+  c.hp = 1;
+  for (let i = 0; i < 40; i++) c.update(1 / 60);
+  c.topOut();
+  assert.equal(c.phase, 'won', 'out of hearts after hitting the target is still a win');
+  for (let i = 0; i < 200; i++) c.update(1 / 60);
+  assert.equal(g3.profile.cleared.blocks.clears, 0);
+});
+
 test('BLOCK PARTY: BOMB BLOCKS blasts around where it lands, and only with the mutation on', () => {
   const blast = (disabled: boolean): number => {
     const { game } = blocksGame();

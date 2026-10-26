@@ -61,6 +61,14 @@ export interface Profile {
   decor: LobbyDecor;
   /** This week's goals (see data/weekly.ts). */
   weekly: WeeklyState;
+  /** The track picked at the lobby jukebox (see data/jukebox.ts); empty means the usual lobby music. */
+  jukebox: string;
+  /** Friend challenges already beaten (mode-seed-score), so each link pays once. */
+  rivalsBeaten: string[];
+  /** Best BLOCK PARTY ULTRA score. */
+  ultraBest: number;
+  /** The title chosen in RECORDS (see data/titles.ts); empty, or one not earned, means the newest earned. */
+  title: string;
   /** Saved Mutation Lab builds (three slots): the mutations that were switched on. */
   loadouts: Array<{ name: string; on: string[] } | null>;
   /** The first-visit lobby tour (see scenes/hub.ts). */
@@ -98,6 +106,8 @@ export interface Settings {
   perks: boolean;
   /** ASSIST MODE: one extra heart in every world and slower enemies and bullets. */
   assist: boolean;
+  /** CLEAR SHAPES: patterns on blocks and distinct bullet shapes, so colour is never the only cue. */
+  shapes: boolean;
 }
 
 export const PROFILE_VERSION = 2;
@@ -137,6 +147,10 @@ export function defaultProfile(): Profile {
     endless: {},
     decor: defaultDecor(),
     weekly: emptyWeekly(),
+    jukebox: '',
+    rivalsBeaten: [],
+    ultraBest: 0,
+    title: '',
     loadouts: [null, null, null],
     tutorial: { step: 0, done: false },
     errand: { key: '', progress: 0, done: false, asked: false, thanked: false },
@@ -166,6 +180,7 @@ export function defaultSettings(): Settings {
     hints: true,
     perks: true,
     assist: false,
+    shapes: false,
   };
 }
 
@@ -235,6 +250,10 @@ export function migrateProfile(raw: unknown): Profile {
     asked: er.asked === true,
     thanked: er.thanked === true,
   };
+  p.jukebox = typeof r.jukebox === 'string' ? r.jukebox.slice(0, 16) : '';
+  p.rivalsBeaten = Array.isArray(r.rivalsBeaten) ? (r.rivalsBeaten as unknown[]).filter((k): k is string => typeof k === 'string' && k.length < 40).slice(-60) : [];
+  p.ultraBest = typeof r.ultraBest === 'number' && r.ultraBest > 0 ? Math.min(Math.floor(r.ultraBest), 9_999_999) : 0;
+  p.title = typeof r.title === 'string' ? r.title.slice(0, 16) : '';
   p.seasonSeen = typeof r.seasonSeen === 'string' ? r.seasonSeen.slice(0, 16) : '';
   const wk = (r.weekly ?? {}) as Partial<WeeklyState>;
   p.weekly = emptyWeekly();
@@ -287,6 +306,7 @@ export function migrateSettings(raw: unknown): Settings {
   s.sfxOn = s.sfxOn !== false;
   s.vibration = s.vibration !== false;
   s.assist = s.assist === true;
+  s.shapes = s.shapes === true;
   s.perks = s.perks !== false;
   if (s.fixedSeed !== null && !(typeof s.fixedSeed === 'number' && Number.isInteger(s.fixedSeed) && s.fixedSeed >= 0 && s.fixedSeed <= 999999)) s.fixedSeed = null;
   s.master = clamp01(s.master);

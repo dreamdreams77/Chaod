@@ -16,7 +16,7 @@ import {
   Board, COLS, COLORS, HIDDEN, PIECE_COLOR, PieceId, Piece, ROWS, VISIBLE, addGarbage, cellsOf, clearTop, dropDistance, emptyBoard, explode, fallSeconds, fits, fullRows,
   lineScore, lock, moved, nextBag, removeRows, rotated, spawn, stackHeight,
 } from '../procgen/blocks.ts';
-import { H, W, PAL, backdrop, glow, rect, frame, bar, hearts, clamp } from '../render/gfx.ts';
+import { H, W, PAL, backdrop, glow, rect, frame, bar, hearts, clamp, cellPattern } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 
 type Phase = 'intro' | 'play' | 'clear' | 'won' | 'lost';
@@ -24,6 +24,9 @@ type Phase = 'intro' | 'play' | 'clear' | 'won' | 'lost';
 export const CELL = 11;
 export const WELL_X = 240 - (COLS * CELL) / 2;
 export const WELL_Y = 24;
+/** ULTRA: seconds on the clock, and the score that wins by difficulty. */
+export const ULTRA_SECONDS = 120;
+export const ULTRA_TARGET = { easy: 3000, normal: 6000, hard: 10000 };
 const LOCK_DELAY = 0.5;
 const MAX_LOCK_RESETS = 15;
 const DAS = 0.17;
@@ -43,6 +46,11 @@ export class BlocksMode extends ModeBase {
   lines = 0;
   score = 0;
   readonly goal: number;
+  /** ULTRA: a two-minute score attack instead of the line goal. */
+  readonly ultra: boolean;
+  readonly ultraTarget: number;
+  timeLeft = ULTRA_SECONDS;
+  private ultraHit = false;
   pieces = 0;
   combo = -1;
   private bagRng: Rng;
@@ -66,10 +74,12 @@ export class BlocksMode extends ModeBase {
     super(game, 'blocks', opts);
     this.hp = this.stats.maxHp;
     this.applyCarry();
-    this.goal = { easy: 24, normal: 30, hard: 40 }[game.settings.difficulty];
+    this.ultra = opts.variant === 'ultra';
+    this.goal = this.ultra ? 0 : { easy: 24, normal: 30, hard: 40 }[game.settings.difficulty];
+    this.ultraTarget = ULTRA_TARGET[game.settings.difficulty];
     this.bagRng = this.rng.fork(0xb10c);
     this.garbRng = this.rng.fork(0x6a5b);
-    const start = { easy: 0, normal: 0, hard: 2 }[game.settings.difficulty] + Math.floor((this.tier - 1) * 4);
+    const start = this.ultra ? 0 : { easy: 0, normal: 0, hard: 2 }[game.settings.difficulty] + Math.floor((this.tier - 1) * 4);
     if (start > 0) addGarbage(this.board, this.garbRng, start);
     this.refillQueue();
   }
@@ -130,9 +140,10 @@ export class BlocksMode extends ModeBase {
     if (this.phase === 'won' || this.phase === 'lost') {
       this.endT += dt;
       if (this.phase === 'won' && this.endT > 2.2) {
-        const score = this.score + this.hp * 300 + Math.max(0, 3000 - Math.floor(this.time * 12)) + this.runBits * 10;
+        // ULTRA is judged on the raw score, so its best and its target mean the same number.
+        const score = this.ultra ? this.score : this.score + this.hp * 300 + Math.max(0, 3000 - Math.floor(this.time * 12)) + this.runBits * 10;
         this.finish(true, score);
-      } else if (this.phase === 'lost' && this.endT > 1.8) this.finish(false, this.score + this.lines * 20);
+      } else if (this.phase === 'lost' && this.endT > 1.8) this.finish(false, this.ultra ? this.score : this.score + this.lines * 20);
       return;
     }
     if (this.phase === 'intro') {
@@ -141,11 +152,13 @@ export class BlocksMode extends ModeBase {
       if (this.introT <= 0) {
         this.phase = 'play';
         this.nextPiece();
+        if (this.ultra) this.say(`ULTRA: ${this.ultraTarget} POINTS IN 2:00`, '#ffcf3f');
       }
       return;
     }
     if (this.phase === 'clear') {
       this.clearT -= dt;
+      this.tickUltra(dt);
       if (this.clearT <= 0) {
         removeRows(this.board, this.clearRows);
         this.clearRows = [];
@@ -156,12 +169,15 @@ export class BlocksMode extends ModeBase {
           this.runFlags.add('perfect_clear');
         }
         this.phase = 'play';
-        if (this.lines >= this.goal) this.win();
+        if (this.ultra && this.timeLeft <= 0) return this.timeUp();
+        if (!this.ultra && this.lines >= this.goal) this.win();
         else this.nextPiece();
       }
       return;
     }
 
+    this.tickUltra(dt);
+    if (this.ultra && this.timeLeft <= 0) return this.timeUp();
     // Rising garbage while the tide event is on.
     if (this.director.flag('tide')) {
       this.tideT += dt;
@@ -335,8 +351,8 @@ export class BlocksMode extends ModeBase {
     }
     else if (this.combo >= 2) this.say(`COMBO x${this.combo}`, '#ffcf3f');
     for (const y of rows) this.particles.burst(240, WELL_Y + (y - HIDDEN) * CELL + 5, [COLORS[1 + (y % 7)], '#fff'], 8, 90);
-    if (this.lines >= 10 && !this.foundFloppies.includes('blocks-0')) this.collectFloppy(0);
-    if (this.lines >= 20 && !this.foundFloppies.includes('blocks-1')) this.collectFloppy(1);
+    if (!this.ultra && this.lines >= 10 && !this.foundFloppies.includes('blocks-0')) this.collectFloppy(0);
+    if (!this.ultra && this.lines >= 20 && !this.foundFloppies.includes('blocks-1')) this.collectFloppy(1);
     this.clearRows = rows;
     this.clearT = 0.28;
     this.phase = 'clear';
@@ -346,11 +362,33 @@ export class BlocksMode extends ModeBase {
     this.phase = 'won';
     this.endT = 0;
     this.cur = null;
-    if (!this.foundFloppies.includes('blocks-2')) this.collectFloppy(2);
-    this.addBits(40);
-    this.say('PARTY CLEARED!', '#7dff6b');
+    if (!this.ultra && !this.foundFloppies.includes('blocks-2')) this.collectFloppy(2);
+    this.addBits(this.ultra ? 25 : 40);
+    this.say(this.ultra ? 'TARGET HIT!' : 'PARTY CLEARED!', '#7dff6b');
     this.game.audio.sfx('levelup');
     this.game.fx.flash('#7dff6b', 0.35);
+  }
+
+  /** ULTRA's clock runs through line-clear animations too; the first time the target is passed it says so. */
+  private tickUltra(dt: number): void {
+    if (!this.ultra) return;
+    this.timeLeft = Math.max(0, this.timeLeft - dt);
+    if (!this.ultraHit && this.score >= this.ultraTarget) {
+      this.ultraHit = true;
+      this.say('TARGET REACHED! KEEP SCORING', '#7dff6b');
+      this.game.audio.sfx('levelup');
+    }
+  }
+
+  /** ULTRA's clock ran out: reach the target score to win, otherwise it is a loss. */
+  private timeUp(): void {
+    this.cur = null;
+    this.endT = 0;
+    this.director.clearAll();
+    if (this.score >= this.ultraTarget) return this.win();
+    this.phase = 'lost';
+    this.game.audio.sfx('explode');
+    this.say('TIME UP!', '#ff3f5a');
   }
 
   /** A full well: lose a heart and the top of the stack, or the night if that was the last heart. */
@@ -360,6 +398,8 @@ export class BlocksMode extends ModeBase {
     this.noteDamage(dmg);
     this.cur = null;
     this.director.clearAll();
+    // Once the ULTRA target is in the bag, running out of hearts just ends the attack as a win.
+    if (this.hp <= 0 && this.ultra && this.score >= this.ultraTarget) return this.win();
     if (this.hp <= 0) {
       this.phase = 'lost';
       this.endT = 0;
@@ -459,6 +499,7 @@ export class BlocksMode extends ModeBase {
     rect(ctx, px, py, CELL - 1, 2, 'rgba(255,255,255,0.45)');
     rect(ctx, px, py, 2, CELL - 1, 'rgba(255,255,255,0.25)');
     rect(ctx, px, py + CELL - 3, CELL - 1, 2, 'rgba(0,0,0,0.3)');
+    if (this.game.settings.shapes) cellPattern(ctx, px, py, CELL - 1, color);
     ctx.globalAlpha = 1;
   }
 
@@ -508,6 +549,7 @@ export class BlocksMode extends ModeBase {
       const px = ox + (x - minX) * size, py = oy + (y - minY) * size;
       rect(ctx, px, py, size - 1, size - 1, COLORS[PIECE_COLOR[id]]);
       rect(ctx, px, py, size - 1, 1, 'rgba(255,255,255,0.4)');
+      if (this.game.settings.shapes && size >= 8) cellPattern(ctx, px, py, size - 1, PIECE_COLOR[id]);
     }
     ctx.globalAlpha = 1;
   }
@@ -524,13 +566,20 @@ export class BlocksMode extends ModeBase {
     else for (let i = 0; i < 4; i++) this.drawMini(ctx, this.queue[i] ?? 'I', WELL_X + COLS * CELL + 51, 56 + i * 28, i === 0 ? 8 : 6, i === 0 ? 1 : 0.8);
     // stats
     const sx = WELL_X - 82;
-    drawText(ctx, 'LINES', sx, 96, '#9a9ab8');
-    drawText(ctx, `${this.lines}/${this.goal}`, sx, 106, '#7dff6b');
-    bar(ctx, sx, 118, 62, 4, this.lines / this.goal, '#7dff6b', '#102010', '#ffffff55');
+    if (this.ultra) {
+      const t = Math.ceil(this.timeLeft);
+      drawText(ctx, 'TIME', sx, 96, '#9a9ab8');
+      drawText(ctx, `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`, sx, 106, t <= 10 ? '#ff3f5a' : '#7dff6b');
+      bar(ctx, sx, 118, 62, 4, Math.min(1, this.score / this.ultraTarget), '#ffcf3f', '#102010', '#ffffff55');
+    } else {
+      drawText(ctx, 'LINES', sx, 96, '#9a9ab8');
+      drawText(ctx, `${this.lines}/${this.goal}`, sx, 106, '#7dff6b');
+      bar(ctx, sx, 118, 62, 4, this.lines / this.goal, '#7dff6b', '#102010', '#ffffff55');
+    }
     drawText(ctx, 'LEVEL', sx, 130, '#9a9ab8');
     drawText(ctx, `${this.level}`, sx, 140, '#3fe0ff');
     drawText(ctx, 'SCORE', sx, 154, '#9a9ab8');
-    drawText(ctx, `${this.score}`, sx, 164, '#fff');
+    drawText(ctx, this.ultra ? `${this.score}/${this.ultraTarget}` : `${this.score}`, sx, 164, '#fff');
     drawText(ctx, 'BITS', sx, 178, '#9a9ab8');
     drawText(ctx, `${this.runBits}`, sx, 188, '#ffcf3f');
     if (this.combo >= 1) drawText(ctx, `COMBO ${this.combo}`, sx, 202, '#ffcf3f');
