@@ -862,8 +862,11 @@ test('beating a friend\'s score pays a bonus once per run and earns RIVAL BEATEN
   const loss = applyRun(defaultProfile(), run({ challenge: 'shared', beat: 1, score: 50, seed: 8, cleared: false }), ...day);
   assert.equal(loss.summary.friend, 'missed', 'a lost run cannot claim the bonus');
   let p = defaultProfile();
-  for (let i = 0; i < 80; i++) p = applyRun(p, run({ challenge: 'shared', beat: 10, score: 99, seed: i }), ...day).profile;
-  assert.equal(p.rivalsBeaten.length, 60);
+  for (let i = 0; i < 320; i++) p = applyRun(p, run({ challenge: 'shared', beat: 10, score: 99, seed: i }), ...day).profile;
+  assert.equal(p.rivalsBeaten.length, 300);
+  // Editing the score in the URL does not make the same seed pay twice.
+  const edited = applyRun(won.profile, run({ challenge: 'shared', beat: 1, score: 1200, seed: 7 }), ...day);
+  assert.equal(edited.summary.friend, 'again');
 });
 
 test('titles unlock from progress, fall back when unearned, and survive a bad save', async () => {
@@ -901,6 +904,8 @@ test('records gather per-world numbers and format times', async () => {
   assert.equal(formatTime(75.5), '1:15.5');
   assert.equal(formatTime(0), '--:--');
   assert.equal(formatTime(5), '0:05.0');
+  assert.equal(formatTime(59.96), '1:00.0', 'rounds before splitting minutes');
+  assert.equal(formatTime(9.96), '0:10.0');
   assert.equal(formatPlayTime(59), '0M');
   assert.equal(formatPlayTime(3 * 3600 + 120), '3H 2M');
 });
@@ -935,4 +940,8 @@ test('jukebox: every track is listed once and exists, unlocks come from play, a 
   p.jukebox = 'nope';
   assert.equal(jukeboxChoice(p), null);
   assert.equal(migrateProfile({ jukebox: 7 }).jukebox, '');
+  const s = defaultProfile();
+  s.lore.push('season:winter');
+  s.seasonSeen = 'summer-2027';
+  assert.equal(JUKEBOX.find((t) => t.id === 'winter')!.test(s), true, 'a season stays unlocked after a later one overwrites seasonSeen');
 });

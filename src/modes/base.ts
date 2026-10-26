@@ -184,7 +184,8 @@ export abstract class ModeBase implements Scene {
   tickShared(dt: number): void {
     if (this.opts.beat && !this.beatAnnounced && !this.game.inDialog) {
       this.beatAnnounced = true;
-      this.game.toast('FRIEND\'S CHALLENGE', `BEAT THEIR SCORE: ${this.opts.beat}`, '#3fe0ff');
+      if (this.plainRules) this.game.toast('FRIEND\'S CHALLENGE', `BEAT THEIR SCORE: ${this.opts.beat}`, '#3fe0ff');
+      else this.game.toast('FRIEND\'S CHALLENGE', 'SCORES COUNT ON NORMAL, NO ASSIST', '#9a9ab8');
     }
     if (this.endlessRound && !this.roundAnnounced && !this.game.inDialog) {
       this.roundAnnounced = true;
@@ -307,8 +308,9 @@ export abstract class ModeBase implements Scene {
       dailyKey: this.opts.daily,
       ultra: this.opts.variant === 'ultra' ? true : undefined,
       seed: this.seed,
-      comparable: this.opts.endless || this.opts.rush || this.opts.perks?.length || this.opts.nightmare || this.opts.rematch || this.opts.variant ? false : undefined,
-      beat: this.opts.seed !== undefined && !this.opts.daily ? this.opts.beat : undefined,
+      comparable: this.opts.endless || !this.plainRules || this.opts.rush || this.opts.perks?.length || this.opts.nightmare || this.opts.rematch || this.opts.variant ? false : undefined,
+      // A friend's score only counts between runs on the same rules (normal difficulty, no assist).
+      beat: this.opts.seed !== undefined && !this.opts.daily && this.plainRules ? this.opts.beat : undefined,
       ...extra,
     };
     if (end) {
@@ -358,11 +360,16 @@ export abstract class ModeBase implements Scene {
     if (this.kevin) this.game.drawKevinCameo(ctx, this.kevin.t, this.kevin.note);
   }
 
+  /** Normal difficulty and no assist mode: the only rules under which scores can be compared between players. */
+  private get plainRules(): boolean {
+    return this.game.settings.difficulty === 'normal' && !this.game.settings.assist;
+  }
+
   drawRunInfo(ctx: CanvasRenderingContext2D, x: number, y: number): void {
     drawText(ctx, `BITS ${this.runBits}`, x, y, '#ffcf3f');
     if (this.opts.variant !== 'ultra') drawText(ctx, `DISKS ${this.foundFloppies.length}/3`, x, y + 9, '#3fe0ff');
     if (this.endlessRound) drawText(ctx, `ENDLESS ROUND ${this.endlessRound}`, x, y + 27, '#ff6f3f');
-    if (this.opts.beat) drawText(ctx, `BEAT ${this.opts.beat}`, x, y + 45, '#3fe0ff');
+    if (this.opts.beat && this.plainRules) drawText(ctx, `BEAT ${this.opts.beat}`, x, y + 45, '#3fe0ff');
     if (this.modifier) drawText(ctx, `MOD: ${this.modifier.name}`, x, y + 18, '#b07aff');
     if (this.perkList.length) drawText(ctx, `PERKS: ${this.perkList.map((p) => p.name).join(', ')}`.slice(0, 40), x, y + 36, '#7dff6b');
   }

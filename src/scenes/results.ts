@@ -28,7 +28,10 @@ class ResultsScene implements Scene {
   private t = 0;
   private sel = 0;
   private announced = false;
-  constructor(private game: Game, private r: RunResult, private s: RunSummary, private seed: number) {}
+  private title: string;
+  constructor(private game: Game, private r: RunResult, private s: RunSummary, private seed: number) {
+    this.title = activeTitle(game.profile).name;
+  }
 
   enter(): void {
     this.game.music(this.r.cleared ? 'ending' : 'hub');
@@ -138,7 +141,7 @@ class ResultsScene implements Scene {
     const lo = xpForLevel(prof.level);
     const hi = xpForLevel(prof.level + 1);
     drawText(ctx, `LV ${prof.level}`, 76, 176, '#7dff6b');
-    drawText(ctx, activeTitle(prof).name, W - 76, 176, '#ffcf3f', { align: 'right' });
+    drawText(ctx, this.title, W - 76, 176, '#ffcf3f', { align: 'right' });
     bar(ctx, 116, 177, 200, 5, (prof.xp - lo) / Math.max(1, hi - lo), '#7dff6b', '#102010', '#ffffff55');
     drawText(ctx, `${prof.bits} BITS TOTAL`, 76, 190, '#ffcf3f');
     if (this.s.achievements.length) {

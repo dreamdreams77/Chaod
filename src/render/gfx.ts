@@ -245,38 +245,53 @@ export function glow(ctx: CanvasRenderingContext2D, x: number, y: number, radius
 
 /**
  * CLEAR SHAPES (accessibility): a dark pattern on a block cell, one per colour index, so pieces
- * can be told apart without relying on hue. `size` is the cell's inner width.
+ * can be told apart without relying on hue. `size` is the cell's inner width; small preview
+ * cells get 1px strokes.
  */
 export function cellPattern(ctx: CanvasRenderingContext2D, px: number, py: number, size: number, color: number): void {
   const m = 'rgba(0,0,0,0.55)';
-  const c = Math.floor(size / 2);
+  const big = size >= 8;
+  const e = big ? 2 : 1; // edge margin
+  const th = big ? 2 : 1; // stroke thickness
+  const c = Math.floor(size / 2) - (big ? 1 : 0);
+  const span = size - e * 2;
   switch (color) {
-    case 2: rect(ctx, px + 2, py + c - 1, size - 4, 2, m); break; // horizontal bar
-    case 3: rect(ctx, px + c - 1, py + 2, 2, size - 4, m); break; // vertical bar
-    case 4: rect(ctx, px + c - 1, py + c - 1, 3, 3, m); break; // dot
-    case 5: for (let i = 2; i < size - 2; i += 2) rect(ctx, px + i, py + i, 2, 2, m); break; // diagonal
-    case 6: rect(ctx, px + 2, py + c - 1, size - 4, 2, m); rect(ctx, px + c - 1, py + 2, 2, size - 4, m); break; // plus
-    case 7: rect(ctx, px + 2, py + 2, size - 4, 1, m); rect(ctx, px + 2, py + size - 3, size - 4, 1, m); rect(ctx, px + 2, py + 2, 1, size - 4, m); rect(ctx, px + size - 3, py + 2, 1, size - 4, m); break; // ring
-    case 8: for (let y = 2; y < size - 2; y += 4) for (let x = 2 + (y % 8 === 2 ? 0 : 2); x < size - 2; x += 4) rect(ctx, px + x, py + y, 2, 2, m); break; // checker (garbage)
+    case 2: rect(ctx, px + e, py + c, span, th, m); break; // horizontal bar
+    case 3: rect(ctx, px + c, py + e, th, span, m); break; // vertical bar
+    case 4: rect(ctx, px + c, py + c, big ? 3 : 2, big ? 3 : 2, m); break; // dot
+    case 5: for (let i = e; i < size - e; i += th) rect(ctx, px + i, py + i, th, th, m); break; // diagonal
+    case 6: rect(ctx, px + e, py + c, span, th, m); rect(ctx, px + c, py + e, th, span, m); break; // plus
+    case 7: rect(ctx, px + e, py + e, span, 1, m); rect(ctx, px + e, py + size - e - 1, span, 1, m); rect(ctx, px + e, py + e, 1, span, m); rect(ctx, px + size - e - 1, py + e, 1, span, m); break; // ring
+    case 8: for (let y = e; y < size - e; y += 4) for (let x = e + (((y - e) / 4) % 2 ? 2 : 0); x < size - e; x += 4) rect(ctx, px + x, py + y, 2, 2, m); break; // checker (garbage)
     default: break; // colour 1 stays plain
   }
 }
 
-/** CLEAR SHAPES: a bullet marker per hue (square, plus, diamond) drawn over the usual glow. */
+/**
+ * CLEAR SHAPES: a bullet marker per hue (square, plus, diamond, cross), each within a 7x7 footprint
+ * so it still reads as the bullet's real size.
+ */
 export function bulletShape(ctx: CanvasRenderingContext2D, x: number, y: number, hue: number, color: string): void {
+  x = Math.round(x);
+  y = Math.round(y);
   if (hue === 1) {
-    rect(ctx, x - 1, y - 4, 3, 9, color);
-    rect(ctx, x - 4, y - 1, 9, 3, color);
-    rect(ctx, x - 1, y - 1, 3, 3, '#ffffff');
-  } else if (hue >= 2) {
-    rect(ctx, x - 1, y - 4, 3, 2, color);
-    rect(ctx, x - 3, y - 2, 7, 5, color);
-    rect(ctx, x - 1, y + 3, 3, 2, color);
-    rect(ctx, x - 1, y - 1, 3, 3, '#ffffff');
+    rect(ctx, x - 1, y - 3, 3, 7, color);
+    rect(ctx, x - 3, y - 1, 7, 3, color);
+  } else if (hue === 2) {
+    rect(ctx, x, y - 3, 1, 1, color);
+    rect(ctx, x - 1, y - 2, 3, 1, color);
+    rect(ctx, x - 2, y - 1, 5, 3, color);
+    rect(ctx, x - 1, y + 2, 3, 1, color);
+    rect(ctx, x, y + 3, 1, 1, color);
+  } else if (hue >= 3) {
+    for (let i = -3; i <= 3; i++) {
+      rect(ctx, x + i, y + i, 2, 1, color);
+      rect(ctx, x + i, y - i, 2, 1, color);
+    }
   } else {
     rect(ctx, x - 2, y - 2, 5, 5, color);
-    rect(ctx, x - 1, y - 1, 3, 3, '#ffffff');
   }
+  rect(ctx, x - 1, y - 1, 3, 3, '#ffffff');
 }
 
 export function rect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string): void {

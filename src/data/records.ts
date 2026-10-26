@@ -28,8 +28,9 @@ export function worldRecords(p: Profile): WorldRecord[] {
 /** m:ss.t, or a dash when there is no time yet. */
 export function formatTime(seconds: number): string {
   if (!(seconds > 0)) return '--:--';
-  const m = Math.floor(seconds / 60);
-  const s = seconds - m * 60;
+  const tenths = Math.round(seconds * 10); // round first, so 59.96 reads 1:00.0 and not 0:60.0
+  const m = Math.floor(tenths / 600);
+  const s = (tenths - m * 600) / 10;
   return `${m}:${s < 10 ? '0' : ''}${s.toFixed(1)}`;
 }
 

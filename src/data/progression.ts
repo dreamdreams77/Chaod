@@ -138,8 +138,8 @@ export function unlockAchievement(p: Profile, id: string, out: string[]): void {
 
 /** Bits for beating a friend's score on a shared link. */
 export const FRIEND_BONUS = 40;
-/** How many beaten links the profile remembers (oldest forgotten first). */
-export const RIVALS_KEPT = 60;
+/** How many beaten seeds the profile remembers (oldest forgotten first). */
+export const RIVALS_KEPT = 300;
 
 export function applyRun(profile: Profile, r: RunResult, today: string = weekKey(), day: string = dateKey()): { profile: Profile; summary: RunSummary } {
   const p: Profile = structuredCloneSafe(profile);
@@ -204,8 +204,8 @@ export function applyRun(profile: Profile, r: RunResult, today: string = weekKey
   let friend: RunSummary['friend'] = null;
   if (r.challenge === 'shared' && r.beat) {
     friend = r.cleared && r.score > r.beat ? 'beat' : 'missed';
-    const key = `${r.mode}-${r.seed ?? 0}-${r.beat}`;
-    // Each link pays once: replaying one (or editing the score in the URL) is not a bit farm.
+    const key = `${r.mode}-${r.seed ?? 0}`;
+    // Each seed pays once, whatever score the URL claims, so editing the link is not a bit farm.
     if (friend === 'beat' && !p.rivalsBeaten.includes(key)) {
       p.rivalsBeaten.push(key);
       if (p.rivalsBeaten.length > RIVALS_KEPT) p.rivalsBeaten.shift();

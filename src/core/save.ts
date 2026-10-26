@@ -63,7 +63,7 @@ export interface Profile {
   weekly: WeeklyState;
   /** The track picked at the lobby jukebox (see data/jukebox.ts); empty means the usual lobby music. */
   jukebox: string;
-  /** Friend challenges already beaten (mode-seed-score), so each link pays once. */
+  /** Friend challenges already beaten (mode-seed), so each seed pays once. */
   rivalsBeaten: string[];
   /** Best BLOCK PARTY ULTRA score. */
   ultraBest: number;
@@ -251,7 +251,7 @@ export function migrateProfile(raw: unknown): Profile {
     thanked: er.thanked === true,
   };
   p.jukebox = typeof r.jukebox === 'string' ? r.jukebox.slice(0, 16) : '';
-  p.rivalsBeaten = Array.isArray(r.rivalsBeaten) ? (r.rivalsBeaten as unknown[]).filter((k): k is string => typeof k === 'string' && k.length < 40).slice(-60) : [];
+  p.rivalsBeaten = Array.isArray(r.rivalsBeaten) ? (r.rivalsBeaten as unknown[]).filter((k): k is string => typeof k === 'string' && k.length < 40).slice(-300) : [];
   p.ultraBest = typeof r.ultraBest === 'number' && r.ultraBest > 0 ? Math.min(Math.floor(r.ultraBest), 9_999_999) : 0;
   p.title = typeof r.title === 'string' ? r.title.slice(0, 16) : '';
   p.seasonSeen = typeof r.seasonSeen === 'string' ? r.seasonSeen.slice(0, 16) : '';

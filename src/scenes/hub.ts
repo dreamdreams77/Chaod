@@ -100,6 +100,8 @@ export class HubScene implements Scene {
     this.game.music(this.lobbyTrack());
     if (this.season) {
       const seen = `${this.season.id}-${new Date().getUTCFullYear()}`;
+      // Remembered for good: seasonSeen only holds the latest season, and the jukebox unlocks are permanent.
+      if (!p.lore.includes(`season:${this.season.id}`)) p.lore.push(`season:${this.season.id}`);
       if (p.seasonSeen !== seen) {
         p.seasonSeen = seen;
         this.save();
@@ -253,13 +255,14 @@ export class HubScene implements Scene {
   }
 
   private openPauseMenu(): void {
+    const title = activeTitle(this.game.profile).name;
     this.menu = new ListMenu('LOBBY MENU', [
       { label: 'PLAY A WORLD', sub: 'Pick a world to play right now, without walking to its cabinet.', onSelect: () => this.worldPicker() },
       ...(this.game.profile.endingSeen ? [{ label: 'BOSS RUSH', sub: 'BRICKLORD MAX then DJ STATIC, back to back. Health carries over, no healing in between. Pays +50% bits.', onSelect: () => { this.menu = null; this.game.startMode('beatdown', { rematch: true, rush: { leg: 1 } }); } }] : []),
       ...(this.game.profile.bossesDefeated.includes('highscore') ? [{ label: 'BOSS GAUNTLET', sub: 'BRICKLORD MAX, DJ STATIC, the keeper in OVERTIME, then THE HIGH SCORE, with health carried over. Pays double bits.', color: '#ffcf3f', onSelect: () => { this.menu = null; this.game.startMode('beatdown', { rematch: true, rush: { leg: 1, legs: GAUNTLET_LEGS } }); } }] : []),
       { label: 'DAILY CHALLENGE', sub: 'A new seeded run every day, with a streak bonus and a shareable link.', onSelect: () => this.dailyMenu() },
       { label: 'QUEST BOARD', sub: 'Your quests and rewards.', onSelect: () => this.questMenu() },
-      { label: 'RECORDS & TITLES', value: () => activeTitle(this.game.profile).name, sub: 'Your best runs in every world, your stats, and the title you wear on results and share cards.', onSelect: () => this.recordsMenu() },
+      { label: 'RECORDS & TITLES', value: () => title, sub: 'Your best runs in every world, your stats, and the title you wear on results and share cards.', onSelect: () => this.recordsMenu() },
       { label: 'MINI-GAME ARCADE', sub: 'Five quick games that pay bits.', onSelect: () => this.arcadeMenu() },
       { label: 'RESUME', onSelect: () => (this.menu = null) },
       ...(this.game.profile.tutorial.done ? [] : [{ label: 'SKIP TOUR', sub: 'Hide the first-visit tour hints.', onSelect: () => { this.game.profile.tutorial.done = true; this.save(); this.menu = null; } }]),
@@ -890,8 +893,9 @@ export class HubScene implements Scene {
   private recordsMenu(keep?: number): void {
     const p = this.game.profile;
     const back = () => this.openPauseMenu();
+    const title = activeTitle(p).name;
     const items: MenuItem[] = [
-      { label: 'TITLE', value: () => activeTitle(p).name, sub: 'Pick which earned title you wear.', color: '#ffcf3f', onSelect: () => this.titleMenu() },
+      { label: 'TITLE', value: () => title, sub: 'Pick which earned title you wear.', color: '#ffcf3f', onSelect: () => this.titleMenu() },
       { label: 'PLAY TIME', value: () => formatPlayTime(p.playTime), disabled: true },
       { label: 'RUNS STARTED', value: () => String(p.runsStarted), disabled: true },
       { label: 'DAILY STREAK', value: () => `${currentStreak(p.daily, dateKey())} DAYS`, disabled: true },
@@ -1084,7 +1088,7 @@ export class HubScene implements Scene {
     if (shared && isModeUnlocked(shared.mode, p.cleared)) {
       items.push({
         label: `FRIEND'S CHALLENGE: ${MODE_INFO[shared.mode].title} #${formatSeed(shared.seed)}`,
-        sub: shared.beat ? `From the link you opened: the same run, and your friend scored ${shared.beat}. Beat it for ${FRIEND_BONUS} bits.` : 'From the link you opened. Same run as whoever sent it.',
+        sub: shared.beat ? `From the link you opened: the same run, and your friend scored ${shared.beat}. Beat it for ${FRIEND_BONUS} bits (on NORMAL with assist off).` : 'From the link you opened. Same run as whoever sent it.',
         onSelect: () => { this.menu = null; this.game.startMode(shared.mode, { seed: shared.seed, beat: shared.beat }); },
       });
     }

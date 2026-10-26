@@ -549,7 +549,7 @@ export class BlocksMode extends ModeBase {
       const px = ox + (x - minX) * size, py = oy + (y - minY) * size;
       rect(ctx, px, py, size - 1, size - 1, COLORS[PIECE_COLOR[id]]);
       rect(ctx, px, py, size - 1, 1, 'rgba(255,255,255,0.4)');
-      if (this.game.settings.shapes && size >= 8) cellPattern(ctx, px, py, size - 1, PIECE_COLOR[id]);
+      if (this.game.settings.shapes && size >= 5) cellPattern(ctx, px, py, size - 1, PIECE_COLOR[id]);
     }
     ctx.globalAlpha = 1;
   }

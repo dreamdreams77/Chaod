@@ -38,8 +38,8 @@ export const JUKEBOX: JukeTrack[] = [
   { id: 'hs1', name: 'ARCADE', hint: 'Defeat THE HIGH SCORE to unlock.', test: (p) => p.bossesDefeated.includes('highscore') },
   { id: 'hs2', name: 'FIGHT NIGHT', hint: 'Defeat THE HIGH SCORE to unlock.', test: (p) => p.bossesDefeated.includes('highscore') },
   { id: 'hs3', name: 'SUDDEN DEATH', hint: 'Defeat THE HIGH SCORE to unlock.', test: (p) => p.bossesDefeated.includes('highscore') },
-  { id: 'halloween', name: 'SPOOKY SAVES', hint: 'Visit the lobby in Halloween weeks.', test: (p) => p.seasonSeen.startsWith('halloween') },
-  { id: 'winter', name: 'WINTER LIGHTS', hint: 'Visit the lobby in the winter lights.', test: (p) => p.seasonSeen.startsWith('winter') },
+  { id: 'halloween', name: 'SPOOKY SAVES', hint: 'Visit the lobby in Halloween weeks.', test: (p) => p.lore.includes('season:halloween') || p.seasonSeen.startsWith('halloween') },
+  { id: 'winter', name: 'WINTER LIGHTS', hint: 'Visit the lobby in the winter lights.', test: (p) => p.lore.includes('season:winter') || p.seasonSeen.startsWith('winter') },
 ];
 export const JUKE_BY_ID = new Map(JUKEBOX.map((t) => [t.id as string, t]));
 
