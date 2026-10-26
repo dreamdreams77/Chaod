@@ -1,10 +1,12 @@
 // Builds docs/trailer.png: captures the worlds from the built game (npm run build first), then
-// composes them into the launch-trailer banner. Usage: node tools/trailer.mjs
+// composes them into the launch-trailer banner. Usage: node tools/trailer.mjs [address]
+// (the address defaults to the GitHub Pages site).
 import { build } from 'esbuild';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const { chromium } = await import('playwright').catch(() => import('/opt/node22/lib/node_modules/playwright/index.mjs'));
+const URL_TEXT = process.argv[2] ?? 'https://dreamdreams77.github.io/Chaod/';
 const ORDER = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm', 'command', 'penalty', 'blocks', 'bolt', 'highscore'];
 const game = 'file://' + resolve('dist/index.html');
 const browser = await chromium.launch();
@@ -41,7 +43,7 @@ const cover = 'data:image/png;base64,' + readFileSync('docs/cover.png').toString
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
 await page.setContent('<body style="margin:0;background:#000"><canvas id="c"></canvas></body>');
 await page.addScriptTag({ content: out.outputFiles[0].text });
-await page.evaluate(([s, c]) => window.__compose(document.getElementById('c'), s, c), [shots, cover]);
+await page.evaluate(([s, c, u]) => window.__compose(document.getElementById('c'), s, c, u), [shots, cover, URL_TEXT]);
 writeFileSync('docs/trailer.png', Buffer.from(await page.locator('#c').screenshot().then((b) => b)));
 await browser.close();
 console.log('docs/trailer.png written');

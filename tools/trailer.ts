@@ -13,7 +13,7 @@ function load(src: string): Promise<HTMLImageElement> {
   return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
 }
 
-export async function compose(canvas: HTMLCanvasElement, shots: Record<string, string>, cover: string): Promise<void> {
+export async function compose(canvas: HTMLCanvasElement, shots: Record<string, string>, cover: string, url: string): Promise<void> {
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d')!;
   const imgs = Object.fromEntries(await Promise.all(ORDER.map(async (m) => [m, await load(shots[m])])));
@@ -71,8 +71,15 @@ export async function compose(canvas: HTMLCanvasElement, shots: Record<string, s
     drawText(ctx, info.genre, x + TW / 2, y + TH + 56, '#9a9ab8', { align: 'center', scale: 2 });
   });
 
-  // footer
-  ctx.fillStyle = '#ff3fa4'; ctx.fillRect(0, H - 52, W, 3);
-  drawText(ctx, 'PLAY FREE IN YOUR BROWSER  •  KEYBOARD, GAMEPAD OR TOUCH  •  NO INSTALL', W / 2, H - 36, '#ffffff', { align: 'center', scale: 3 });
+  // footer: the address in a normal font (the pixel font has no lower case, and repo paths are case-sensitive)
+  ctx.fillStyle = '#ff3fa4'; ctx.fillRect(0, H - 100, W, 3);
+  ctx.fillStyle = '#0a0518'; ctx.fillRect(0, H - 97, W, 97);
+  ctx.font = '700 40px "Courier New", monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#3fe0ff';
+  ctx.shadowColor = '#3fe0ff'; ctx.shadowBlur = 14;
+  ctx.fillText(url, W / 2, H - 68);
+  ctx.shadowBlur = 0; ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+  drawText(ctx, 'PLAY FREE IN YOUR BROWSER  \u2022  KEYBOARD, GAMEPAD OR TOUCH  \u2022  NO INSTALL', W / 2, H - 36, '#ffffff', { align: 'center', scale: 3 });
 }
 (window as unknown as { __compose: typeof compose }).__compose = compose;
