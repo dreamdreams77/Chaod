@@ -824,7 +824,8 @@ export class HubScene implements Scene {
       ...actions,
       { label: 'BACK', onSelect: back },
     ];
-    this.menu = new ListMenu(name, items, back, { x: 60, y: 50, w: 360, accent: '#ffcf3f' });
+    // Cards with many things to do (the quest cards list every game) get a taller menu.
+    this.menu = new ListMenu(name, items, back, actions.length > 3 ? { x: 50, y: 12, w: 380, rows: 15, accent: '#ffcf3f' } : { x: 60, y: 50, w: 360, accent: '#ffcf3f' });
     // The cursor starts on the first thing you can do (PLAY NOW if there is one), not on the text.
     this.menu.index = actions.length ? items.length - 1 - actions.length : items.length - 1;
   }
@@ -985,23 +986,52 @@ export class HubScene implements Scene {
     return open.find((m) => p.cleared[m].clears === 0 && m !== 'beatdown' && m !== 'rhythm') ?? open.find((m) => p.cleared[m].clears === 0) ?? most((m) => -p.cleared[m].clears);
   }
 
-  /** PLAY NOW starts the game for this quest right away; world quests also offer a world list. */
+  /**
+   * Every game a quest can be done in, as one-press rows on the quest's own card: the suggested game
+   * first, then all the others (locked worlds shown greyed with how to open them).
+   */
   private questActions(id: string, play: 'worlds' | 'arcade' | 'daily' | MiniId, ok: boolean): MenuItem[] {
     const verb = ok ? 'PLAY AGAIN' : 'PLAY NOW';
+    const p = this.game.profile;
+    const minis = MINIS.filter((m) => m.id !== 'dash' || secretCabinetOpen(p));
+    const miniRow = (m: (typeof MINIS)[number], label: string): MenuItem => ({
+      label, value: () => `BEST ${p.mini[m.id]?.best ?? 0}`, color: '#3fe0ff', sub: `${m.blurb} ${m.pays}`,
+      onSelect: () => { this.menu = null; startMini(this.game, m.id); },
+    });
     if (play === 'worlds') {
       const m = this.questWorld(id);
-      const p = this.game.profile;
-      // The suggestion first, then every other open world right here, so the quest never hides the rest.
-      const others = MODE_IDS.filter((w) => w !== m && isModeUnlocked(w, p.cleared));
+      const worldRow = (w: ModeId, label: string): MenuItem => {
+        const open = isModeUnlocked(w, p.cleared);
+        const info = MODE_INFO[w];
+        return {
+          label: open ? label : `LOCKED: ${info.title}`,
+          value: () => (open ? (p.cleared[w].clears ? `CLEARED x${p.cleared[w].clears}` : 'NEW') : ''),
+          sub: open ? info.blurb : lockHint(w),
+          color: open ? info.color : '#666',
+          disabled: !open,
+          onSelect: () => { this.menu = null; this.game.startMode(w); },
+        };
+      };
       return [
-        { label: `${verb}: ${MODE_INFO[m].title}`, sub: `Suggested for this quest. ${MODE_INFO[m].blurb}`, onSelect: () => { this.menu = null; this.game.startMode(m); } },
-        ...others.map((w) => ({ label: `OR PLAY: ${MODE_INFO[w].title}`, sub: MODE_INFO[w].blurb, color: MODE_INFO[w].color, onSelect: () => { this.menu = null; this.game.startMode(w); } })),
+        worldRow(m, `${verb}: ${MODE_INFO[m].title}`),
+        ...MODE_IDS.filter((w) => w !== m).map((w) => worldRow(w, MODE_INFO[w].title)),
       ];
     }
-    if (play === 'arcade') return [{ label: verb, sub: 'Open the mini-game arcade.', onSelect: () => this.arcadeMenu() }];
-    if (play === 'daily') return [{ label: verb, sub: 'Open today\'s daily challenge.', onSelect: () => this.dailyMenu() }];
-    const title = MINIS.find((x) => x.id === play)?.title ?? 'the game';
-    return [{ label: `${verb}: ${title}`, sub: `Start ${title}.`, onSelect: () => { this.menu = null; startMini(this.game, play); } }];
+    if (play === 'arcade') return minis.map((m) => miniRow(m, `${verb === 'PLAY NOW' ? 'PLAY' : 'AGAIN'}: ${m.title}`));
+    if (play === 'daily') {
+      const t = this.todaysRun();
+      const info = MODE_INFO[t.mode];
+      return [{
+        label: t.open ? `${verb}: TODAY'S RUN (${info.title})` : `LOCKED: ${lockHint(t.mode).toUpperCase().replace(/\.$/, '')}`,
+        sub: 'Same world, seed and modifier for everyone today. One clear per day pays the bonus.',
+        color: info.color,
+        disabled: !t.open,
+        onSelect: () => { this.menu = null; this.game.startMode(t.mode, { seed: t.seed, daily: t.key }); },
+      }, { label: 'DAILY CHALLENGE MENU', sub: 'Streak, challenge link and friend challenges.', onSelect: () => this.dailyMenu() }];
+    }
+    // A single mini-game quest: that game first, the rest of the arcade right after it.
+    const first = minis.find((m) => m.id === play) ?? minis[0];
+    return [miniRow(first, `${verb}: ${first.title}`), ...minis.filter((m) => m !== first).map((m) => miniRow(m, m.title))];
   }
 
   private questMenu(keep?: number): void {

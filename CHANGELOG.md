@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.4.3
+- **Quest cards list every game**, so you pick one without digging through menus. A world quest shows all nine worlds in a taller card (the suggested one first, locked ones greyed with how to open them, each with CLEARED x / NEW); an arcade quest shows all the mini-games with your best score; a single mini-game quest shows that game first and the rest after it; the daily quest starts today's run right from the card. Every row starts the game in one press.
+
 ## 3.4.2
 - **NIGHTMARE MALL is easier to search**: keycards now glimmer gold through the darkness (visible from about seven tiles), the minimap remembers every keycard you have passed, the flashlight battery lasts about a third longer, and the small light around you is wider. A scripted player that knows where the keys are escapes almost every time, so the difficulty was in finding them in the dark, not in the chase; the Manager is unchanged.
 
