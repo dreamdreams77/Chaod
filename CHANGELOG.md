@@ -1,7 +1,7 @@
 # Changelog
 
 ## 3.4.0 — launch polish
-- **EXPORT SAVE / IMPORT SAVE** in Settings: your whole save as one line of text (`CHAOS1:...`) to copy to another browser or phone, or keep as a backup. Import asks twice before replacing your save and cleans whatever it is given the same way old saves are cleaned; a bad code changes nothing. Browsers without clipboard access get a downloaded file or a paste box instead.
+- **EXPORT SAVE / IMPORT SAVE** in Settings: your whole save as one line of text (`CHAOS1:...`) to copy to another browser or phone, or keep as a backup. Import shows what the code holds (level and bits, next to yours) and only replaces your save on a second press, and it cleans whatever it is given the same way old saves are cleaned (including top-level fields that used to pass through unchecked); a bad code changes nothing. Browsers without clipboard access get a downloaded file or a paste box instead.
 - **REPORT A BUG / FEEDBACK** in Settings opens the GitHub issues page.
 - **Link previews**: sharing the game's link on Discord, X, Reddit, Slack or a phone now shows a card (title, description and a 1200x630 image) instead of a bare URL.
 - **Icons and install**: a favicon, a home-screen icon and a web app manifest, so phones can "Add to Home Screen" and play full screen.

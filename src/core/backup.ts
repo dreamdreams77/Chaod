@@ -5,7 +5,7 @@
 import { Profile, migrateProfile } from './save.ts';
 
 export const BACKUP_PREFIX = 'CHAOS1:';
-const MAX_CODE = 400_000;
+const MAX_CODE = 2_000_000;
 
 export function encodeSave(p: Profile): string {
   const bytes = new TextEncoder().encode(JSON.stringify(p));

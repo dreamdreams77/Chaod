@@ -4,7 +4,7 @@ import { ListMenu, MenuItem } from './menu.ts';
 import { ACTIONS, ACTION_LABELS, DEFAULT_BINDINGS, cloneBindings, keyLabel, Action } from '../core/input.ts';
 import { H, W, PAL, rect, backdrop, glow } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
-import { ChaosIntensity, Difficulty, defaultProfile } from '../core/save.ts';
+import { ChaosIntensity, Difficulty, Profile, defaultProfile } from '../core/save.ts';
 import { formatSeed } from '../core/rng.ts';
 import { haptics } from '../core/haptics.ts';
 import { decodeSave, encodeSave } from '../core/backup.ts';
@@ -25,6 +25,8 @@ export class SettingsScene implements Scene {
   private capture: { action: Action; slot: number } | null = null;
   private eraseArmed = 0;
   private importArmed = 0;
+  /** The decoded code waiting for the second press. */
+  private importPending: Profile | null = null;
 
   constructor(private game: Game, private back: () => Scene) {
     this.menu = this.mainMenu();
@@ -62,7 +64,7 @@ export class SettingsScene implements Scene {
       },
       { label: 'REMAP CONTROLS', onSelect: () => (this.menu = this.remapMenu()) },
       { label: 'EXPORT SAVE', sub: 'Copies your whole save as one line of text. Paste it into IMPORT SAVE on another device or browser to carry your progress.', onSelect: () => void this.exportSave() },
-      { label: 'IMPORT SAVE', value: () => (this.importArmed > 0 ? 'PRESS AGAIN' : ''), sub: 'Replaces this save with one you copied from EXPORT SAVE. Press twice; the code is read from the clipboard.', onSelect: () => void this.importSave() },
+      { label: 'IMPORT SAVE', value: () => (this.importPending ? 'PRESS AGAIN' : ''), sub: 'Replaces this save with one you copied from EXPORT SAVE. The first press reads the clipboard and shows what it holds; the second replaces your save.', onSelect: () => void this.importSave() },
       { label: 'REPORT A BUG / FEEDBACK', sub: 'Opens the GitHub issues page in a new tab.', onSelect: () => { window.open(FEEDBACK_URL, '_blank', 'noopener'); } },
       { label: 'ERASE SAVE DATA', color: '#ff6f3f', value: () => (this.eraseArmed > 0 ? 'PRESS AGAIN' : ''), onSelect: () => this.erase() },
       { label: 'BACK', onSelect: () => this.leave() },
@@ -99,34 +101,48 @@ export class SettingsScene implements Scene {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([code], { type: 'text/plain' }));
       a.download = 'chaos-exe-save.txt';
+      a.style.display = 'none';
+      document.body.appendChild(a); // some browsers ignore clicks on a detached link
       a.click();
-      URL.revokeObjectURL(a.href);
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 2000); // not before the download has started
       this.game.toast('SAVE DOWNLOADED', 'OPEN THE FILE AND COPY ALL', '#3fe0ff');
     }
   }
 
+  /**
+   * First press reads the code and says what it holds; the second press (within a few seconds)
+   * replaces the save with exactly that, so nothing is overwritten without being shown first.
+   */
   private async importSave(): Promise<void> {
-    if (this.importArmed <= 0) {
-      this.importArmed = 3;
+    if (this.importPending) {
+      const p = this.importPending;
+      this.importPending = null;
+      this.importArmed = 0;
+      this.game.profile = p;
+      this.game.saveProfile();
+      this.game.resetSessionCaches();
+      this.game.toast('SAVE IMPORTED', `LEVEL ${p.level}, ${p.bits} BITS`, '#7dff6b');
       return;
     }
-    this.importArmed = 0;
     let text = '';
     try {
       text = await navigator.clipboard.readText();
     } catch {
       text = window.prompt('Paste your save code here:') ?? '';
     }
-    if (!text.trim()) return;
+    if (!text.trim()) {
+      this.game.toast('NOTHING TO IMPORT', 'COPY A CODE FROM EXPORT SAVE FIRST', '#ff6f3f');
+      return;
+    }
     const p = decodeSave(text);
     if (!p) {
       this.game.toast('NOT A SAVE CODE', 'COPY THE WHOLE LINE FROM EXPORT SAVE', '#ff6f3f');
       return;
     }
-    this.game.profile = p;
-    this.game.saveProfile();
-    this.game.resetSessionCaches();
-    this.game.toast('SAVE IMPORTED', `LEVEL ${p.level}, ${p.bits} BITS`, '#7dff6b');
+    this.importPending = p;
+    this.importArmed = 6;
+    const now = this.game.profile;
+    this.game.toast('REPLACE THIS SAVE?', `CODE LV ${p.level} REPLACES LV ${now.level}. PRESS AGAIN`, '#ffcf3f');
   }
 
   private erase(): void {
@@ -162,6 +178,7 @@ export class SettingsScene implements Scene {
     this.t += dt;
     this.eraseArmed = Math.max(0, this.eraseArmed - dt);
     this.importArmed = Math.max(0, this.importArmed - dt);
+    if (this.importArmed <= 0) this.importPending = null;
     if (this.capture) {
       // Touch pads cannot press a key, so the pause button cancels the prompt.
       if (this.game.input.usingTouch && this.game.input.pressed('back')) {

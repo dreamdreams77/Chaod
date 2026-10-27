@@ -969,4 +969,15 @@ test('save backup codes round-trip, survive stray whitespace and reject junk', a
   assert.ok(wild.level >= 1);
   assert.deepEqual(wild.floppies, []);
   assert.deepEqual(wild.achievements, ['x']);
+  const odd = migrateProfile({ manualTrust: 'x', chaosFavor: 'bogus', character: 'zzz', playTime: '9', runsStarted: 1.7, bits: 1e300, xp: 12.9, endingSeen: 'yes', introDone: 1, secretUnlocked: {} });
+  assert.equal(odd.manualTrust, 0);
+  assert.equal(odd.chaosFavor, null);
+  assert.equal(odd.character, 'cass');
+  assert.equal(odd.playTime, 0);
+  assert.equal(odd.runsStarted, 1);
+  assert.equal(odd.bits, 1e9, 'absurd totals are capped');
+  assert.equal(odd.xp, 12);
+  assert.deepEqual([odd.endingSeen, odd.introDone, odd.secretUnlocked], [false, false, false]);
+  const fine = migrateProfile({ chaosFavor: 'combat', character: 'demo', manualTrust: 3, endingSeen: true });
+  assert.deepEqual([fine.chaosFavor, fine.character, fine.manualTrust, fine.endingSeen], ['combat', 'demo', 3, true]);
 });

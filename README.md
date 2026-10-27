@@ -123,7 +123,7 @@ MIT — see [LICENSE](LICENSE). All characters, art, music and writing are origi
 
 ## Backups and feedback
 
-Progress is stored in your browser, so Settings has **EXPORT SAVE** (copies a one-line code) and **IMPORT SAVE** (reads it back) for moving to another device or keeping a backup. **REPORT A BUG / FEEDBACK** opens the issues page. `node tools/icons.mjs` rebuilds the icons and the link-preview image.
+Progress is stored in your browser, so Settings has **EXPORT SAVE** (copies a one-line code) and **IMPORT SAVE** (reads it back) for moving to another device or keeping a backup. **REPORT A BUG / FEEDBACK** opens the issues page. `node tools/icons.mjs` rebuilds the icons and the link-preview image (the `tools/` scripts need Playwright installed, and `tools/video.mjs` also needs ffmpeg).
 
 ## Cover art
 

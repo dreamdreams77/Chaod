@@ -197,6 +197,15 @@ export function migrateProfile(raw: unknown): Profile {
   }
   // Field-by-field checks so a hand-edited or half-written save can never crash a run or poison a score with NaN.
   const num = (v: unknown, fallback: number, min = 0): number => (typeof v === 'number' && Number.isFinite(v) ? Math.max(min, v) : fallback);
+  // Plain fields the spread above would otherwise pass through unchecked (an imported code can hold anything).
+  p.manualTrust = Math.floor(num(r.manualTrust, base.manualTrust, -99));
+  p.chaosFavor = (['cosmetic', 'environmental', 'combat', 'genre', 'legendary'] as const).find((c) => c === r.chaosFavor) ?? null;
+  p.character = r.character === 'demo' ? 'demo' : 'cass';
+  p.playTime = Math.min(num(r.playTime, 0), 1e9);
+  p.runsStarted = Math.min(Math.floor(num(r.runsStarted, 0)), 1e7);
+  p.introDone = r.introDone === true;
+  p.endingSeen = r.endingSeen === true;
+  p.secretUnlocked = r.secretUnlocked === true;
   p.cleared = { ...base.cleared };
   for (const m of ALL_MODES) {
     const c = ((r.cleared ?? {}) as Record<string, Partial<ModeRecord> | null>)[m];
@@ -283,11 +292,11 @@ export function migrateProfile(raw: unknown): Profile {
   }
   for (const k of ['floppies', 'bossesDefeated', 'abilities', 'mutationsUnlocked', 'mutationsDisabled', 'achievements', 'lore', 'chaosEventsSeen', 'questsDone'] as const) {
     // Lists of ids: keep only short strings (an imported or hand-edited save may hold anything).
-    p[k] = Array.isArray(p[k]) ? (p[k] as unknown[]).filter((x): x is string => typeof x === 'string' && x.length <= 64).slice(0, 500) : base[k].slice();
+    p[k] = Array.isArray(p[k]) ? (p[k] as unknown[]).filter((x): x is string => typeof x === 'string' && x.length <= 64).slice(0, 2000) : base[k].slice();
   }
   for (const m of base.mutationsUnlocked) if (!p.mutationsUnlocked.includes(m)) p.mutationsUnlocked.push(m);
-  if (!Number.isFinite(p.bits) || p.bits < 0) p.bits = 0;
-  if (!Number.isFinite(p.xp) || p.xp < 0) p.xp = 0;
+  p.bits = Math.min(Math.floor(num(p.bits, 0)), 1e9);
+  p.xp = Math.min(Math.floor(num(p.xp, 0)), 1e9);
   p.level = levelForXp(p.xp);
   return p;
 }
