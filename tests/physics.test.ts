@@ -728,6 +728,7 @@ test('FIELD MEDIC is only offered in an ENDLESS RUN', () => {
 
 import { BlocksMode } from '../src/modes/blocks.ts';
 import { BoltMode } from '../src/modes/bolt.ts';
+import { MallMode } from '../src/modes/mall.ts';
 import { COLS as BLOCK_COLS, ROWS as BLOCK_ROWS } from '../src/procgen/blocks.ts';
 import { MASTERS as BOLT_MASTERS_T, TILE as BOLT_TILE } from '../src/procgen/bolt.ts';
 
@@ -996,4 +997,26 @@ test('only the two story bosses count as Core shards, whatever else is in the li
   assert.ok(!text(['frostbyte', 'flarebot', 'highscore']).includes('Both shards'));
   assert.ok(text(['bricklord', 'frostbyte']).includes('One CORE SHARD'));
   assert.ok(text(['bricklord', 'static']).includes('Both shards'));
+});
+
+test('NIGHTMARE MALL: keycards you pass are remembered on the map, and the flashlight lasts longer than before', () => {
+  (globalThis as unknown as Record<string, unknown>).document = { createElement: () => ({ width: 0, height: 0, getContext: () => ({}) }) };
+  const { game } = blocksGame();
+  (game as unknown as Record<string, unknown>).say = () => {};
+  const m = new MallMode(game, { seed: 4242 });
+  const keys = m.map.items.filter((i) => i.kind === 'key');
+  assert.equal(keys.length, 3);
+  assert.ok(keys.every((k) => !k.seen));
+  const k = keys[0];
+  m.px = k.x * 16 + 8 - 5 * 16;
+  m.py = k.y * 16 + 8;
+  m.mState = 'stunned';
+  m.mTimer = 99;
+  m.update(1 / 60);
+  assert.equal(k.seen, true, 'a keycard within eight tiles is marked');
+  assert.ok(keys.filter((x) => x.seen).length < 3 || keys.every((x) => Math.hypot(x.x * 16 - m.px, x.y * 16 - m.py) < 8 * 16), 'far keycards are not');
+  const b0 = m.battery;
+  for (let i = 0; i < 60 * 60; i++) { m.mTimer = 99; m.update(1 / 60); }
+  assert.ok(m.battery > 0.4, `a minute of light leaves ${m.battery.toFixed(2)} of the battery`);
+  assert.ok(b0 - m.battery < 0.6);
 });

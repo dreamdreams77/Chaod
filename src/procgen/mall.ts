@@ -26,6 +26,8 @@ export interface MallItem {
   y: number;
   id: number;
   taken?: boolean;
+  /** A keycard the player has been near, so the minimap can mark it. */
+  seen?: boolean;
 }
 
 export interface MallMap {

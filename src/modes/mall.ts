@@ -85,7 +85,7 @@ export class MallMode extends ModeBase {
     if (!this.game.profile.lore.includes('mall_intro')) {
       this.game.profile.lore.push('mall_intro');
       this.game.say([
-        { who: 'manual', name: 'THE MANUAL', text: 'The mall closed at 9. It is now 9:01. Find 3 KEYCARDS, reach the EXIT on the far right.' },
+        { who: 'manual', name: 'THE MANUAL', text: 'The mall closed at 9. It is now 9:01. Find 3 KEYCARDS, reach the EXIT on the far right. Keycards glimmer gold in the dark, and the map remembers the ones you pass.' },
         { who: 'manual', name: 'THE MANUAL', text: 'Hold X to run (noisy!). Z hides you in a locker. ' + (this.petOn ? 'C makes BYTE bark to stun the Manager.' : 'Stay out of his light.') },
       ]);
     }
@@ -177,7 +177,7 @@ export class MallMode extends ModeBase {
 
     // Battery drain
     const lightsOn = this.director.flag('lights_on');
-    if (!lightsOn) this.battery = Math.max(0, this.battery - dt * 0.012 * this.diffMult);
+    if (!lightsOn) this.battery = Math.max(0, this.battery - dt * 0.009 * this.diffMult);
 
     this.updatePickups();
     this.updatePet(dt);
@@ -364,7 +364,9 @@ export class MallMode extends ModeBase {
   private updatePickups(): void {
     for (const it of this.map.items) {
       if (it.taken || it.kind === 'locker') continue;
-      if (Math.hypot(it.x * T + 8 - this.px, it.y * T + 8 - this.py) > 11) continue;
+      const near = Math.hypot(it.x * T + 8 - this.px, it.y * T + 8 - this.py);
+      if (it.kind === 'key' && near < 8 * T) it.seen = true; // the minimap remembers keycards you have been close to
+      if (near > 11) continue;
       switch (it.kind) {
         case 'key':
           it.taken = true;
@@ -518,11 +520,11 @@ export class MallMode extends ModeBase {
     d.globalCompositeOperation = 'destination-out';
     const px = this.px - camX, py = this.py - camY;
     // Ambient bubble around the player
-    const amb = d.createRadialGradient(px, py, 4, px, py, 34);
+    const amb = d.createRadialGradient(px, py, 4, px, py, 44);
     amb.addColorStop(0, 'rgba(0,0,0,0.9)');
     amb.addColorStop(1, 'rgba(0,0,0,0)');
     d.fillStyle = amb;
-    d.fillRect(px - 40, py - 40, 80, 80);
+    d.fillRect(px - 48, py - 48, 96, 96);
     // Flashlight cone
     if (this.battery > 0 && !this.hidden) {
       const flick = this.battery < 0.15 && Math.random() < 0.2 ? 0.3 : 1;
@@ -538,6 +540,17 @@ export class MallMode extends ModeBase {
       d.arc(px, py, len, ang - spread, ang + spread);
       d.closePath();
       d.fill();
+    }
+    // Keycards glimmer through the dark, so a shop can be searched by eye instead of by feel.
+    for (const it of this.map.items) {
+      if (it.kind !== 'key' || it.taken) continue;
+      const kx = it.x * T + 8 - camX, ky = it.y * T + 8 - camY;
+      if (kx < -30 || ky < -30 || kx > W + 30 || ky > H + 30) continue;
+      const gl = d.createRadialGradient(kx, ky, 2, kx, ky, 24);
+      gl.addColorStop(0, `rgba(0,0,0,${0.75 + Math.sin(this.time * 3) * 0.15})`);
+      gl.addColorStop(1, 'rgba(0,0,0,0)');
+      d.fillStyle = gl;
+      d.fillRect(kx - 26, ky - 26, 52, 52);
     }
     // Neon store signs and the exit glow faintly through the dark
     for (const s of this.map.stores) {
@@ -605,6 +618,7 @@ export class MallMode extends ModeBase {
     rect(ctx, mmx - 2, mmy - 2, MW * s + 4, MH * s + 4, '#000c');
     for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) if (mallWalkable(this.map.tiles[y][x])) rect(ctx, mmx + x * s, mmy + y * s, s, s, '#2a2428');
     rect(ctx, mmx + this.map.exit.x * s - 1, mmy + this.map.exit.y * s - 1, 4, 4, this.keys >= 3 ? '#7dff6b' : '#b3122e');
+    for (const it of this.map.items) if (it.kind === 'key' && it.seen && !it.taken) rect(ctx, mmx + it.x * s, mmy + it.y * s, 3, 3, '#ffcf3f');
     rect(ctx, mmx + Math.floor(this.px / T) * s, mmy + Math.floor(this.py / T) * s, 3, 3, '#20c4b0');
     if (this.mState === 'chase') rect(ctx, mmx + Math.floor(this.mx / T) * s, mmy + Math.floor(this.my / T) * s, 3, 3, '#ff2040');
     this.drawChaosHud(ctx, W - 106, 26);

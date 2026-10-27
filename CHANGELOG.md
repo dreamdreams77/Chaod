@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.4.2
+- **NIGHTMARE MALL is easier to search**: keycards now glimmer gold through the darkness (visible from about seven tiles), the minimap remembers every keycard you have passed, the flashlight battery lasts about a third longer, and the small light around you is wider. A scripted player that knows where the keys are escapes almost every time, so the difficulty was in finding them in the dark, not in the chase; the Manager is unchanged.
+
 ## 3.4.1
 - **Quest board**: a world quest used to offer a single "PLAY NOW" world (usually the same one, NEON PANIC, until you cleared it) behind a separate list. It now suggests the world that fits the quest (an uncleared one, a cleared one for ENDLESS and UNTOUCHABLE, the one with the most missing disks or stars) and lists every other open world right below it.
 
