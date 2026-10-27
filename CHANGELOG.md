@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.4.1
+- **Quest board**: a world quest used to offer a single "PLAY NOW" world (usually the same one, NEON PANIC, until you cleared it) behind a separate list. It now suggests the world that fits the quest (an uncleared one, a cleared one for ENDLESS and UNTOUCHABLE, the one with the most missing disks or stars) and lists every other open world right below it.
+
 ## 3.4.0 — launch polish
 - **EXPORT SAVE / IMPORT SAVE** in Settings: your whole save as one line of text (`CHAOS1:...`) to copy to another browser or phone, or keep as a backup. Import shows what the code holds (level and bits, next to yours) and only replaces your save on a second press, and it cleans whatever it is given the same way old saves are cleaned (including top-level fields that used to pass through unchecked); a bad code changes nothing. Browsers without clipboard access get a downloaded file or a paste box instead.
 - **REPORT A BUG / FEEDBACK** in Settings opens the GitHub issues page.

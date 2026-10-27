@@ -972,7 +972,17 @@ export class HubScene implements Scene {
     const p = this.game.profile;
     if (id === 'speed_demon') return 'rampage';
     const open = MODE_IDS.filter((m) => isModeUnlocked(m, p.cleared));
-    return open.find((m) => p.cleared[m].clears === 0 && m !== 'beatdown' && m !== 'rhythm') ?? open.find((m) => p.cleared[m].clears === 0) ?? 'rampage';
+    // The open world that best serves the quest, so the suggestion is not always the same game.
+    const most = (score: (m: ModeId) => number): ModeId => open.reduce((best, m) => (score(m) > score(best) ? m : best), open[0] ?? 'rampage');
+    const cleared = open.filter((m) => p.cleared[m].clears > 0);
+    switch (id) {
+      case 'endless_runner': // endless runs open after a clear
+        return cleared.length ? cleared.reduce((best, m) => ((p.endless[m]?.rounds ?? 0) < (p.endless[best]?.rounds ?? 0) ? m : best), cleared[0]) : (open[0] ?? 'rampage');
+      case 'disk_diver': return most((m) => [0, 1, 2].filter((i) => !p.floppies.includes(`${m}-${i}`)).length);
+      case 'star_collector': return most((m) => 3 - starCount(p, m));
+      case 'untouchable': return cleared[0] ?? open[0] ?? 'rampage'; // a world you already know is the safest try
+    }
+    return open.find((m) => p.cleared[m].clears === 0 && m !== 'beatdown' && m !== 'rhythm') ?? open.find((m) => p.cleared[m].clears === 0) ?? most((m) => -p.cleared[m].clears);
   }
 
   /** PLAY NOW starts the game for this quest right away; world quests also offer a world list. */
@@ -980,9 +990,12 @@ export class HubScene implements Scene {
     const verb = ok ? 'PLAY AGAIN' : 'PLAY NOW';
     if (play === 'worlds') {
       const m = this.questWorld(id);
+      const p = this.game.profile;
+      // The suggestion first, then every other open world right here, so the quest never hides the rest.
+      const others = MODE_IDS.filter((w) => w !== m && isModeUnlocked(w, p.cleared));
       return [
-        { label: `${verb}: ${MODE_INFO[m].title}`, sub: MODE_INFO[m].blurb, onSelect: () => { this.menu = null; this.game.startMode(m); } },
-        { label: 'CHOOSE ANOTHER WORLD', sub: 'Pick any unlocked world.', onSelect: () => this.worldPicker() },
+        { label: `${verb}: ${MODE_INFO[m].title}`, sub: `Suggested for this quest. ${MODE_INFO[m].blurb}`, onSelect: () => { this.menu = null; this.game.startMode(m); } },
+        ...others.map((w) => ({ label: `OR PLAY: ${MODE_INFO[w].title}`, sub: MODE_INFO[w].blurb, color: MODE_INFO[w].color, onSelect: () => { this.menu = null; this.game.startMode(w); } })),
       ];
     }
     if (play === 'arcade') return [{ label: verb, sub: 'Open the mini-game arcade.', onSelect: () => this.arcadeMenu() }];
