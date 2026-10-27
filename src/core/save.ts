@@ -282,7 +282,8 @@ export function migrateProfile(raw: unknown): Profile {
     }
   }
   for (const k of ['floppies', 'bossesDefeated', 'abilities', 'mutationsUnlocked', 'mutationsDisabled', 'achievements', 'lore', 'chaosEventsSeen', 'questsDone'] as const) {
-    if (!Array.isArray(p[k])) p[k] = base[k].slice();
+    // Lists of ids: keep only short strings (an imported or hand-edited save may hold anything).
+    p[k] = Array.isArray(p[k]) ? (p[k] as unknown[]).filter((x): x is string => typeof x === 'string' && x.length <= 64).slice(0, 500) : base[k].slice();
   }
   for (const m of base.mutationsUnlocked) if (!p.mutationsUnlocked.includes(m)) p.mutationsUnlocked.push(m);
   if (!Number.isFinite(p.bits) || p.bits < 0) p.bits = 0;

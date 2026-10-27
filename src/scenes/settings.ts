@@ -7,6 +7,10 @@ import { drawText } from '../render/font.ts';
 import { ChaosIntensity, Difficulty, defaultProfile } from '../core/save.ts';
 import { formatSeed } from '../core/rng.ts';
 import { haptics } from '../core/haptics.ts';
+import { decodeSave, encodeSave } from '../core/backup.ts';
+
+/** Where players report problems. */
+export const FEEDBACK_URL = 'https://github.com/dreamdreams77/Chaod/issues/new';
 
 const DIFFS: Difficulty[] = ['easy', 'normal', 'hard'];
 const CHAOS: ChaosIntensity[] = ['off', 'low', 'normal', 'high'];
@@ -20,6 +24,7 @@ export class SettingsScene implements Scene {
   private t = 0;
   private capture: { action: Action; slot: number } | null = null;
   private eraseArmed = 0;
+  private importArmed = 0;
 
   constructor(private game: Game, private back: () => Scene) {
     this.menu = this.mainMenu();
@@ -56,6 +61,9 @@ export class SettingsScene implements Scene {
         onSelect: () => { s.fixedSeed = s.fixedSeed === null ? this.game.rng.int(0, 999999) : null; this.save(); },
       },
       { label: 'REMAP CONTROLS', onSelect: () => (this.menu = this.remapMenu()) },
+      { label: 'EXPORT SAVE', sub: 'Copies your whole save as one line of text. Paste it into IMPORT SAVE on another device or browser to carry your progress.', onSelect: () => void this.exportSave() },
+      { label: 'IMPORT SAVE', value: () => (this.importArmed > 0 ? 'PRESS AGAIN' : ''), sub: 'Replaces this save with one you copied from EXPORT SAVE. Press twice; the code is read from the clipboard.', onSelect: () => void this.importSave() },
+      { label: 'REPORT A BUG / FEEDBACK', sub: 'Opens the GitHub issues page in a new tab.', onSelect: () => { window.open(FEEDBACK_URL, '_blank', 'noopener'); } },
       { label: 'ERASE SAVE DATA', color: '#ff6f3f', value: () => (this.eraseArmed > 0 ? 'PRESS AGAIN' : ''), onSelect: () => this.erase() },
       { label: 'BACK', onSelect: () => this.leave() },
     ];
@@ -79,6 +87,46 @@ export class SettingsScene implements Scene {
     items.push({ label: 'RESET TO DEFAULTS', onSelect: () => { this.game.input.bindings = cloneBindings(DEFAULT_BINDINGS); this.save(); } });
     items.push({ label: 'BACK', onSelect: () => (this.menu = this.mainMenu()) });
     return new ListMenu('REMAP CONTROLS', items, () => (this.menu = this.mainMenu()), { x: 50, y: 20, w: 380, rows: 13, accent: '#ff3fa4' });
+  }
+
+  private async exportSave(): Promise<void> {
+    const code = encodeSave(this.game.profile);
+    try {
+      await navigator.clipboard.writeText(code);
+      this.game.toast('SAVE COPIED', 'PASTE IT INTO IMPORT SAVE', '#3fe0ff');
+    } catch {
+      // No clipboard access (older browsers, insecure pages): hand it over as a file instead.
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([code], { type: 'text/plain' }));
+      a.download = 'chaos-exe-save.txt';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      this.game.toast('SAVE DOWNLOADED', 'OPEN THE FILE AND COPY ALL', '#3fe0ff');
+    }
+  }
+
+  private async importSave(): Promise<void> {
+    if (this.importArmed <= 0) {
+      this.importArmed = 3;
+      return;
+    }
+    this.importArmed = 0;
+    let text = '';
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      text = window.prompt('Paste your save code here:') ?? '';
+    }
+    if (!text.trim()) return;
+    const p = decodeSave(text);
+    if (!p) {
+      this.game.toast('NOT A SAVE CODE', 'COPY THE WHOLE LINE FROM EXPORT SAVE', '#ff6f3f');
+      return;
+    }
+    this.game.profile = p;
+    this.game.saveProfile();
+    this.game.resetSessionCaches();
+    this.game.toast('SAVE IMPORTED', `LEVEL ${p.level}, ${p.bits} BITS`, '#7dff6b');
   }
 
   private erase(): void {
@@ -113,6 +161,7 @@ export class SettingsScene implements Scene {
   update(dt: number): void {
     this.t += dt;
     this.eraseArmed = Math.max(0, this.eraseArmed - dt);
+    this.importArmed = Math.max(0, this.importArmed - dt);
     if (this.capture) {
       // Touch pads cannot press a key, so the pause button cancels the prompt.
       if (this.game.input.usingTouch && this.game.input.pressed('back')) {

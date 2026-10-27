@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.4.0 — launch polish
+- **EXPORT SAVE / IMPORT SAVE** in Settings: your whole save as one line of text (`CHAOS1:...`) to copy to another browser or phone, or keep as a backup. Import asks twice before replacing your save and cleans whatever it is given the same way old saves are cleaned; a bad code changes nothing. Browsers without clipboard access get a downloaded file or a paste box instead.
+- **REPORT A BUG / FEEDBACK** in Settings opens the GitHub issues page.
+- **Link previews**: sharing the game's link on Discord, X, Reddit, Slack or a phone now shows a card (title, description and a 1200x630 image) instead of a bare URL.
+- **Icons and install**: a favicon, a home-screen icon and a web app manifest, so phones can "Add to Home Screen" and play full screen.
+- Saves now drop non-text entries from their id lists (floppies, trophies and so on), so a hand-edited or imported save cannot carry junk.
+
+
 ## 3.3.0 — friend challenges, records, titles, ULTRA and clear shapes
 - **Friend-score challenges**: a share card's link now carries the score as well as the seed. Whoever opens it gets a FRIEND'S CHALLENGE entry on the lobby's world picker ("beat their score on the same seed"), a BEAT line during the run, and on the results screen either BEATEN! (+40 bits and the RIVAL BEATEN trophy, once per seed, and only for a cleared run on NORMAL difficulty with assist off) or NOT YET. Old links without a score still work. Scores that are not comparable to a plain run (endless, boss rush, perks, nightmare, rematch, ULTRA) are left out of the link, as are scores from other difficulties or assist mode.
 - **RECORDS & TITLES** in the lobby menu: play time, runs, daily streak and, for every world, clears, best score and time, stars, endless best and disks. Sixteen **titles** (ROOKIE TESTER to GOLD STANDARD) unlock from play, can be picked there (or left on AUTO, which wears the newest), are shown on the results screen and the share card, and announce themselves with a toast when earned.

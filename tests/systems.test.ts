@@ -945,3 +945,28 @@ test('jukebox: every track is listed once and exists, unlocks come from play, a 
   s.seasonSeen = 'summer-2027';
   assert.equal(JUKEBOX.find((t) => t.id === 'winter')!.test(s), true, 'a season stays unlocked after a later one overwrites seasonSeen');
 });
+
+test('save backup codes round-trip, survive stray whitespace and reject junk', async () => {
+  const { encodeSave, decodeSave, BACKUP_PREFIX } = await import('../src/core/backup.ts');
+  const p = defaultProfile();
+  p.bits = 1234;
+  p.floppies = ['neon-0', 'blocks-2'];
+  p.title = 'jockey';
+  p.endless.neon = { rounds: 6, score: 900 };
+  const code = encodeSave(p);
+  assert.ok(code.startsWith(BACKUP_PREFIX) && !code.includes('\n'));
+  const back = decodeSave(`  ${code.slice(0, 20)}\n${code.slice(20)}  `)!;
+  assert.equal(back.bits, 1234);
+  assert.deepEqual(back.floppies, ['neon-0', 'blocks-2']);
+  assert.deepEqual(back.endless.neon, { rounds: 6, score: 900 });
+  assert.equal(back.title, 'jockey');
+  for (const bad of ['', 'hello', BACKUP_PREFIX, `${BACKUP_PREFIX}!!!not base64!!!`, `${BACKUP_PREFIX}${btoa('[1,2]')}`, `${BACKUP_PREFIX}${btoa('"x"')}`, `${BACKUP_PREFIX}${btoa('{')}`, 'CHAOS2:' + code.slice(7)]) {
+    assert.equal(decodeSave(bad), null, bad.slice(0, 30));
+  }
+  // a hostile code is cleaned like any old save: wrong types fall back to defaults
+  const wild = decodeSave(BACKUP_PREFIX + btoa(JSON.stringify({ bits: 'many', level: -5, floppies: 7, achievements: [1, 'x'] })))!;
+  assert.equal(typeof wild.bits, 'number');
+  assert.ok(wild.level >= 1);
+  assert.deepEqual(wild.floppies, []);
+  assert.deepEqual(wild.achievements, ['x']);
+});
