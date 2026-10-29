@@ -1564,13 +1564,22 @@ test('GLITCH GLOVES: dodging the right way avoids a punch, a wrong step costs a 
   priv.punch = 'hookR';
   stepScene(s, game, 1.2);
   assert.equal(priv.hearts, hearts - 1);
-  // a punch into a wind-up counters
+  // a punch at the start of a wind-up is too early; one at its end is a counter
+  waitFor('tell');
+  const early = priv.oppHp;
+  game.input.setVirtual('attack', true);
+  stepScene(s, game, 0.03);
+  game.input.setVirtual('attack', false);
+  assert.equal(priv.oppHp, early, 'too early does nothing');
+  assert.notEqual(priv.state, 'stun');
+  stepScene(s, game, 1.2);
   waitFor('tell');
   const hp = priv.oppHp;
+  while ((s as unknown as { stateLeft: number }).stateLeft > (s as unknown as { tellTime: number }).tellTime * 0.4) stepScene(s, game, 1 / 60);
   game.input.setVirtual('attack', true);
-  stepScene(s, game, 0.05);
+  stepScene(s, game, 0.03);
   game.input.setVirtual('attack', false);
-  assert.ok(priv.oppHp <= hp - 10 && priv.state === 'stun');
+  assert.ok(priv.oppHp <= hp - 10 && priv.state === 'stun', 'a late punch counters');
   // while he is stunned, punches stack into a combo
   stepScene(s, game, 0.35);
   const hp2 = priv.oppHp;
@@ -1613,8 +1622,81 @@ test('GLITCH GLOVES: a bot that reads the tells knocks boxers out; a bot that st
     }
     return { score: s.score, round: priv.round };
   };
+  // mashing punch without ever dodging does not work any more
+  const masher = (): { score: number; hearts: number } => {
+    const game = miniGame();
+    const s = new BoxScene(game);
+    for (let f = 0; f < 60 * 110 && !(s as unknown as { over: boolean }).over; f++) {
+      game.input.setVirtual('attack', f % 6 < 2);
+      game.input.beginFrame(); s.update(1 / 60); game.input.endFrame();
+    }
+    return { score: s.score, hearts: (s as unknown as { hearts: number }).hearts };
+  };
+  const mash = masher();
+  assert.ok(mash.hearts <= 0 && mash.score < 60, `masher: ${JSON.stringify(mash)}`);
   const smart = play(true);
   const idle = play(false);
   assert.ok(smart.round >= 1 && smart.score >= 90, `smart: round ${smart.round}, score ${smart.score}`);
   assert.ok(idle.score < 20, `idle scored ${idle.score}`);
+});
+
+test('RING RIOT: a hold that is broken by a knockdown frees the other wrestler; hits cost life, not stars; the last pin never costs a heart it did not earn', () => {
+  const m = wrestleReady();
+  // a victim with no life is knocked down in the middle of a lock: nobody stays frozen
+  m.e.x = m.p.x + 26;
+  m.e.state = 'idle';
+  m.e.thinkT = 99;
+  m.p.state = 'idle';
+  (m as unknown as { beginLock(a: unknown, v: unknown): void }).beginLock(m.p, m.e);
+  (m as unknown as { knockDown(v: unknown, secs: number, dir: number): void }).knockDown(m.e, 2, 1);
+  assert.equal(m.lock, null);
+  assert.notEqual(m.p.state as string, 'lock', 'the attacker is released');
+  stepW(m, 0.5);
+  assert.ok(['idle', 'walk', 'recover'].includes(m.p.state as string));
+  // strikes landing on the player do not count as "damage taken" (hearts do)
+  const before = m.damageTaken;
+  m.e.state = 'idle';
+  m.e.x = m.p.x + 28;
+  m.p.state = 'idle';
+  (m as unknown as { startStrike(f: unknown, s: number): void }).startStrike(m.e, 1);
+  stepW(m, 0.2);
+  assert.ok(m.p.life < m.p.max, 'the strike landed');
+  assert.equal(m.damageTaken, before);
+});
+
+test('MUNCH MAZE: eating the last bit wins even if a ghost is touching you on the same frame', () => {
+  const m = munchReady();
+  for (let y = 0; y < MZ_H; y++) for (let x = 0; x < MZ_W; x++) m.bits[y][x] = false;
+  m.left = 1;
+  // one bit one step away, and a ghost standing on the player
+  const { x, y } = m.pl;
+  const n = mazeNeighbours(m.map, x, y, false)[0];
+  m.bits[n.y][n.x] = true;
+  m.ghosts[0].state = 'normal';
+  Object.assign(m.ghosts[0], { x: n.x, y: n.y, p: 0, dir: -1 });
+  m.game.input.setVirtual(['up', 'left', 'down', 'right'][n.dir] as 'up', true);
+  const hp = m.hp;
+  for (let i = 0; i < 40 && m.phase === 'play'; i++) { m.game.input.beginFrame(); m.update(1 / 60); m.game.input.endFrame(); }
+  m.game.input.setVirtual(['up', 'left', 'down', 'right'][n.dir] as 'up', false);
+  assert.equal(m.phase, 'won');
+  assert.equal(m.hp, hp);
+});
+
+test('FLIPPER FRENZY: a ball resting in the flipper gap drains, and the third nudge tilts the table', () => {
+  const m = pinReady();
+  launch(m);
+  m.saverT = 0;
+  m.balls = [{ x: 83, y: 200, vx: 0, vy: 0, lane: false, extra: false, age: 9 }];
+  const hp = m.hp;
+  stepP(m, 6);
+  assert.ok(m.hp < hp || m.phase === 'serve', 'the ball fell through the gap between the flippers');
+  const t = pinReady();
+  launch(t);
+  for (let i = 0; i < 3; i++) {
+    t.game.input.setVirtual('up', true);
+    t.game.input.beginFrame(); t.update(1 / 60); t.game.input.endFrame();
+    t.game.input.setVirtual('up', false);
+    t.game.input.beginFrame(); t.update(1 / 60); t.game.input.endFrame();
+  }
+  assert.equal(t.tilt, true);
 });

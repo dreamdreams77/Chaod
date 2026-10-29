@@ -8,7 +8,7 @@
 import type { Game } from '../game.ts';
 import { ModeBase, ModeOpts } from './base.ts';
 import type { DirectorContext } from '../chaos/director.ts';
-import { DIRS, MZ_H, MZ_W, MazeMap, generateMaze, isFloor, mazeStep, neighbours } from '../procgen/maze.ts';
+import { DIRS, MZ_H, MZ_W, MazeMap, generateMaze, mazeStep, neighbours } from '../procgen/maze.ts';
 import { H, W, backdrop, bar, clamp, glow, hearts, rect } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { drawFloppy } from '../render/actors.ts';
@@ -142,10 +142,6 @@ export class MunchMode extends ModeBase {
   private scattering(): boolean {
     return this.wave % 2 === 0;
   }
-  private passable(x: number, y: number, ghost: boolean): boolean {
-    const c = this.map.tiles[y]?.[x];
-    return c !== undefined && (isFloor(c) || (ghost && c === '='));
-  }
   private open(m: Mover, dir: number, ghost: boolean): boolean {
     return neighbours(this.map, m.x, m.y, ghost).some((n) => n.dir === dir);
   }
@@ -195,10 +191,11 @@ export class MunchMode extends ModeBase {
     this.mouth += dt * 12;
     this.runClock(dt);
     this.movePlayer(dt);
+    // the last bit wins the maze even if a ghost arrives on the same frame
+    if (this.left <= 0) return this.win();
     for (const g of this.ghosts) this.moveGhost(g, dt);
     this.collide();
     this.updateBonus(dt);
-    if (this.left <= 0 && this.phase === 'play') this.win();
   }
 
   private say(text: string, color: string): void {

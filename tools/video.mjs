@@ -115,7 +115,7 @@ for (const [n, sc] of SCENES.entries()) {
         __chaos.press('left', (st === 'tell' || st === 'strike') && pn === 'hookR');
         __chaos.press('right', (st === 'tell' || st === 'strike') && pn === 'hookL');
         __chaos.press('down', (st === 'tell' || st === 'strike') && pn === 'jab');
-        if (st === 'recover' || st === 'stun' || st === 'tell') tap('attack');
+        if (st === 'recover' || st === 'stun' || (st === 'tell' && s.stateLeft <= s.tellTime * 0.4)) tap('attack');
         return;
       }
       if (a) { __chaos.press(a, true); setTimeout(() => __chaos.press(a, false), 140); }

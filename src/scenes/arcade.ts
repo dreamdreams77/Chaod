@@ -1442,6 +1442,13 @@ export class BoxScene extends MiniBase {
   get playerLane(): number {
     return this.lane;
   }
+  /** Seconds left in his current state, and how long a wind-up lasts (for bots and tests). */
+  get stateLeft(): number {
+    return this.stateT;
+  }
+  get tellTime(): number {
+    return this.opp.tell;
+  }
 
   update(dt: number): void {
     this.t += dt;
@@ -1465,7 +1472,8 @@ export class BoxScene extends MiniBase {
     this.laneX += (this.lane * 62 - this.laneX) * Math.min(1, dt * 18);
     const wantPunch = inp.pressed('attack') || inp.pressed('jump') || inp.pressed('up') || inp.pressed('confirm') || this.tapPunch;
     this.tapPunch = false;
-    if (wantPunch && this.punchCd <= 0 && !this.blocking) this.throwPunch();
+    // a player who just got hit is staggered and cannot punch back straight away
+    if (wantPunch && this.punchCd <= 0 && !this.blocking && this.hurtT <= 0) this.throwPunch();
     this.updateOpp(dt);
     if (this.hearts <= 0 || this.timeLeft <= 0) this.finish();
   }
@@ -1481,15 +1489,23 @@ export class BoxScene extends MiniBase {
       // each clean hit keeps him dazed a little longer
       this.stateT = Math.max(this.stateT, 0.45);
     } else if (s === 'tell') {
-      // caught him winding up: a counter punch
-      this.state = 'stun';
-      this.stateT = 1.3;
-      this.hitOpp(10, 'COUNTER!');
-      this.score += 4;
-      this.game.audio.sfx('perfect');
+      if (this.stateT <= this.opp.tell * 0.45) {
+        // caught him at the end of his wind-up: a counter punch
+        this.state = 'stun';
+        this.stateT = 1.3;
+        this.hitOpp(10, 'COUNTER!');
+        this.score += 4;
+        this.game.audio.sfx('perfect');
+      } else {
+        // too early: he is still guarding, and a missed punch leaves you open for a moment
+        this.popups.add(W / 2, 70, 'TOO EARLY', '#9a9ab8');
+        this.punchCd = 0.8;
+        this.combo = 0;
+      }
     } else if (s === 'idle') {
       this.hitOpp(1, 'BLOCKED');
-      this.stateT = Math.min(this.stateT, 0.3); // he answers a wild punch quickly
+      if (this.state === 'idle') this.stateT = Math.min(this.stateT, 0.35); // he answers a wild punch quickly
+      this.punchCd = 0.6;
       this.combo = 0;
     } else if (s === 'strike') {
       this.combo = 0; // whiffed into his punch
@@ -1550,7 +1566,7 @@ export class BoxScene extends MiniBase {
       p === 'hookL' ? this.lane <= 0 : p === 'hookR' ? this.lane >= 0 : this.lane === 0 && !this.blocking;
     if (hit) {
       this.hearts--;
-      this.hurtT = 0.4;
+      this.hurtT = 0.75;
       this.combo = 0;
       this.game.audio.sfx('hurt');
       this.game.fx.shake(4);

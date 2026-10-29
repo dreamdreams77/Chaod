@@ -269,7 +269,7 @@ export class HubScene implements Scene {
    * Every world and every mini-game in one list; pressing a row starts it at once. The last row opens
    * the cabinets, where ENDLESS RUN, NIGHTMARE, ULTRA and the rest live.
    */
-  private worldPicker(keep?: number): void {
+  private worldPicker(): void {
     const items: MenuItem[] = [{ label: '\u2014 WORLDS \u2014', disabled: true }];
     for (const m of MODE_IDS) items.push(this.worldRow(m, MODE_INFO[m].title, () => { this.menu = null; this.game.startMode(m); }));
     items.push({ label: '\u2014 ARCADE \u2014', disabled: true });
@@ -277,7 +277,7 @@ export class HubScene implements Scene {
     items.push({ label: 'MORE MODES: ENDLESS, NIGHTMARE...', sub: 'Open a world\'s cabinet for ENDLESS RUN, NIGHTMARE MODE, ULTRA, boss rematches, stars and mutations.', color: '#ff6f3f', onSelect: () => this.cabinetPicker() });
     items.push({ label: 'BACK', onSelect: () => this.openPauseMenu() });
     this.menu = new ListMenu('ALL GAMES', items, () => this.openPauseMenu(), { x: 40, y: 12, w: 400, rows: 15, accent: '#7dff6b' });
-    this.menu.index = keep ?? 1;
+    this.menu.index = 1;
   }
 
   /** The worlds' cabinet menus, reached from ALL GAMES; BACK returns to the same row. */

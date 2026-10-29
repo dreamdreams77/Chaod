@@ -113,7 +113,6 @@ export class WrestleMode extends ModeBase {
   private readonly ai: Rng;
   private banner: { text: string; color: string; t: number } | null = null;
   private shakeT = 0;
-  private mashes: number[] = [];
   endT = 0;
   /** Falls (pinfalls against the player) this run. */
   falls = 0;
@@ -187,7 +186,6 @@ export class WrestleMode extends ModeBase {
     this.shakeT = Math.max(0, this.shakeT - dt);
     this.p.flash = Math.max(0, this.p.flash - dt);
     this.e.flash = Math.max(0, this.e.flash - dt);
-    this.mashes = this.mashes.filter((t) => this.time - t < 1);
 
     if (this.phase === 'won' || this.phase === 'lost') {
       this.endT += dt;
@@ -217,7 +215,7 @@ export class WrestleMode extends ModeBase {
 
     // a wrestler with nothing left goes down and stays down long enough to be pinned
     for (const f of [this.p, this.e]) {
-      if (f.life <= 0 && !['down', 'thrown', 'pinned', 'pin', 'getup', 'rush'].includes(f.state)) this.knockDown(f, 3.5, -f.face);
+      if (f.life <= 0 && !['down', 'thrown', 'pinned', 'pin', 'getup', 'rush', 'lock', 'locked'].includes(f.state)) this.knockDown(f, 3.5, -f.face);
     }
     this.playerInput(dt);
     this.aiThink(dt);
@@ -262,10 +260,8 @@ export class WrestleMode extends ModeBase {
   private playerInput(dt: number): void {
     const inp = this.game.input;
     const p = this.p;
-    const flip = false;
     const ax = (inp.held('right') ? 1 : 0) - (inp.held('left') ? 1 : 0);
     const pressedAny = inp.pressed('attack') || inp.pressed('jump') || inp.pressed('confirm');
-    if (pressedAny) this.mashes.push(this.time);
 
     // kicking out of a pin / breaking a lock: mashing
     if (this.pin && this.pin.vic === p && pressedAny) this.pin.pressure += 0.2;
@@ -294,7 +290,6 @@ export class WrestleMode extends ModeBase {
       // blocking still lets you shuffle slowly
       p.x += ax * 30 * dt;
     }
-    void flip;
   }
 
   // ---- AI ----------------------------------------------------------------------------
@@ -481,7 +476,6 @@ export class WrestleMode extends ModeBase {
     a.hype = Math.min(100, a.hype + 7);
     this.game.audio.sfx('hurt');
     this.particles.burst(v.x, MAT_Y - 26, ['#fff', '#ffcf3f'], 5, 70);
-    if (!human) this.noteDamage(0);
     if (a.stage === 3) {
       this.knockDown(v, 1.6, a.face);
       this.popups.add(v.x, MAT_Y - 54, 'KNOCKDOWN!', '#ffcf3f');
@@ -504,7 +498,13 @@ export class WrestleMode extends ModeBase {
     v.vx += dir * 140;
     v.stage = 0;
     v.queued = false;
-    if (this.lock && (this.lock.vic === v || this.lock.atk === v)) this.lock = null;
+    if (this.lock && (this.lock.vic === v || this.lock.atk === v)) {
+      // whoever was in the hold is let go, so nobody stays frozen in a lock that no longer exists
+      const other = this.lock.vic === v ? this.lock.atk : this.lock.vic;
+      other.state = 'recover';
+      other.t = 0;
+      this.lock = null;
+    }
   }
 
   private damage(v: Fighter, amt: number, byPlayer: boolean): void {
@@ -513,7 +513,7 @@ export class WrestleMode extends ModeBase {
     v.flash = 0.15;
     if (byPlayer) this.score += Math.round(amt * 10);
     if (v === this.p) {
-      this.damageTaken += amt >= 1 ? 1 : 0;
+      // (hearts are the damage that counts for stars and quests; the life bar only fills the fighter's feedback)
       this.game.fx.shake(2);
       this.game.fx.flash('#ff2040', 0.1);
       this.director.notifyHurt();

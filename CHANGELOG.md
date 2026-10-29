@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.5.1 — bug check on the new games
+- **RING RIOT**: a lock-up that was broken by a knockdown could leave the other wrestler frozen (unhittable and unable to act); it now releases them. Landed strikes no longer count as "damage taken" for stars and quests (hearts do), and the hurt flash and sound no longer fire twice.
+- **GLITCH GLOVES**: punching at the very start of a boxer's wind-up used to counter him, so mashing punch won the game. A counter now needs a punch at the end of the wind-up (earlier is TOO EARLY and leaves you open), a wild punch costs a longer recovery, and a boxer who hits you staggers you for a moment. A KO from a blocked jab no longer cuts the KO pause short.
+- **FLIPPER FRENZY**: the flippers left a gap too small for the ball, so a ball resting between them never drained; the gap is wider and a wedged ball now gets a kick after two seconds. Tilt happens on the third nudge as the Manual says (it took four), and the bumper kick follows the bumper's normal.
+- **MUNCH MAZE**: eating the last bit on the same frame a ghost touches you now clears the maze instead of costing a heart.
+- Cleaned up some leftover unused code in the new modes.
+
 ## 3.5.0 — three new worlds, two new arcade games and an all-games list
 - **MUNCH MAZE** (maze chase, opens after two cleared worlds): a seeded, left-right symmetric maze with a tunnel and a ghost pen, no dead ends and four power bits. Four glitch ghosts hunt you in their own ways (NULL chases, LAG ambushes ahead, STATIC flanks, 404 gets shy up close) in scatter and chase waves; a power bit makes them edible for a few seconds (200, 400, 800, 1600 in a chain) and eaten ghosts race home as eyes. A floppy disk appears at 25%, 50% and 75% of the maze. Hearts are lives. Chaos events GHOST RUSH and WRONG WAY.
 - **RING RIOT** (wrestling, opens after four cleared worlds): three matches against TURNBUCKLE TOM, MASKED MAMBO and BIG BYTE. Strike (a three-hit combo ends in a knockdown), block, grapple (time the lock-up marker: shove, slam or suplex; the other wrestler can mash to break free), build hype for a finisher, and PIN: wear him below 45% and hold him for the three count while he kicks out. Win each match for a floppy disk. Chaos events SLICK CANVAS and ADRENALINE.

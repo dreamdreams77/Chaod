@@ -61,11 +61,13 @@ export interface Ball {
   lane: boolean;
   extra: boolean;
   age: number;
+  /** Seconds spent barely moving (a ball wedged somewhere gets a kick). */
+  still?: number;
 }
 
-const REST = 0.5;
+const REST = 0.62;
 const UP = -0.5;
-const FLIP_LEN = 32;
+const FLIP_LEN = 28;
 const FLIP_R = 3.5;
 
 function buildWalls(): Seg[] {
@@ -265,7 +267,7 @@ export class PinballMode extends ModeBase {
   private nudge(): void {
     this.nudges++;
     this.nudgeDecay = 0;
-    if (this.nudges >= 4) {
+    if (this.nudges >= 3) {
       this.tilt = true;
       this.say('TILT!', '#ff3f5a');
       this.game.audio.sfx('explode');
@@ -277,7 +279,7 @@ export class PinballMode extends ModeBase {
     }
     this.game.fx.shake(2);
     this.game.audio.sfx('step');
-    if (this.nudges === 3) this.popups.add(OX + TW / 2, OY + 120, 'CAREFUL...', '#ffcf3f');
+    if (this.nudges === 2) this.popups.add(OX + TW / 2, OY + 120, 'CAREFUL...', '#ffcf3f');
   }
 
   private moveFlippers(left: boolean, right: boolean, dt: number): void {
@@ -369,9 +371,10 @@ export class PinballMode extends ModeBase {
         b.vy -= 1.6 * vn * ny;
       }
       const kick = 230 * boost;
-      if (b.vx * nx + b.vy * ny < kick) {
-        b.vx += nx * (kick - (b.vx * nx + b.vy * ny)) * 0.6;
-        b.vy += ny * (kick - (b.vx * nx + b.vy * ny)) * 0.6;
+      const radial = b.vx * nx + b.vy * ny;
+      if (radial < kick) {
+        b.vx += nx * (kick - radial) * 0.6;
+        b.vy += ny * (kick - radial) * 0.6;
       }
       bu.flash = 1;
       this.bumperHits++;
@@ -428,10 +431,14 @@ export class PinballMode extends ModeBase {
     }
     if (b.lane && b.x < TW - 14 && b.y > 90) b.lane = false;
     // a ball that stops dead goes back into play
-    if (b.age > 3 && Math.hypot(b.vx, b.vy) < 6 && b.y < TH - 30 && !b.lane) {
-      b.vx += (this.rng.next() - 0.5) * 60;
-      b.vy -= 40;
-    }
+    if (b.age > 3 && Math.hypot(b.vx, b.vy) < 8 && !b.lane) {
+      b.still = (b.still ?? 0) + 1 / 60;
+      if (b.still > 2) {
+        b.still = 0;
+        b.vx += (this.rng.next() - 0.5) * 80;
+        b.vy -= 60;
+      }
+    } else b.still = 0;
   }
 
   private updateBalls(): void {
