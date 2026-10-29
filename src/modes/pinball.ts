@@ -517,6 +517,7 @@ export class PinballMode extends ModeBase {
     this.addScore(2000, false);
     this.say(`MISSION: ${name}`, '#ff3fa4');
     this.collectFloppy(i);
+    if (this.done.every(Boolean)) this.runFlags.add('pinball_wizard');
   }
 
   private say(text: string, color: string): void {

@@ -234,30 +234,64 @@ export class HubScene implements Scene {
     if (inp.pressed('pause')) this.openPauseMenu();
   }
 
-  /** Every world in one list: the easiest path from the lobby to actually playing. */
-  private worldPicker(): void {
+  /** One world as a menu row (shared by the quest cards and the lists); locked worlds explain how to open them. */
+  private worldRow(m: ModeId, label: string, start: () => void): MenuItem {
     const p = this.game.profile;
-    const items: MenuItem[] = MODE_IDS.map((m) => {
-      const open = isModeUnlocked(m, p.cleared);
-      const info = MODE_INFO[m];
-      const need = lockHint(m);
-      return {
-        label: info.title,
-        value: () => (open ? (p.cleared[m].clears ? `CLEARED x${p.cleared[m].clears}` : 'NEW') : 'LOCKED'),
-        sub: open ? info.blurb : need,
-        color: open ? info.color : undefined,
-        disabled: !open,
-        onSelect: () => this.cabinet(m),
-      };
-    });
+    const open = isModeUnlocked(m, p.cleared);
+    const info = MODE_INFO[m];
+    return {
+      label: open ? label : `LOCKED: ${info.title}`,
+      value: () => (open ? (p.cleared[m].clears ? `CLEARED x${p.cleared[m].clears}` : 'NEW') : ''),
+      sub: open ? `${info.genre}. ${info.blurb}` : lockHint(m),
+      color: open ? info.color : '#666',
+      // a locked row is still selectable: it tells you what opens it
+      onSelect: open ? start : () => this.cabinet(m, () => (this.menu = null)),
+    };
+  }
+
+  /** One mini-game as a menu row. */
+  private miniRow(m: (typeof MINIS)[number], label: string = m.title): MenuItem {
+    const p = this.game.profile;
+    return {
+      label,
+      value: () => `BEST ${p.mini[m.id]?.best ?? 0}`,
+      color: '#3fe0ff',
+      sub: `${m.blurb} ${m.pays}`,
+      onSelect: () => { this.menu = null; startMini(this.game, m.id); },
+    };
+  }
+
+  private openMinis(): Array<(typeof MINIS)[number]> {
+    return MINIS.filter((m) => m.id !== 'dash' || secretCabinetOpen(this.game.profile));
+  }
+
+  /**
+   * Every world and every mini-game in one list; pressing a row starts it at once. The last row opens
+   * the cabinets, where ENDLESS RUN, NIGHTMARE, ULTRA and the rest live.
+   */
+  private worldPicker(keep?: number): void {
+    const items: MenuItem[] = [{ label: '\u2014 WORLDS \u2014', disabled: true }];
+    for (const m of MODE_IDS) items.push(this.worldRow(m, MODE_INFO[m].title, () => { this.menu = null; this.game.startMode(m); }));
+    items.push({ label: '\u2014 ARCADE \u2014', disabled: true });
+    for (const m of this.openMinis()) items.push(this.miniRow(m));
+    items.push({ label: 'MORE MODES: ENDLESS, NIGHTMARE...', sub: 'Open a world\'s cabinet for ENDLESS RUN, NIGHTMARE MODE, ULTRA, boss rematches, stars and mutations.', color: '#ff6f3f', onSelect: () => this.cabinetPicker() });
     items.push({ label: 'BACK', onSelect: () => this.openPauseMenu() });
-    this.menu = new ListMenu('PLAY A WORLD', items, () => this.openPauseMenu(), { x: 50, y: 40, w: 380, accent: '#7dff6b' });
+    this.menu = new ListMenu('ALL GAMES', items, () => this.openPauseMenu(), { x: 40, y: 12, w: 400, rows: 15, accent: '#7dff6b' });
+    this.menu.index = keep ?? 1;
+  }
+
+  /** The worlds' cabinet menus, reached from ALL GAMES; BACK returns to the same row. */
+  private cabinetPicker(keep?: number): void {
+    const items: MenuItem[] = MODE_IDS.map((m, i) => this.worldRow(m, MODE_INFO[m].title, () => this.cabinet(m, () => this.cabinetPicker(i))));
+    items.push({ label: 'BACK', onSelect: () => this.worldPicker() });
+    this.menu = new ListMenu('CABINETS', items, () => this.worldPicker(), { x: 50, y: 30, w: 380, accent: '#ff6f3f' });
+    this.menu.index = keep ?? 0;
   }
 
   private openPauseMenu(): void {
     const title = activeTitle(this.game.profile).name;
     this.menu = new ListMenu('LOBBY MENU', [
-      { label: 'PLAY A WORLD', sub: 'Pick a world to play right now, without walking to its cabinet.', onSelect: () => this.worldPicker() },
+      { label: 'ALL GAMES', sub: 'Every world and mini-game in one list. Press one to start it right away.', onSelect: () => this.worldPicker() },
       ...(this.game.profile.endingSeen ? [{ label: 'BOSS RUSH', sub: 'BRICKLORD MAX then DJ STATIC, back to back. Health carries over, no healing in between. Pays +50% bits.', onSelect: () => { this.menu = null; this.game.startMode('beatdown', { rematch: true, rush: { leg: 1 } }); } }] : []),
       ...(this.game.profile.bossesDefeated.includes('highscore') ? [{ label: 'BOSS GAUNTLET', sub: 'BRICKLORD MAX, DJ STATIC, the keeper in OVERTIME, then THE HIGH SCORE, with health carried over. Pays double bits.', color: '#ffcf3f', onSelect: () => { this.menu = null; this.game.startMode('beatdown', { rematch: true, rush: { leg: 1, legs: GAUNTLET_LEGS } }); } }] : []),
       { label: 'DAILY CHALLENGE', sub: 'A new seeded run every day, with a streak bonus and a shareable link.', onSelect: () => this.dailyMenu() },
@@ -397,7 +431,7 @@ export class HubScene implements Scene {
     return true;
   }
 
-  private cabinet(mode: ModeId): void {
+  private cabinet(mode: ModeId, back: () => void = () => (this.menu = null)): void {
     const p = this.game.profile;
     const info = MODE_INFO[mode];
     if (!isModeUnlocked(mode, p.cleared)) {
@@ -429,8 +463,8 @@ export class HubScene implements Scene {
       const on = p.mutationsUnlocked.includes(m.id) && !p.mutationsDisabled.includes(m.id) && isUnlockSatisfied(m.unlock, p);
       items.push({ label: `  ${m.name}`, value: () => (on ? 'ON' : p.mutationsUnlocked.includes(m.id) ? 'OFF' : 'LOCKED'), disabled: true });
     }
-    items.push({ label: 'BACK', onSelect: () => (this.menu = null) });
-    this.menu = new ListMenu(`${info.title} — ${info.genre}`, items, () => (this.menu = null), { x: 50, y: 40, w: 380, accent: info.color });
+    items.push({ label: 'BACK', onSelect: back });
+    this.menu = new ListMenu(`${info.title} — ${info.genre}`, items, back, { x: 50, y: 40, w: 380, accent: info.color });
   }
 
   private core(): void {
@@ -992,32 +1026,16 @@ export class HubScene implements Scene {
    */
   private questActions(id: string, play: 'worlds' | 'arcade' | 'daily' | MiniId, ok: boolean): MenuItem[] {
     const verb = ok ? 'PLAY AGAIN' : 'PLAY NOW';
-    const p = this.game.profile;
-    const minis = MINIS.filter((m) => m.id !== 'dash' || secretCabinetOpen(p));
-    const miniRow = (m: (typeof MINIS)[number], label: string): MenuItem => ({
-      label, value: () => `BEST ${p.mini[m.id]?.best ?? 0}`, color: '#3fe0ff', sub: `${m.blurb} ${m.pays}`,
-      onSelect: () => { this.menu = null; startMini(this.game, m.id); },
-    });
+    const minis = this.openMinis();
     if (play === 'worlds') {
       const m = this.questWorld(id);
-      const worldRow = (w: ModeId, label: string): MenuItem => {
-        const open = isModeUnlocked(w, p.cleared);
-        const info = MODE_INFO[w];
-        return {
-          label: open ? label : `LOCKED: ${info.title}`,
-          value: () => (open ? (p.cleared[w].clears ? `CLEARED x${p.cleared[w].clears}` : 'NEW') : ''),
-          sub: open ? info.blurb : lockHint(w),
-          color: open ? info.color : '#666',
-          disabled: !open,
-          onSelect: () => { this.menu = null; this.game.startMode(w); },
-        };
-      };
+      const start = (w: ModeId) => () => { this.menu = null; this.game.startMode(w); };
       return [
-        worldRow(m, `${verb}: ${MODE_INFO[m].title}`),
-        ...MODE_IDS.filter((w) => w !== m).map((w) => worldRow(w, MODE_INFO[w].title)),
+        this.worldRow(m, `${verb}: ${MODE_INFO[m].title}`, start(m)),
+        ...MODE_IDS.filter((w) => w !== m).map((w) => this.worldRow(w, MODE_INFO[w].title, start(w))),
       ];
     }
-    if (play === 'arcade') return minis.map((m) => miniRow(m, `${verb === 'PLAY NOW' ? 'PLAY' : 'AGAIN'}: ${m.title}`));
+    if (play === 'arcade') return minis.map((m) => this.miniRow(m, `${verb === 'PLAY NOW' ? 'PLAY' : 'AGAIN'}: ${m.title}`));
     if (play === 'daily') {
       const t = this.todaysRun();
       const info = MODE_INFO[t.mode];
@@ -1031,7 +1049,7 @@ export class HubScene implements Scene {
     }
     // A single mini-game quest: that game first, the rest of the arcade right after it.
     const first = minis.find((m) => m.id === play) ?? minis[0];
-    return [miniRow(first, `${verb}: ${first.title}`), ...minis.filter((m) => m !== first).map((m) => miniRow(m, m.title))];
+    return [this.miniRow(first, `${verb}: ${first.title}`), ...minis.filter((m) => m !== first).map((m) => this.miniRow(m))];
   }
 
   private questMenu(keep?: number): void {
@@ -1141,16 +1159,7 @@ export class HubScene implements Scene {
   }
 
   private arcadeMenu(): void {
-    const p = this.game.profile;
-    const items: MenuItem[] = [
-      ...MINIS.filter((m) => m.id !== 'dash' || secretCabinetOpen(p)).map((m) => ({
-        label: m.title,
-        value: () => `BEST ${p.mini[m.id]?.best ?? 0}`,
-        sub: `${m.blurb} ${m.pays}`,
-        onSelect: () => { this.menu = null; startMini(this.game, m.id); },
-      })),
-      { label: 'BACK', onSelect: () => (this.menu = null) },
-    ];
+    const items: MenuItem[] = [...this.openMinis().map((m) => this.miniRow(m)), { label: 'BACK', onSelect: () => (this.menu = null) }];
     this.menu = new ListMenu('MINI-GAME ARCADE', items, () => (this.menu = null), { x: 60, y: 60, w: 360, accent: '#3fe0ff' });
   }
 
@@ -1208,7 +1217,7 @@ export class HubScene implements Scene {
     // New players: a bouncing arrow over the first cabinet says where to start.
     if (!this.menu && p.runsStarted === 0) {
       const bob = Math.round(Math.sin(this.t * 5) * 3);
-      drawText(ctx, 'START HERE', CAB_X[0] + 16, 22 + bob, '#7dff6b', { align: 'center' });
+      drawText(ctx, 'START HERE', 6, 22 + bob, '#7dff6b');
       drawText(ctx, '\u25BC', CAB_X[0] + 16, 30 + bob, '#7dff6b', { align: 'center' });
     }
     this.drawQuestBoard(ctx);

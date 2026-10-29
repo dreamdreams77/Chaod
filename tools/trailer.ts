@@ -1,5 +1,5 @@
 /**
- * Launch-trailer image: composes the nine worlds and the final boss (real in-game captures passed in
+ * Launch-trailer image: composes the twelve worlds and the final boss (real in-game captures passed in
  * by tools/trailer.mjs) into a 1920x1080 key-art banner, lettered in the game's own pixel font.
  */
 import { drawText, textWidth } from '../src/render/font.ts';
@@ -7,7 +7,7 @@ import { MODE_INFO } from '../src/data/story.ts';
 import type { ModeId } from '../src/core/save.ts';
 
 const W = 1920, H = 1080;
-const ORDER: ModeId[] = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm', 'command', 'penalty', 'blocks', 'bolt', 'highscore'];
+const ORDER: ModeId[] = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm', 'command', 'penalty', 'blocks', 'bolt', 'munch', 'wrestle', 'pinball', 'highscore'];
 
 function load(src: string): Promise<HTMLImageElement> {
   return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
@@ -45,31 +45,35 @@ export async function compose(canvas: HTMLCanvasElement, shots: Record<string, s
   ctx.shadowColor = '#ff3fa4'; ctx.shadowBlur = 40;
   drawText(ctx, 'CHAOS.EXE', W / 2, 104, '#ffe23f', { align: 'center', scale: 18, shadow: '#b3126e' });
   ctx.restore();
-  drawText(ctx, 'NINE GENRES. ONE CARTRIDGE. ZERO RULES.', W / 2, 262, '#3fe0ff', { align: 'center', scale: 5, shadow: '#0a3a55' });
+  drawText(ctx, 'TWELVE GAMES. ONE CARTRIDGE. ZERO RULES.', W / 2, 262, '#3fe0ff', { align: 'center', scale: 5, shadow: '#0a3a55' });
   drawText(ctx, 'CHAOS DIRECTOR  •  ENDLESS RUNS  •  BOSS GAUNTLET  •  DAILY CHALLENGES', W / 2, 316, '#c9b8ff', { align: 'center', scale: 3 });
 
-  // tiles: two rows of five
-  const TW = 352, TH = 198, GAP = 20, X0 = (W - (5 * TW + 4 * GAP)) / 2;
+  // tiles: seven across, then six centred
+  const TW = 249, TH = 140, GAP = 14;
   ORDER.forEach((m, i) => {
     const info = MODE_INFO[m];
-    const x = X0 + (i % 5) * (TW + GAP);
-    const y = 380 + Math.floor(i / 5) * (TH + 118);
+    const row = i < 7 ? 0 : 1;
+    const inRow = row === 0 ? 7 : ORDER.length - 7;
+    const col = row === 0 ? i : i - 7;
+    const x = (W - (inRow * TW + (inRow - 1) * GAP)) / 2 + col * (TW + GAP);
+    const y = 372 + row * (TH + 92);
     ctx.save();
-    ctx.shadowColor = info.color; ctx.shadowBlur = 26;
-    ctx.fillStyle = info.color; ctx.fillRect(x - 5, y - 5, TW + 10, TH + 10);
+    ctx.shadowColor = info.color; ctx.shadowBlur = 22;
+    ctx.fillStyle = info.color; ctx.fillRect(x - 4, y - 4, TW + 8, TH + 8);
     ctx.restore();
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(imgs[m], x, y, TW, TH);
     ctx.imageSmoothingEnabled = false;
-    const label = m === 'highscore' ? 'FINAL BOSS' : '';
-    if (label) {
-      ctx.fillStyle = '#ff3f5a'; ctx.fillRect(x + TW - textWidth(label, 2) - 18, y + 8, textWidth(label, 2) + 12, 26);
-      drawText(ctx, label, x + TW - 12, y + 13, '#fff', { align: 'right', scale: 2, shadow: null });
+    if (m === 'highscore') {
+      const label = 'FINAL BOSS';
+      ctx.fillStyle = '#ff3f5a'; ctx.fillRect(x + TW - textWidth(label, 2) - 16, y + 6, textWidth(label, 2) + 12, 22);
+      drawText(ctx, label, x + TW - 10, y + 10, '#fff', { align: 'right', scale: 2, shadow: null });
     }
     // the mall's crimson is too dark to read as text on this backdrop
-    drawText(ctx, info.title, x + TW / 2, y + TH + 24, m === 'mall' ? '#ff5470' : info.color, { align: 'center', scale: 3 });
-    drawText(ctx, info.genre, x + TW / 2, y + TH + 56, '#9a9ab8', { align: 'center', scale: 2 });
+    drawText(ctx, info.title, x + TW / 2, y + TH + 14, m === 'mall' ? '#ff5470' : info.color, { align: 'center', scale: 2 });
+    drawText(ctx, info.genre, x + TW / 2, y + TH + 38, '#9a9ab8', { align: 'center', scale: 1 });
   });
+  drawText(ctx, 'PLUS THE ARCADE: CART CATCH \u2022 BYTE BREAKOUT \u2022 WHACK-A-GLITCH \u2022 STACK-A-CART \u2022 GLITCH MEMORY \u2022 HOOP SHOT \u2022 GLITCH GLOVES', W / 2, 920, '#c9b8ff', { align: 'center', scale: 2 });
 
   // footer: the address in a normal font (the pixel font has no lower case, and repo paths are case-sensitive)
   ctx.fillStyle = '#ff3fa4'; ctx.fillRect(0, H - 100, W, 3);

@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 
 const { chromium } = await import('playwright').catch(() => import('/opt/node22/lib/node_modules/playwright/index.mjs'));
 const URL_TEXT = process.argv[2] ?? 'https://dreamdreams77.github.io/Chaod/';
-const ORDER = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm', 'command', 'penalty', 'blocks', 'bolt', 'highscore'];
+const ORDER = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm', 'command', 'penalty', 'blocks', 'bolt', 'munch', 'wrestle', 'pinball', 'highscore'];
 const game = 'file://' + resolve('dist/index.html');
 const browser = await chromium.launch();
 const shots = {};
@@ -19,7 +19,7 @@ for (const m of ORDER) {
     const g = __chaos.game;
     g.settings.perks = false; g.settings.musicOn = false; g.settings.chaos = 'normal';
     g.profile.tutorial.done = true; g.profile.introDone = true; g.profile.endingSeen = true;
-    g.profile.lore.push('blocks_intro');
+    g.profile.lore.push('blocks_intro', 'munch_intro', 'wrestle_intro', 'pinball_intro');
     for (const k of Object.keys(g.profile.cleared)) g.profile.cleared[k].clears = 1;
     if (['penalty', 'highscore', 'blocks', 'bolt'].includes(m)) g.startMode(m, { seed: 424242 }); else __chaos.start(m);
   }, m);
@@ -30,6 +30,9 @@ for (const m of ORDER) {
       const s = g.scene;
       // a few blocks dropped so the well is not empty
       if (m === 'blocks' && i % 6 === 0 && s.cur) { s.shift((i % 5) - 2); s.hardDrop(); }
+      // pinball: pull the plunger back for a second, then let go
+      if (m === 'pinball') __chaos.press('down', i > 4 && i < 22);
+      if (m === 'pinball' && i > 24 && s.balls) for (const b of s.balls) __chaos.press(b.x < 83 ? 'left' : 'right', b.y > 195);
       __chaos.press(a, true); setTimeout(() => __chaos.press(a, false), 60);
     }, [acts[i % acts.length], m, i]);
     await page.waitForTimeout(60);

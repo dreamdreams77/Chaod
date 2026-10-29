@@ -24,7 +24,12 @@ const SCENES = [
   { id: 'penalty', title: 'PENALTY STORM', sub: 'SPORTS + BULLET HELL', seconds: 4 },
   { id: 'blocks', title: 'BLOCK PARTY', sub: 'PUZZLE + PARTY', seconds: 5 },
   { id: 'bolt', title: 'BOLT BRIGADE', sub: 'RUN-AND-GUN + BOSSES', seconds: 4 },
+  { id: 'munch', title: 'MUNCH MAZE', sub: 'MAZE CHASE + GHOSTS', seconds: 4.5 },
+  { id: 'wrestle', title: 'RING RIOT', sub: 'WRESTLING + TIMING', seconds: 5 },
+  { id: 'pinball', title: 'FLIPPER FRENZY', sub: 'PINBALL + MISSIONS', seconds: 5.5 },
   { id: 'highscore', title: 'THE HIGH SCORE', sub: 'THE FINAL BOSS', seconds: 5 },
+  { id: 'hoops', title: 'HOOP SHOT', sub: 'ARCADE: BASKETBALL', seconds: 3.5, mini: 'HOOP SHOT' },
+  { id: 'boxing', title: 'GLITCH GLOVES', sub: 'ARCADE: BOXING', seconds: 4, mini: 'GLITCH GLOVES' },
   { id: 'rampage', title: '1927 MODE', sub: 'CHAOS EVENT: TALKIES ARE A FAD', seconds: 7, force: 'silent_film', seed: 7777, chaosTag: true },
 ];
 const KEYS = {
@@ -39,6 +44,11 @@ const KEYS = {
   blocks: [],
   bolt: ['right', 'jump', 'attack', 'right', 'attack', 'jump', 'right'],
   highscore: ['left', 'right', 'up', 'right', 'down', 'left', 'special'],
+  munch: ['left', 'up', 'right', 'down', 'right', 'up', 'left', 'left'],
+  wrestle: ['right', 'attack', 'attack', 'attack', 'jump', 'attack', 'left', 'special'],
+  pinball: ['down', 'left', 'right', 'left', 'right'],
+  hoops: ['jump', 'jump', 'right', 'jump', 'jump', 'left'],
+  boxing: ['left', 'attack', 'right', 'attack', 'down', 'attack'],
 };
 
 const browser = await chromium.launch();
@@ -50,17 +60,22 @@ for (const [n, sc] of SCENES.entries()) {
   const t0 = Date.now();
   await page.goto(game);
   await page.waitForTimeout(300);
-  await page.evaluate(([m, seed, force]) => {
+  await page.evaluate(([m, seed, force, mini]) => {
     const g = __chaos.game;
     g.settings.perks = false; g.settings.musicOn = false; g.settings.chaos = 'off';
     g.profile.tutorial.done = true; g.profile.introDone = true; g.profile.endingSeen = true;
     g.profile.lore.push('blocks_intro');
     for (const k of Object.keys(g.profile.cleared)) g.profile.cleared[k].clears = 1;
-    if (m === 'hub') g.goto(g.hubFactory());
+    g.profile.lore.push('munch_intro', 'wrestle_intro', 'pinball_intro');
+    if (m === 'hub' || mini) g.goto(g.hubFactory());
     else if (['penalty', 'highscore', 'blocks', 'bolt'].includes(m)) g.startMode(m, { seed: seed ?? 424242 });
     else if (seed) g.startMode(m, { seed });
     else __chaos.start(m);
-  }, [sc.id, sc.seed, sc.force]);
+  }, [sc.id, sc.seed, sc.force, sc.mini]);
+  if (sc.mini) {
+    await page.waitForTimeout(700);
+    await page.evaluate((label) => { const s = __chaos.game.scene; s.arcadeMenu(); s.menu.items.find((x) => x.label === label).onSelect(); }, sc.mini);
+  }
   // let the intro and any dialogue pass, then start the shot
   for (let i = 0; i < 25; i++) { await page.evaluate(() => { __chaos.game.dialog = null; }); await page.waitForTimeout(60); }
   // lower-third caption (drawn in the page so it is part of the recording)
@@ -83,9 +98,29 @@ for (const [n, sc] of SCENES.entries()) {
       const g = __chaos.game; g.dialog = null;
       const s = g.scene;
       if (id === 'blocks' && i % 5 === 0 && s.cur) { s.shift((i % 5) - 2 + (i % 3) - 1); s.hardDrop(); }
+      const tap = (k) => { __chaos.press(k, true); setTimeout(() => __chaos.press(k, false), 90); };
+      // the three scripted-skill scenes play for real, so the footage shows the game working
+      if (id === 'pinball') {
+        __chaos.press('down', i > 1 && i < 9);
+        for (const b of s.balls || []) __chaos.press(b.x < 83 ? 'left' : 'right', s.phase === 'play' && b.y > 195 && b.y < 252);
+        return;
+      }
+      if (id === 'hoops') {
+        if (s.phase === 'idle') tap('jump');
+        else if (s.phase === 'meter' && Math.abs(s.power - [0.8, 0.62, 0.44][s.currentSpot]) < 0.045) tap('jump');
+        return;
+      }
+      if (id === 'boxing') {
+        const st = s.oppState, pn = s.oppPunch;
+        __chaos.press('left', (st === 'tell' || st === 'strike') && pn === 'hookR');
+        __chaos.press('right', (st === 'tell' || st === 'strike') && pn === 'hookL');
+        __chaos.press('down', (st === 'tell' || st === 'strike') && pn === 'jab');
+        if (st === 'recover' || st === 'stun' || st === 'tell') tap('attack');
+        return;
+      }
       if (a) { __chaos.press(a, true); setTimeout(() => __chaos.press(a, false), 140); }
     }, [keys.length ? keys[i % keys.length] : null, sc.id, i++]);
-    await page.waitForTimeout(170);
+    await page.waitForTimeout(sc.id === 'hoops' || sc.id === 'boxing' || sc.id === 'pinball' ? 60 : 170);
   }
   await ctx.close();
   const file = readdirSync(dir).find((f) => f.endsWith('.webm'));

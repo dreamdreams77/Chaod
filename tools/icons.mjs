@@ -55,10 +55,10 @@ const bundle = await build({
     ctx.imageSmoothingEnabled = false; ctx.drawImage(icon, 80, 195, 240, 240);
     ctx.save(); ctx.shadowColor = '#ff3fa4'; ctx.shadowBlur = 30;
     drawText(ctx, 'CHAOS.EXE', 350, 170, '#ffe23f', { scale: 14, shadow: '#b3126e' }); ctx.restore();
-    drawText(ctx, 'NINE GENRES. ONE CARTRIDGE.', 354, 300, '#3fe0ff', { scale: 5, shadow: '#0a3a55' });
+    drawText(ctx, 'TWELVE GAMES. ONE CARTRIDGE.', 354, 300, '#3fe0ff', { scale: 5, shadow: '#0a3a55' });
     drawText(ctx, 'ZERO RULES.', 354, 350, '#3fe0ff', { scale: 5, shadow: '#0a3a55' });
     drawText(ctx, 'FREE IN YOUR BROWSER', 354, 440, '#ffffff', { scale: 4 });
-    drawText(ctx, 'PLATFORMER \\u2022 RACING \\u2022 HORROR \\u2022 FIGHTER \\u2022 RHYTHM \\u2022 STRATEGY \\u2022 SPORTS \\u2022 PUZZLE \\u2022 RUN-AND-GUN', 600, 560, '#c9b8ff', { align: 'center', scale: 2 }); };`, resolveDir: process.cwd(), loader: 'ts' },
+    drawText(ctx, 'PLATFORMER \\u2022 RACING \\u2022 HORROR \\u2022 FIGHTER \\u2022 RHYTHM \\u2022 STRATEGY', 600, 540, '#c9b8ff', { align: 'center', scale: 2 }); drawText(ctx, 'SPORTS \\u2022 PUZZLE \\u2022 RUN-AND-GUN \\u2022 MAZE \\u2022 WRESTLING \\u2022 PINBALL', 600, 574, '#c9b8ff', { align: 'center', scale: 2 }); };`, resolveDir: process.cwd(), loader: 'ts' },
   bundle: true, format: 'iife', write: false, logLevel: 'warning',
 });
 await page.setViewportSize({ width: 1200, height: 630 });

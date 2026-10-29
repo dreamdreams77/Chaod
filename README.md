@@ -25,7 +25,7 @@ Requires Node 20+. A click or key press is needed before audio starts (browser a
 
 ## What's in the first release
 
-**A hub and nine genuinely different worlds**, sharing one character, one level/XP curve, one bit economy, one save:
+**A hub and twelve genuinely different worlds**, sharing one character, one level/XP curve, one bit economy, one save:
 
 | World | Base genre | Mid-level genre shift | Genre-fusion mutations |
 |---|---|---|---|
@@ -37,6 +37,9 @@ Requires Node 20+. A click or key press is needed before audio starts (browser a
 | **CORE COMMAND** | Tower-defence strategy | From wave 5 spitters turn it into a **bullet-hell siege** | **VETERAN TOWERS** (strategy + RPG): towers earn XP from kills and level up on their own. |
 | **BLOCK PARTY** | Falling-block puzzle (fair bag, hold, ghost, kicks) | Chaos events make pieces surge, garbage rise or the ghost vanish | **BOMB BLOCKS** (puzzle + shooter): every ninth piece is a bomb that blasts what it lands on. |
 | **BOLT BRIGADE** | Run-and-gun with four robot masters and a fortress | Win a master's weapon; each is weak to another's | **BEAT BUSTER** (shooter + rhythm): shots on the beat hit harder. |
+| **MUNCH MAZE** | Maze chase: gobble every bit, four ghosts that each hunt differently | Power bits turn the hunters into prey; the tunnel wraps around | (none yet) |
+| **RING RIOT** | Wrestling: strike, grapple, time the slam, then pin for the three count | Three opponents, each tougher, ending with the champ | (none yet) |
+| **FLIPPER FRENZY** | Pinball: plunger, flippers, bumpers, target banks and top lanes | Missions drop the floppy disks; multiball and bumper chaos events | (none yet) |
 | **PENALTY STORM** | Top-down football: dribble and shoot | The keeper answers with **bullet-hell patterns**; get hit and you lose the ball | **SLAP SHOT** (sports + bullet hell): the ball smashes every bullet it touches on the way to goal. |
 
 Thirteen fusions plus four curses (eleven available from the start, two unlocked by play). Every mutation can be toggled in the hub's **Mutation Lab**; each active mutation adds +15% bits.
@@ -47,7 +50,7 @@ Thirteen fusions plus four curses (eleven available from the start, two unlocked
 
 **ENDLESS RUN** (any cleared world): round after round on fresh seeds, a little tougher each time, with a heart patched up between rounds; bank your haul from the pause menu. **BYTE** grows through four forms (BYTE, KILOBYTE, MEGABYTE, GIGABYTE) as you care for it, earns small run perks, and can be dressed in hats, shades, scarves and wings.
 
-**Also:** a lobby **Quest Board** (fifteen quests plus three **weekly goals** that reset every Monday, all paid out automatically), **lobby decor** to buy, an **assist mode** with an extra heart and slower enemies and a **Mini-Game Arcade** (CART CATCH, BYTE BREAKOUT, WHACK-A-GLITCH, STACK-A-CART and GLITCH MEMORY); two full bosses with phases, telegraphs, weak points and defeat sequences; a mercy-or-delete choice for each; an ending; 27 floppy disks; 36 achievements; boss rematches; seeded challenge modifiers on replays; a shop; a virtual pet to feed and train; a secret character; an original cast and central mystery.
+**Also:** a lobby **Quest Board** (seventeen quests plus three **weekly goals** that reset every Monday, all paid out automatically), **lobby decor** to buy, an **assist mode** with an extra heart and slower enemies and a **Mini-Game Arcade** (CART CATCH, BYTE BREAKOUT, WHACK-A-GLITCH, STACK-A-CART, GLITCH MEMORY, HOOP SHOT and GLITCH GLOVES); two full bosses with phases, telegraphs, weak points and defeat sequences; a mercy-or-delete choice for each; an ending; 36 floppy disks; 39 achievements; boss rematches; seeded challenge modifiers on replays; a shop; a virtual pet to feed and train; a secret character; an original cast and central mystery.
 
 ## Controls
 
@@ -82,7 +85,7 @@ src/
   fusion/            GENRE FUSION registry (data) + engine (trait queries)
   chaos/             CHAOS DIRECTOR rules + event catalogue (data)
   procgen/           curated-chunk levels, race tracks, mall maps, rhythm charts (+ validators)
-  modes/             the nine worlds, sharing ModeBase
+  modes/             the twelve worlds, sharing ModeBase
   scenes/            title, settings, hub, results, ending, menus
   data/              story, cast, dialogue, shop, achievements, rewards
 tests/               node:test unit tests (incl. headless physics vs. level validator)
