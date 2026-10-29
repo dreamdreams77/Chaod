@@ -123,6 +123,9 @@ export class BoltMode extends ModeBase {
   private stun = 0;
   private jumpBuf = 0;
   private leafHit = 0;
+  private ownedKey = -1;
+  private beatenCache: MasterId[] = [];
+  private ownedCache: WeaponId[] = ['buster'];
   foes: Foe[] = [];
   shots: Shot[] = [];
   items: Item[] = [];
@@ -172,10 +175,20 @@ export class BoltMode extends ModeBase {
 
   /** Master ids beaten so far (they persist between runs, so their weapons do too). */
   private beaten(): MasterId[] {
-    return MASTERS.map((m) => m.id).filter((id) => this.game.profile.bossesDefeated.includes(id));
+    this.refreshOwned();
+    return this.beatenCache;
   }
   get ownedWeapons(): WeaponId[] {
-    return ['buster', ...this.beaten().map((id) => MASTER_BY_ID.get(id)!.weapon)];
+    this.refreshOwned();
+    return this.ownedCache;
+  }
+  /** The beaten masters and their weapons only change when a master falls: rebuilt then, not every frame. */
+  private refreshOwned(): void {
+    const defeated = this.game.profile.bossesDefeated;
+    if (this.ownedKey === defeated.length) return;
+    this.ownedKey = defeated.length;
+    this.beatenCache = MASTERS.map((m) => m.id).filter((id) => defeated.includes(id));
+    this.ownedCache = ['buster', ...this.beatenCache.map((id) => MASTER_BY_ID.get(id)!.weapon)];
   }
   get fortressOpen(): boolean {
     return this.beaten().length >= MASTERS.length;
@@ -328,7 +341,8 @@ export class BoltMode extends ModeBase {
     if (this.boss) this.updateBoss(dt);
     this.updateShots(dt);
     this.updateItems();
-    if (this.hp <= 0 && (this.phase as Phase) !== 'lost' && (this.phase as Phase) !== 'downed') this.lose();
+    // Only a living run can die (a win that lands on the same frame as the last hit stands).
+    if (this.hp <= 0 && ((this.phase as Phase) === 'run' || (this.phase as Phase) === 'boss')) this.lose();
   }
 
   private updateSelect(): void {
@@ -528,7 +542,8 @@ export class BoltMode extends ModeBase {
     if (!armed) return;
     // weapons
     if (inp.pressed('special')) {
-      if (inp.held('down')) this.useTank();
+      // DOWN + C drinks a tank when one would do some good; otherwise C just swaps weapons.
+      if (inp.held('down') && this.tanks > 0 && this.hp < this.stats.maxHp) this.useTank();
       else this.swapWeapon();
     }
     this.updateShooting(dt);
@@ -676,22 +691,22 @@ export class BoltMode extends ModeBase {
       const body = { x: f.x, y: f.y, vx: f.vx, vy: f.vy };
       if (f.kind === 'walker') {
         f.vx = f.dir * 28 * scale;
-        f.vy = Math.min(300, f.vy + GRAV * dt);
+        f.vy = Math.min(300, f.vy + GRAV * this.stageGrav * dt);
         const ahead = f.x + f.dir * (f.w / 2 + 2);
         const below = Math.floor((f.y + 2) / TILE);
         if (this.solid(Math.floor(ahead / TILE), Math.floor((f.y - 4) / TILE)) || (f.grounded && !this.solid(Math.floor(ahead / TILE), below))) f.dir *= -1;
       } else if (f.kind === 'hopper') {
-        f.vy = Math.min(300, f.vy + GRAV * dt);
+        f.vy = Math.min(300, f.vy + GRAV * this.stageGrav * dt);
         if (f.grounded) {
           f.vx = 0;
           if (f.t > 1.5) {
             f.t = 0;
-            f.vy = -250;
+            f.vy = -250 * Math.sqrt(this.stageGrav);
             f.vx = Math.sign(this.px - f.x) * 60 * scale;
           }
         }
       } else if (f.kind === 'turret') {
-        f.vy = Math.min(300, f.vy + GRAV * dt);
+        f.vy = Math.min(300, f.vy + GRAV * this.stageGrav * dt);
         if (f.t > 2 / scale && Math.abs(f.x - this.px) < 220) {
           f.t = 0;
           const a = Math.atan2(this.py - 10 - (f.y - 6), this.px - f.x);
@@ -730,7 +745,8 @@ export class BoltMode extends ModeBase {
 
   private leafTouch(f: Foe): void {
     if (this.leafHit > 0) return;
-    this.leafHit = 0.35;
+    this.leafHit = f === this.boss ? 0.8 : 0.35; // a master shrugs the leaves off more slowly than a bug
+    if (f === this.boss && this.bossInvulnerable()) return;
     this.damageFoe(f, 1 * this.stats.power * this.damageMult, 'leaf');
     this.particles.burst(f.x, f.y - f.h / 2, ['#7dff6b', '#e8ffd8'], 4, 60);
   }
@@ -749,6 +765,7 @@ export class BoltMode extends ModeBase {
         s.y += Math.sin(s.zig) * 90 * dt;
       }
       const oy = s.y;
+      let impact = false;
       s.x += s.vx * dt;
       s.y += s.vy * dt;
       let alive = s.life > 0 && s.x > this.camX - 40 && s.x < this.camX + W + 40 && s.y < (ROWS + 1) * TILE && s.y > -140;
@@ -758,13 +775,18 @@ export class BoltMode extends ModeBase {
           s.y = oy;
           s.vy = s.vy > 0 ? -Math.max(Math.abs(s.vy) * 0.8, 150) : Math.abs(s.vy) * 0.5;
           s.bounce--;
-        } else alive = false;
+        } else {
+          alive = false;
+          impact = true;
+        }
       }
       if (alive) {
         if (s.friendly) alive = this.friendlyShotHits(s);
         else alive = this.foeShotHits(s);
+        impact = !alive;
       }
-      if (!alive && s.friendly && s.weapon === 'rock') this.rockBlast(s);
+      // A boulder only bursts where it lands (not when it times out or leaves the screen).
+      if (impact && s.friendly && s.weapon === 'rock') this.rockBlast(s);
       if (alive) this.shots[keep++] = s;
     }
     this.shots.length = keep;
@@ -1019,7 +1041,7 @@ export class BoltMode extends ModeBase {
     const ax0 = this.level.arenaX * TILE + 16;
     const ax1 = this.level.width * TILE - 16;
     // physics
-    b.vy = Math.min(420, b.vy + GRAV * dt);
+    b.vy = Math.min(420, b.vy + GRAV * this.stageGrav * dt);
     const body = { x: b.x, y: b.y, vx: b.vx, vy: b.vy };
     const hit = this.moveBox(body, b.w, b.h, dt);
     b.x = clamp(body.x, ax0, ax1);
@@ -1071,7 +1093,7 @@ export class BoltMode extends ModeBase {
       this.bossT = 0.5;
       this.game.audio.sfx('shoot', 0.6);
     } else if (a === 'leap') {
-      b.vy = -340;
+      b.vy = -340 * Math.sqrt(this.stageGrav);
       b.vx = toward * 110 * sk;
       this.bossT = 0.85;
     } else if (a === 'rain') {
@@ -1081,7 +1103,7 @@ export class BoltMode extends ModeBase {
     } else if (a === 'wave') {
       // A low surge to jump and a slower bubble above it that only catches a jumper.
       this.foeShot(b.x, BOSS_Y - 7, toward * 130 * sk, 0, 0, 7);
-      this.foeShot(b.x, BOSS_Y - 27, toward * 85 * sk, 0, 0, 4);
+      this.foeShot(b.x, BOSS_Y - 27, toward * 60 * sk, 0, 0, 4);
       this.bossT = 0.9;
       this.game.audio.sfx('shoot', 0.5);
     } else if (a === 'quake') {

@@ -1143,6 +1143,32 @@ test('BOLT BRIGADE bodies: shots cannot pass through a master (even right after 
   (d as unknown as BoltPriv).rockBlast({ x: 310, y: 13 * BOLT_TILE - 4, dmg: 3 });
   assert.ok(near.hp < 9, 'the close foe is hit');
   assert.equal(far.hp, 9, 'the far one is not');
+  // a boulder that times out in mid-air does not burst on anything
+  const e = new BoltMode(game, { seed: 34 });
+  e.begin(BOLT_MASTERS_T[0], false);
+  e.foes.length = 0;
+  const sleeper = { ...near, x: e.px + 40, hp: 9, active: false };
+  e.foes.push(sleeper);
+  e.shots.push({ x: e.px + 38, y: 13 * BOLT_TILE - 40, vx: 0, vy: 0, r: 6, dmg: 3, weapon: 'rock', friendly: true, pierce: false, life: 0.001, grav: 0, zig: 0, bounce: 0, hit: null });
+  boltTick(game, e);
+  assert.equal(e.shots.length, 0);
+  assert.equal(sleeper.hp, 9, 'no impact, no blast');
+  // a heart lost on the very frame the master falls does not undo the win
+  const f = boltBoss(game, 35);
+  f.boss!.hp = 0.5;
+  f.damageFoe(f.boss!, 5, 'buster');
+  f.hp = 0;
+  boltTick(game, f);
+  assert.equal(f.phase, 'dying');
+  assert.equal(f.lives, 2);
+  // DOWN + C only drinks a tank when it would help; otherwise it still swaps weapons
+  const g = new BoltMode(game, { seed: 36 });
+  game.profile.bossesDefeated.push('flarebot');
+  g.begin(BOLT_MASTERS_T[0], false);
+  g.tanks = 1;
+  boltTick(game, g, { held: ['down'], pulse: ['special'] });
+  assert.equal(g.tanks, 1, 'full hearts: the tank is kept');
+  assert.notEqual(g.weapon, 'buster', 'and the weapon swapped');
 });
 
 test('BOLT BRIGADE weapons: the tide bubble bounces along the floor, the boulder lobs and bursts, both cost energy, and every one of the six masters is somebody else\'s weakness', () => {

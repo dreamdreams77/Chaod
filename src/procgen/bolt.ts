@@ -125,7 +125,7 @@ export function generateBolt(seed: number, master: MasterId): BoltLevel {
     for (let i = 0; i < len && from + i < body; i++) ground[from + i] = row;
   };
   // Segments must finish before the run-up to the arena, so nothing is ever cut off mid-pit.
-  const NEED: Record<string, number> = { flat: 12, step: 9, pit: 8, spikes: 11, bridge: 23, climb: 12, stairs: 14, canyon: 14, gauntlet: 16 };
+  const NEED: Record<string, number> = { flat: 12, step: 9, pit: 8, spikes: 11, bridge: 23, climb: 12, stairs: 17, canyon: 15, gauntlet: 16 };
   const limit = body - 14;
   while (x < limit - 4) {
     let kind = rng.weighted(['flat', 'flat', 'step', 'pit', 'spikes', 'bridge', 'climb', 'stairs', 'canyon', 'gauntlet'], () => 1) as string;
@@ -280,8 +280,11 @@ export function generateBolt(seed: number, master: MasterId): BoltLevel {
       pickups.push({ x: edge === 'left' ? p.x : p.x + p.w - 1, y: p.y - 2, kind });
       return;
     }
-    const c = spot(Math.floor(body * fallbackAt));
-    pickups.push({ x: c, y: ground[c] - 3, kind });
+    // No platform to perch on: a spot on level ground, a jump up unless a platform already fills that tile.
+    let c = spot(Math.floor(body * fallbackAt));
+    const onPlatform = (cx: number, cy: number) => platforms.some((q) => q.y === cy && cx >= q.x && cx < q.x + q.w);
+    while (c < body - 8 && onPlatform(c, ground[c] - 3)) c = spot(c + 1);
+    pickups.push({ x: c, y: ground[c] - (onPlatform(c, ground[c] - 3) ? 2 : 3), kind });
   };
   perch(0, 'left', 0.72, 'life');
   perch(1, 'right', 0.38, 'tank');
@@ -348,11 +351,19 @@ export function validateBolt(l: BoltLevel): { ok: boolean; reason?: string } {
   if (l.ground[l.checkpoint] >= ROWS) return { ok: false, reason: 'checkpoint over a pit' };
   for (const h of l.hazards) if (h.x >= l.arenaX - 6) return { ok: false, reason: 'hazard in the arena approach' };
   for (const p of l.platforms) for (let c = p.x; c < p.x + p.w; c++) if (l.ground[c] < ROWS && l.ground[c] > p.y && l.ground[c] - (p.y + 1) < 2) return { ok: false, reason: `platform at ${p.x} has no headroom` };
+  // An island between two pits needs room to land and take off again.
+  for (let x = 1; x < l.width - 1; x++) {
+    if (l.ground[x] >= ROWS || l.ground[x - 1] < ROWS) continue;
+    let end = x;
+    while (end < l.width && l.ground[end] < ROWS) end++;
+    if (end < l.width && end - x < 2) return { ok: false, reason: `an island of ${end - x} at ${x}` };
+  }
   // The 1UP and the energy tank must exist and be within a jump of something to stand on.
   for (const kind of ['life', 'tank'] as const) {
     const found = l.pickups.filter((p) => p.kind === kind);
     if (found.length !== 1) return { ok: false, reason: `${found.length} ${kind} pickups` };
     const { x, y } = found[0];
+    if (l.platforms.some((p) => p.y === y && x >= p.x && x < p.x + p.w) || y >= l.ground[x]) return { ok: false, reason: `the ${kind} at ${x},${y} is inside the ground` };
     const standOn = l.platforms.some((p) => x >= p.x && x < p.x + p.w && p.y > y && p.y - y <= 3) || (l.ground[x] < ROWS && l.ground[x] > y && l.ground[x] - y <= 3);
     if (!standOn) return { ok: false, reason: `the ${kind} at ${x},${y} is out of reach` };
   }
