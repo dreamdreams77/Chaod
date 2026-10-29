@@ -67,6 +67,8 @@ export interface Profile {
   rivalsBeaten: string[];
   /** Best BLOCK PARTY ULTRA score. */
   ultraBest: number;
+  /** BOLT BRIGADE energy tanks in the bag (0-4); they carry from stage to stage and run to run. */
+  boltTanks: number;
   /** The title chosen in RECORDS (see data/titles.ts); empty, or one not earned, means the newest earned. */
   title: string;
   /** Saved Mutation Lab builds (three slots): the mutations that were switched on. */
@@ -152,6 +154,7 @@ export function defaultProfile(): Profile {
     jukebox: '',
     rivalsBeaten: [],
     ultraBest: 0,
+    boltTanks: 0,
     title: '',
     loadouts: [null, null, null],
     tutorial: { step: 0, done: false },
@@ -265,6 +268,7 @@ export function migrateProfile(raw: unknown): Profile {
   p.jukebox = typeof r.jukebox === 'string' ? r.jukebox.slice(0, 16) : '';
   p.rivalsBeaten = Array.isArray(r.rivalsBeaten) ? (r.rivalsBeaten as unknown[]).filter((k): k is string => typeof k === 'string' && k.length < 40).slice(-300) : [];
   p.ultraBest = typeof r.ultraBest === 'number' && r.ultraBest > 0 ? Math.min(Math.floor(r.ultraBest), 9_999_999) : 0;
+  p.boltTanks = typeof r.boltTanks === 'number' && r.boltTanks > 0 ? Math.min(4, Math.floor(r.boltTanks)) : 0;
   p.title = typeof r.title === 'string' ? r.title.slice(0, 16) : '';
   p.seasonSeen = typeof r.seasonSeen === 'string' ? r.seasonSeen.slice(0, 16) : '';
   const wk = (r.weekly ?? {}) as Partial<WeeklyState>;

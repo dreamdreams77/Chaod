@@ -36,7 +36,7 @@ Requires Node 20+. A click or key press is needed before audio starts (browser a
 | **GLITCH RHYTHM** | 4-lane rhythm boss fight vs. DJ STATIC | Phase 3 doubles down on tempo | **SHOTS ON THE ONE** (rhythm + bullet hell): on-time notes fire at the boss; misses send parryable static bolts down your lanes. |
 | **CORE COMMAND** | Tower-defence strategy | From wave 5 spitters turn it into a **bullet-hell siege** | **VETERAN TOWERS** (strategy + RPG): towers earn XP from kills and level up on their own. |
 | **BLOCK PARTY** | Falling-block puzzle (fair bag, hold, ghost, kicks) | Chaos events make pieces surge, garbage rise or the ghost vanish | **BOMB BLOCKS** (puzzle + shooter): every ninth piece is a bomb that blasts what it lands on. |
-| **BOLT BRIGADE** | Run-and-gun with four robot masters and a fortress | Win a master's weapon; each is weak to another's | **BEAT BUSTER** (shooter + rhythm): shots on the beat hit harder. |
+| **BOLT BRIGADE** | Run-and-gun with six robot masters, lives, energy tanks and a fortress | Win a master's weapon; each is weak to another's | **BEAT BUSTER** (shooter + rhythm): shots on the beat hit harder. |
 | **MUNCH MAZE** | Maze chase: gobble every bit, four ghosts that each hunt differently | Power bits turn the hunters into prey; the tunnel wraps around | (none yet) |
 | **RING RIOT** | Wrestling: strike, grapple, time the slam, then pin for the three count | Three opponents, each tougher, ending with the champ | (none yet) |
 | **FLIPPER FRENZY** | Pinball: plunger, flippers, bumpers, target banks and top lanes | Missions drop the floppy disks; multiball and bumper chaos events | (none yet) |

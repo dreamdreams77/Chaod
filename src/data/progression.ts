@@ -60,7 +60,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'level5', name: 'LEVELED UP', desc: 'Reach level 5.' },
   { id: 'quad_clear', name: 'FOUR AT ONCE', desc: 'Clear four rows at once in BLOCK PARTY.' },
   { id: 'perfect_clear', name: 'SPOTLESS', desc: 'Empty the whole well in BLOCK PARTY.' },
-  { id: 'bolt_all', name: 'ROBOT MASTER', desc: 'Defeat all four robot masters in BOLT BRIGADE.' },
+  { id: 'bolt_all', name: 'ROBOT MASTER', desc: 'Defeat all six robot masters in BOLT BRIGADE.' },
   { id: 'bolt_fortress', name: 'FORTRESS BREAKER', desc: 'Clear the BOLT BRIGADE fortress.' },
   { id: 'secret_dash', name: 'WHO\'S A GOOD DOG', desc: 'Play DEMO DASH in the secret cabinet.' },
   { id: 'ghost_feast', name: 'GHOST BUFFET', desc: 'Eat all four ghosts on one power bit in MUNCH MAZE.' },
@@ -182,7 +182,7 @@ export function applyRun(profile: Profile, r: RunResult, today: string = weekKey
   }
   if (run.boss && run.cleared && !p.bossesDefeated.includes(run.boss)) p.bossesDefeated.push(run.boss);
   if (run.boss && run.cleared) unlockAchievement(p, `boss_${run.boss}`, achievements);
-  if (['frostbyte', 'flarebot', 'sproutron', 'voltwire'].every((m) => p.bossesDefeated.includes(m))) unlockAchievement(p, 'bolt_all', achievements);
+  if (['frostbyte', 'flarebot', 'sproutron', 'voltwire', 'aquabyte', 'tremorbot'].every((m) => p.bossesDefeated.includes(m))) unlockAchievement(p, 'bolt_all', achievements);
   if (run.rematch && run.cleared) unlockAchievement(p, 'rematch', achievements);
   for (const e of r.chaosSeen) if (!p.chaosEventsSeen.includes(e)) p.chaosEventsSeen.push(e);
   if (p.chaosEventsSeen.length >= 10) unlockAchievement(p, 'chaos10', achievements);

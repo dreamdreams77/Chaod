@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { RampageMode } from '../src/modes/rampage.ts';
 import { NeonMode } from '../src/modes/neon.ts';
 import { MAX_JUMP_DX, MAX_JUMP_RISE, TILE, ROWS } from '../src/procgen/rampage.ts';
-import { defaultProfile, defaultSettings, type ModeId } from '../src/core/save.ts';
+import { defaultProfile, defaultSettings, migrateProfile, type ModeId } from '../src/core/save.ts';
 import { Input, DEFAULT_BINDINGS } from '../src/core/input.ts';
 import type { Game } from '../src/game.ts';
 
@@ -958,6 +958,241 @@ test('BOLT BRIGADE: the select screen costs no time, damage dealt follows GLASS 
     if (JSON.stringify(x.level.ground) === JSON.stringify(y.level.ground)) same++;
   }
   assert.ok(same <= 2, `FROSTBYTE and FLAREBOT stages are almost never alike (${same}/40)`);
+});
+
+type BoltPriv = {
+  startBoss(): void;
+  hurt(n: number, fromX: number): void;
+  rockBlast(s: unknown): void;
+  friendlyShotHits(s: unknown): boolean;
+  updateItems(): void;
+  stun: number;
+  jumpBuf: number;
+};
+
+function boltTick(game: Game, b: BoltMode, opts: { held?: Array<'left' | 'right' | 'down' | 'jump' | 'attack'>; pulse?: Array<'special' | 'jump' | 'attack'> } = {}): void {
+  const inp = game.input;
+  inp.beginFrame();
+  for (const a of opts.held ?? []) inp.setVirtual(a, true);
+  for (const a of opts.pulse ?? []) inp.pulse(a);
+  b.update(1 / 60);
+  inp.endFrame();
+  for (const a of opts.held ?? []) inp.setVirtual(a, false);
+}
+
+function boltBoss(game: Game, seed = 31, master = 1): BoltMode {
+  const b = new BoltMode(game, { seed });
+  b.begin(BOLT_MASTERS_T[master], false);
+  (b as unknown as BoltPriv).startBoss();
+  for (let i = 0; i < 130; i++) b.update(1 / 60);
+  assert.equal(b.phase, 'boss');
+  return b;
+}
+
+test('BOLT BRIGADE: a spare life brings you back at the checkpoint, or at the boss door with the master reset; the last life ends the run', () => {
+  const { game } = bossGame();
+  const b = new BoltMode(game, { seed: 21 });
+  b.begin(BOLT_MASTERS_T[0], false);
+  assert.equal(b.lives, 2, 'normal difficulty starts with two spare lives');
+  b.px = 40 * BOLT_TILE;
+  b.hp = 0;
+  boltTick(game, b);
+  assert.equal(b.phase, 'downed');
+  assert.equal(b.lives, 1);
+  for (let i = 0; i < 100; i++) boltTick(game, b);
+  assert.equal(b.phase, 'run');
+  assert.equal(b.hp, b.stats.maxHp, 'back with full hearts');
+  assert.ok(b.px < 10 * BOLT_TILE, 'back at the start (no checkpoint reached yet)');
+  assert.ok(b.iframes > 1, 'a moment of grace');
+  // dying in the arena restarts the fight with a fresh master
+  const c = boltBoss(game);
+  const boss = c.boss!;
+  boss.hp = 3;
+  c.hp = 0;
+  boltTick(game, c);
+  assert.equal(c.phase, 'downed');
+  for (let i = 0; i < 100; i++) boltTick(game, c);
+  assert.equal(c.phase, 'bossIntro', 'the master is introduced again');
+  assert.ok(c.boss && c.boss !== boss && c.boss.max > 3);
+  assert.ok(c.px >= c.level.arenaX * BOLT_TILE, 'back inside the arena');
+  // no spare lives: the run is lost
+  const d = new BoltMode(game, { seed: 22 });
+  d.begin(BOLT_MASTERS_T[0], false);
+  d.lives = 0;
+  d.hp = 0;
+  boltTick(game, d);
+  assert.equal(d.phase, 'lost');
+  // difficulty and nightmare change the count
+  const easy = bossGame();
+  easy.game.settings.difficulty = 'easy';
+  assert.equal(new BoltMode(easy.game, { seed: 1 }).lives, 3);
+  const hard = bossGame();
+  hard.game.settings.difficulty = 'hard';
+  assert.equal(new BoltMode(hard.game, { seed: 1 }).lives, 1);
+  assert.equal(new BoltMode(bossGame().game, { seed: 1, nightmare: true }).lives, 0);
+});
+
+test('BOLT BRIGADE: energy tanks refill hearts and weapon energy (DOWN + C), are kept between runs, and cap at four', () => {
+  const { game } = bossGame();
+  game.profile.boltTanks = 2;
+  const b = new BoltMode(game, { seed: 23 });
+  b.begin(BOLT_MASTERS_T[0], false);
+  assert.equal(b.tanks, 2, 'tanks come from the save');
+  boltTick(game, b, { held: ['down'], pulse: ['special'] });
+  assert.equal(b.tanks, 2, 'a full heart bar wastes nothing');
+  b.hp = 1;
+  b.we = 3;
+  boltTick(game, b, { held: ['down'], pulse: ['special'] });
+  assert.equal(b.hp, b.stats.maxHp);
+  assert.equal(b.we, 28);
+  assert.equal(b.tanks, 1);
+  assert.equal(game.profile.boltTanks, 1, 'the bag is saved');
+  // plain C still only swaps weapons
+  b.hp = 1;
+  boltTick(game, b, { pulse: ['special'] });
+  assert.equal(b.hp, 1);
+  // picking tanks and 1UPs up
+  const priv = b as unknown as BoltPriv;
+  for (let n = 0; n < 5; n++) {
+    b.items.push({ x: b.px, y: b.py - 8, kind: 'tank', taken: false });
+    priv.updateItems();
+  }
+  assert.equal(b.tanks, 4, 'four tanks at most');
+  b.items.push({ x: b.px, y: b.py - 8, kind: 'life', taken: false });
+  priv.updateItems();
+  assert.equal(b.lives, 3);
+  assert.equal(migrateProfile({ boltTanks: 99 }).boltTanks, 4);
+  assert.equal(migrateProfile({ boltTanks: -3 }).boltTanks, 0);
+  assert.equal(migrateProfile({ boltTanks: 'lots' }).boltTanks, 0);
+});
+
+test('BOLT BRIGADE feel: a hit knocks you back and holding the other way cannot cancel it, a jump pressed just before landing still jumps, a bonk on a ledge corner does not stop you', () => {
+  const { game } = bossGame();
+  const b = new BoltMode(game, { seed: 24 });
+  b.begin(BOLT_MASTERS_T[1], false);
+  for (let i = 0; i < 20; i++) boltTick(game, b);
+  const priv = b as unknown as BoltPriv;
+  const x0 = b.px;
+  b.iframes = 0;
+  priv.hurt(1, b.px - 6);
+  assert.ok(priv.stun > 0);
+  for (let i = 0; i < 14; i++) boltTick(game, b, { held: ['left'] });
+  assert.ok(b.px - x0 > 8, `the knockback carried ${(b.px - x0).toFixed(1)}px even though left was held`);
+  for (let i = 0; i < 40; i++) boltTick(game, b);
+  // jump buffer: press jump while still falling a few frames above the floor
+  b.iframes = 0;
+  b.py = b.py - 7;
+  b.vy = 200;
+  b.onGround = false;
+  let jumped = false;
+  for (let i = 0; i < 12; i++) {
+    // one press edge on the first frame, then the button simply stays down
+    game.input.beginFrame();
+    if (i === 0) game.input.setVirtual('jump', true);
+    b.update(1 / 60);
+    game.input.endFrame();
+    if (b.vy < -200) jumped = true;
+  }
+  game.input.setVirtual('jump', false);
+  assert.ok(jumped, 'the early press was remembered');
+});
+
+test('BOLT BRIGADE bodies: shots cannot pass through a master (even right after a hit), the warning makes it untouchable, the leaf shield bites a master it touches, and rocks burst on foes', () => {
+  const { game } = bossGame();
+  const b = boltBoss(game);
+  const priv = b as unknown as BoltPriv;
+  const boss = b.boss!;
+  const shot = () => ({ x: boss.x, y: boss.y - 20, vx: 200, vy: 0, r: 3, dmg: 1, weapon: 'buster', friendly: true, pierce: false, life: 1, grav: 0, zig: 0, bounce: 0, hit: null });
+  const hp0 = boss.hp;
+  assert.equal(priv.friendlyShotHits(shot()), false, 'the shot stops in the body');
+  assert.ok(boss.hp < hp0);
+  const hp1 = boss.hp;
+  assert.equal(priv.friendlyShotHits(shot()), false, 'a second shot straight after is not ignored');
+  assert.ok(boss.hp < hp1, 'no invulnerable flash window for shots to slip through');
+  // the leaf shield hurts the master it touches instead of the player
+  b.shield = 3;
+  b.iframes = 0;
+  b.px = boss.x;
+  b.py = boss.y;
+  const hurt0 = b.hp;
+  const boss2 = boss.hp;
+  boltTick(game, b);
+  assert.equal(b.hp, hurt0, 'the shield protects you');
+  assert.ok(boss.hp < boss2, 'and bites the master');
+  b.shield = 0;
+  b.iframes = 0;
+  boltTick(game, b);
+  assert.equal(b.hp, hurt0 - 1, 'without the shield the body hurts to touch');
+  // the warning phase: shots ping off
+  const c = new BoltMode(game, { seed: 32 });
+  c.begin(BOLT_MASTERS_T[1], false);
+  (c as unknown as BoltPriv).startBoss();
+  for (let i = 0; i < 5; i++) c.update(1 / 60);
+  assert.equal(c.phase, 'bossIntro');
+  const before = c.boss!.hp;
+  const sh = { ...shot(), x: c.boss!.x, y: c.boss!.y - 20 };
+  assert.equal((c as unknown as BoltPriv).friendlyShotHits(sh), false);
+  assert.equal(c.boss!.hp, before, 'but nothing is hurt before the fight starts');
+  // a boulder bursts on the foe it lands near, and hurts only what is close
+  const d = new BoltMode(game, { seed: 33 });
+  d.begin(BOLT_MASTERS_T[0], false);
+  d.foes.length = 0;
+  const near = { kind: 'walker' as const, x: 300, y: 13 * BOLT_TILE, vx: 0, vy: 0, w: 12, h: 12, hp: 9, max: 9, t: 0, dir: -1, frozen: 0, flash: 0, home: 0, active: true, grounded: true };
+  const far = { ...near, x: 380 };
+  d.foes.push(near, far);
+  (d as unknown as BoltPriv).rockBlast({ x: 310, y: 13 * BOLT_TILE - 4, dmg: 3 });
+  assert.ok(near.hp < 9, 'the close foe is hit');
+  assert.equal(far.hp, 9, 'the far one is not');
+});
+
+test('BOLT BRIGADE weapons: the tide bubble bounces along the floor, the boulder lobs and bursts, both cost energy, and every one of the six masters is somebody else\'s weakness', () => {
+  const { game } = bossGame();
+  for (const m of BOLT_MASTERS_T) if (['aquabyte', 'tremorbot'].includes(m.id)) game.profile.bossesDefeated.push(m.id);
+  const b = new BoltMode(game, { seed: 25 });
+  b.begin(BOLT_MASTERS_T[0], false);
+  b.foes.length = 0;
+  assert.deepEqual(b.ownedWeapons, ['buster', 'tide', 'rock']);
+  b.weapon = 'tide';
+  const we0 = b.we;
+  boltTick(game, b, { pulse: ['attack'] });
+  assert.equal(b.we, we0 - 1);
+  const bubble = b.shots.find((s) => s.weapon === 'tide')!;
+  assert.ok(bubble);
+  let bounces = 0;
+  let lastVy = bubble.vy;
+  for (let i = 0; i < 90 && b.shots.includes(bubble); i++) {
+    boltTick(game, b);
+    if (lastVy > 0 && bubble.vy < 0) bounces++;
+    lastVy = bubble.vy;
+  }
+  assert.ok(bounces >= 2, `the bubble bounced ${bounces} times`);
+  b.weapon = 'rock';
+  b.we = 2;
+  boltTick(game, b, { pulse: ['attack'] });
+  assert.ok(!b.shots.some((s) => s.weapon === 'rock'), 'a boulder costs 3: no energy, no shot');
+  b.we = 28;
+  boltTick(game, b, { pulse: ['attack'] });
+  assert.ok(b.shots.some((s) => s.weapon === 'rock'));
+  assert.equal(b.we, 25);
+  // the ring closes in one loop through all six
+  let m = BOLT_MASTERS_T[0];
+  const seen = new Set<string>();
+  for (let i = 0; i < 6; i++) {
+    seen.add(m.id);
+    m = BOLT_MASTERS_T.find((x) => x.weapon === m.weakTo)!;
+  }
+  assert.equal(seen.size, 6);
+  assert.equal(m, BOLT_MASTERS_T[0]);
+});
+
+test('BOLT BRIGADE: AQUABYTE\'s tide wave and TREMORBOT\'s quake really send shots, and the new stages play through to the boss door', () => {
+  const { game } = bossGame();
+  const b = boltBoss(game, 41, 4);
+  (b as unknown as { runAttack(a: string, sk: number): void }).runAttack('wave', 1);
+  assert.equal(b.shots.filter((s) => !s.friendly).length, 2);
+  const c = boltBoss(game, 42, 5);
+  (c as unknown as { runAttack(a: string, sk: number): void }).runAttack('quake', 1);
+  assert.equal(c.shots.filter((s) => !s.friendly).length, 5);
 });
 
 test('BLOCK PARTY: a touch that starts between pieces does not drag the next piece to the wall, holding keeps the bomb, gentle perks slow the fall', () => {

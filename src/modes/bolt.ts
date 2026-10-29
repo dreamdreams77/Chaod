@@ -1,26 +1,27 @@
 /**
- * BOLT BRIGADE — a run-and-gun in the classic robot-master mould. Pick one of four robot masters on
+ * BOLT BRIGADE — a run-and-gun in the classic robot-master mould. Pick one of six robot masters on
  * the stage select, run its stage, beat it in its arena and take its weapon. Every master is weak to
- * another master's weapon (ice beats fire, fire beats leaf, leaf beats volt, volt beats ice), and
- * once all four are down the FORTRESS opens: all four back to back.
+ * another master's weapon (ice beats fire, fire beats leaf, leaf beats volt, volt beats tide, tide
+ * beats rock, rock beats ice), and once all six are down the FORTRESS opens: all six back to back.
+ * Extra lives (1UP) bring you back at the checkpoint or the boss door; energy tanks refill the lot.
  *
  * Mutation honoured: BEAT BUSTER (shooter + rhythm) — shots fired right on the beat hit harder.
  * Chaos flags honoured: low_gravity (floaty jumps), dark (BLACKOUT, you only see near yourself), jam (slow shots).
- * Controls: arrows move, Z jumps (hold for height), X shoots (hold the buster to charge), C swaps weapon.
- * Touch: drag to run, drag up to jump, tap to shoot, hold to charge, a second finger swaps weapon.
+ * Controls: arrows move, Z jumps (hold for height), X shoots (hold the buster to charge), C swaps weapon, DOWN+C drinks an energy tank.
+ * Touch: drag to run, drag up to jump, tap to shoot, hold to charge, a second finger swaps weapon; tap the weapon strip to pick one, tap E to drink a tank.
  */
 import type { Game } from '../game.ts';
 import { ModeBase, ModeOpts } from './base.ts';
 import type { DirectorContext } from '../chaos/director.ts';
 import {
-  AttackId, BoltLevel, EnemyKind, MASTERS, MASTER_BY_ID, MasterDef, MasterId, ROWS, TILE, WEAPONS, WeaponId, generateBolt, solidGrid,
+  AttackId, BoltLevel, EnemyKind, MASTERS, MASTER_BY_ID, MasterDef, MasterId, PickupKind, ROWS, TILE, WEAPONS, WeaponId, generateBolt, solidGrid,
 } from '../procgen/bolt.ts';
 import { H, W, PAL, backdrop, glow, rect, bar, hearts, clamp, frame } from '../render/gfx.ts';
 import { drawText } from '../render/font.ts';
 import { drawCass } from '../render/actors.ts';
 import type { Rng } from '../core/rng.ts';
 
-type Phase = 'select' | 'run' | 'bossIntro' | 'boss' | 'dying' | 'won' | 'lost';
+type Phase = 'select' | 'run' | 'bossIntro' | 'boss' | 'dying' | 'downed' | 'won' | 'lost';
 
 interface Foe {
   kind: EnemyKind | 'boss';
@@ -54,13 +55,15 @@ interface Shot {
   life: number;
   grav: number;
   zig: number;
+  /** Floor bounces left (the tide bubble). */
+  bounce: number;
   hit: Foe[] | null;
 }
 
 interface Item {
   x: number;
   y: number;
-  kind: 'hp' | 'we' | 'bit' | 'floppy';
+  kind: PickupKind | 'floppy';
   taken: boolean;
 }
 
@@ -78,6 +81,13 @@ interface Beam {
 const GRAV = 1000;
 const RUN = 105;
 const JUMP_V = -335;
+/** Grace after walking off a ledge, and how early a jump press is remembered before landing. */
+const COYOTE = 0.1;
+const JUMP_BUFFER = 0.12;
+/** Time you cannot steer after a hit, so the knockback is felt. */
+const HIT_STUN = 0.28;
+const MAX_LIVES = 9;
+const MAX_TANKS = 4;
 const PW = 10;
 const PH = 20;
 const MAX_WE = 28;
@@ -107,6 +117,11 @@ export class BoltMode extends ModeBase {
   weapon: WeaponId = 'buster';
   we = MAX_WE;
   shield = 0;
+  /** Spare lives (shown as 1UP xN) and energy tanks in the bag. */
+  lives = 2;
+  tanks = 0;
+  private stun = 0;
+  private jumpBuf = 0;
   private leafHit = 0;
   foes: Foe[] = [];
   shots: Shot[] = [];
@@ -141,6 +156,9 @@ export class BoltMode extends ModeBase {
     super(game, 'bolt', opts);
     this.hp = this.stats.maxHp;
     this.applyCarry();
+    const spare = this.opts.nightmare ? 0 : { easy: 3, normal: 2, hard: 1 }[this.game.settings.difficulty] + (this.game.settings.assist ? 1 : 0);
+    this.lives = Math.max(0, spare - (this.endlessRound >= 5 ? 1 : 0));
+    this.tanks = clamp(Math.floor(this.game.profile.boltTanks || 0), 0, MAX_TANKS);
     this.bossRng = this.rng.fork(0xb055);
     this.dropRng = this.rng.fork(0xd20b);
     this.fxRng = this.rng.fork(0xf1e5);
@@ -168,8 +186,8 @@ export class BoltMode extends ModeBase {
     if (!this.game.profile.lore.includes('bolt_intro')) {
       this.game.profile.lore.push('bolt_intro');
       this.game.say([
-        { who: 'manual', name: 'THE MANUAL', text: 'Four robot masters run this brigade. Pick a stage, run to the boss door and beat the master to take its weapon.' },
-        { who: 'manual', name: 'THE MANUAL', text: 'Z jumps (hold to go higher), X shoots (hold the buster to charge), C swaps weapons. Every master is weak to another master\'s weapon. On a phone: drag to run and jump, tap to shoot.' },
+        { who: 'manual', name: 'THE MANUAL', text: 'Six robot masters run this brigade. Pick a stage, run to the boss door and beat the master to take its weapon. Grab 1UPs and energy tanks on the way.' },
+        { who: 'manual', name: 'THE MANUAL', text: 'Z jumps (hold to go higher), X shoots (hold the buster to charge), C swaps weapons, DOWN plus C drinks an energy tank. Every master is weak to another master\'s weapon. On a phone: drag to run and jump, tap to shoot, tap the weapon strip or the E.' },
       ]);
     }
   }
@@ -220,7 +238,7 @@ export class BoltMode extends ModeBase {
     }
   }
 
-  /** The FORTRESS: all four masters in a row in one arena. */
+  /** The FORTRESS: all six masters in a row in one arena. */
   beginFortress(): void {
     this.fortress = true;
     this.begin(MASTERS[0], false);
@@ -273,6 +291,11 @@ export class BoltMode extends ModeBase {
       else if (this.phase === 'lost' && this.endT > 1.8) this.finish(false, this.kills * 40 + Math.floor((this.boss ? 1 - this.boss.hp / this.boss.max : 0) * 600));
       return;
     }
+    if (this.phase === 'downed') {
+      this.endT += dt;
+      if (this.endT > 1.4) this.respawn();
+      return;
+    }
     if (this.phase === 'dying') {
       this.endT += dt;
       if (this.boss && Math.floor(this.endT * 14) !== Math.floor((this.endT - dt) * 14)) this.particles.burst(this.boss.x + (this.fxRng.next() - 0.5) * 26, this.boss.y - 20 + (this.fxRng.next() - 0.5) * 30, [this.master.color, '#fff'], 6, 90);
@@ -305,18 +328,19 @@ export class BoltMode extends ModeBase {
     if (this.boss) this.updateBoss(dt);
     this.updateShots(dt);
     this.updateItems();
-    if (this.hp <= 0 && (this.phase as Phase) !== 'lost') this.lose();
+    if (this.hp <= 0 && (this.phase as Phase) !== 'lost' && (this.phase as Phase) !== 'downed') this.lose();
   }
 
   private updateSelect(): void {
     const inp = this.game.input;
     const n = MASTERS.length + (this.fortressOpen ? 1 : 0);
-    // 2x2 grid: left/right change column, up/down change row; the FORTRESS card is below.
+    // Two columns of masters: left/right change column, up/down change row; the FORTRESS card is below.
+    const last = MASTERS.length;
     let i = this.selIndex;
-    if (inp.pressed('left')) i = i === MASTERS.length ? i : i % 2 === 1 ? i - 1 : i + 1;
-    else if (inp.pressed('right')) i = i === MASTERS.length ? i : i % 2 === 0 ? i + 1 : i - 1;
-    else if (inp.pressed('up')) i = i === MASTERS.length ? 2 : i >= 2 ? i - 2 : i;
-    else if (inp.pressed('down')) i = i < 2 ? i + 2 : this.fortressOpen ? MASTERS.length : i;
+    if (inp.pressed('left')) i = i === last ? i : i % 2 === 1 ? i - 1 : i + 1;
+    else if (inp.pressed('right')) i = i === last ? i : i % 2 === 0 ? i + 1 : i - 1;
+    else if (inp.pressed('up')) i = i === last ? last - 2 : i >= 2 ? i - 2 : i;
+    else if (inp.pressed('down')) i = i < last - 2 ? i + 2 : this.fortressOpen ? last : i;
     if (i !== this.selIndex && i < n) {
       this.selIndex = i;
       this.game.audio.sfx('select');
@@ -332,6 +356,21 @@ export class BoltMode extends ModeBase {
   }
 
   tap(x: number, y: number): boolean {
+    if (this.phase === 'run' || this.phase === 'boss') {
+      // Touch HUD: tap a weapon in the strip to pick it, tap the E to drink a tank.
+      if (y >= 34 && y <= 48) {
+        const own = this.ownedWeapons;
+        const i = Math.floor((x - 6) / 13);
+        if (i >= 0 && i < own.length && own[i] !== this.weapon) {
+          this.weapon = own[i];
+          this.charge = 0;
+          this.game.audio.sfx('select');
+          return true;
+        }
+      }
+      if (y >= 11 && y <= 25 && x >= W / 2 + 24 && x <= W / 2 + 70) return this.useTank();
+      return false;
+    }
     if (this.phase !== 'select') return false;
     const cards = this.cardRects();
     for (let i = 0; i < cards.length; i++) {
@@ -349,8 +388,8 @@ export class BoltMode extends ModeBase {
   }
 
   private cardRects(): Array<{ x: number; y: number; w: number; h: number }> {
-    const out = MASTERS.map((_, i) => ({ x: 24 + (i % 2) * 220, y: 42 + Math.floor(i / 2) * 84, w: 212, h: 76 }));
-    if (this.fortressOpen) out.push({ x: 24, y: 212, w: 432, h: 28 });
+    const out = MASTERS.map((_, i) => ({ x: 24 + (i % 2) * 220, y: 32 + Math.floor(i / 2) * 62, w: 212, h: 58 }));
+    if (this.fortressOpen) out.push({ x: 24, y: 220, w: 432, h: 24 });
     return out;
   }
 
@@ -397,35 +436,70 @@ export class BoltMode extends ModeBase {
   }
 
   // ---- player ----------------------------------------------------------------------
+  /** Floaty stages (the flood) stretch the air time; the FORTRESS keeps one gravity for all six masters. */
+  private get stageGrav(): number {
+    return this.fortress ? 1 : this.master.grav;
+  }
   private get gravity(): number {
-    return GRAV * (this.director.flag('low_gravity') ? 0.55 : 1);
+    return GRAV * this.stageGrav * (this.director.flag('low_gravity') ? 0.55 : 1);
   }
 
   private updatePlayer(dt: number, armed: boolean): void {
     const inp = this.game.input;
-    const ax = armed ? inp.axisX() : 0;
+    this.stun = Math.max(0, this.stun - dt);
+    const stunned = this.stun > 0;
+    const ax = armed && !stunned ? inp.axisX() : 0;
     const target = ax * RUN;
     const accel = this.master.slippery && this.phase === 'run' ? 380 : 1900;
-    this.vx = this.vx < target ? Math.min(target, this.vx + accel * dt) : Math.max(target, this.vx - accel * dt);
+    if (stunned) this.vx -= Math.sign(this.vx) * Math.min(Math.abs(this.vx), 160 * dt); // the knockback fades, it is not cancelled
+    else this.vx = this.vx < target ? Math.min(target, this.vx + accel * dt) : Math.max(target, this.vx - accel * dt);
     if (ax) this.face = ax > 0 ? 1 : -1;
-    this.coyote = this.onGround ? 0.09 : Math.max(0, this.coyote - dt);
-    if (armed && (inp.pressed('jump') || inp.pressed('confirm') || (inp.pressed('up') && this.game.input.usingTouch))) {
-      if (this.coyote > 0) {
-        this.vy = JUMP_V * (this.director.flag('low_gravity') ? 0.78 : 1);
-        this.onGround = false;
-        this.coyote = 0;
-        this.jumpHeld = true;
-        this.game.audio.sfx('jump');
-      }
+    this.coyote = this.onGround ? COYOTE : Math.max(0, this.coyote - dt);
+    // A jump pressed a hair before landing is remembered, so it never feels eaten.
+    if (armed && !stunned && (inp.pressed('jump') || inp.pressed('confirm') || (inp.pressed('up') && this.game.input.usingTouch))) this.jumpBuf = JUMP_BUFFER;
+    else this.jumpBuf = Math.max(0, this.jumpBuf - dt);
+    if (armed && !stunned && this.jumpBuf > 0 && this.coyote > 0) {
+      this.vy = JUMP_V * Math.sqrt(this.stageGrav) * (this.director.flag('low_gravity') ? 0.78 : 1);
+      this.onGround = false;
+      this.coyote = 0;
+      this.jumpBuf = 0;
+      this.jumpHeld = true;
+      this.game.audio.sfx('jump');
     }
-    if (this.jumpHeld && !(inp.held('jump') || inp.held('confirm') || inp.held('up')) && this.vy < -120) this.vy = -120;
+    if (this.jumpHeld && !(inp.held('jump') || inp.held('confirm') || inp.held('up')) && this.vy < -130) this.vy = -130;
     if (this.vy >= 0) this.jumpHeld = false;
     this.vy = Math.min(480, this.vy + this.gravity * dt);
     const body = { x: this.px, y: this.py, vx: this.vx, vy: this.vy };
+    const wantVx = this.vx;
+    const wantY = this.py + this.vy * dt;
     const hit = this.moveBox(body, PW, PH, dt);
+    if (hit.wall && !hit.floor && this.vy <= 40 && wantVx !== 0) {
+      // Clipped the corner of a ledge by a few pixels: hop up onto it instead of snagging.
+      const dir = Math.sign(wantVx);
+      for (let k = 1; k <= 5; k++) if (!this.boxHitsSolid(body.x + dir * 2, body.y - k, PW, PH)) {
+        body.x += dir * 2;
+        body.y -= k;
+        body.vx = wantVx;
+        hit.wall = false;
+        break;
+      }
+    }
+    if (hit.ceil && this.vy < 0) {
+      // Bumped the underside of a block with the edge of the head: slide round the corner.
+      for (let n = 1; n <= 4; n++) {
+        const free = [n, -n].find((d) => !this.boxHitsSolid(body.x + d, wantY, PW, PH));
+        if (free !== undefined) {
+          body.x += free;
+          body.y = wantY;
+          body.vy = this.vy;
+          break;
+        }
+      }
+    }
     this.px = body.x;
     this.py = body.y;
     this.vy = body.vy;
+    this.vx = body.vx;
     if (hit.wall) this.vx = 0;
     const wasAir = !this.onGround;
     this.onGround = hit.floor || (this.vy === 0 && this.boxHitsSolid(this.px, this.py + 1, PW, PH));
@@ -435,7 +509,11 @@ export class BoltMode extends ModeBase {
     else this.px = clamp(this.px, 8, this.level.width * TILE - 8);
     // camera
     if (this.locked) this.camX += (this.level.arenaX * TILE - this.camX) * Math.min(1, dt * 6);
-    else this.camX = clamp(this.px - 190, 0, (this.level.width - 30) * TILE);
+    else {
+      // Ease towards the player with a little look-ahead, so the picture glides instead of jittering.
+      const want = clamp(this.px - 190 + this.face * 22, 0, (this.level.width - 30) * TILE);
+      this.camX += (want - this.camX) * Math.min(1, dt * 7);
+    }
     // the run: checkpoint, the door and pits
     if (this.phase === 'run') {
       if (this.px > this.level.checkpoint * TILE && this.spawnX < this.level.checkpoint * TILE) {
@@ -449,7 +527,10 @@ export class BoltMode extends ModeBase {
     }
     if (!armed) return;
     // weapons
-    if (inp.pressed('special')) this.swapWeapon();
+    if (inp.pressed('special')) {
+      if (inp.held('down')) this.useTank();
+      else this.swapWeapon();
+    }
     this.updateShooting(dt);
     if (this.shield > 0) {
       this.shield -= dt;
@@ -520,7 +601,7 @@ export class BoltMode extends ModeBase {
     const jam = this.director.flag('jam') ? 0.5 : 1;
     const dmg = [1, 2, 4][level] + this.beatBonus();
     const r = [3, 5, 8][level];
-    this.shots.push({ x: this.px + this.face * 9, y: this.py - 12, vx: this.face * 260 * jam, vy: 0, r, dmg: dmg * this.stats.power * this.damageMult, weapon: 'buster', friendly: true, pierce: level === 2, life: 1.2, grav: 0, zig: 0, hit: level === 2 ? [] : null });
+    this.shots.push({ x: this.px + this.face * 9, y: this.py - 12, vx: this.face * 260 * jam, vy: 0, r, dmg: dmg * this.stats.power * this.damageMult, weapon: 'buster', friendly: true, pierce: level === 2, life: 1.2, grav: 0, zig: 0, bounce: 0, hit: level === 2 ? [] : null });
     this.shootAnim = 0.2;
     this.game.audio.sfx(level ? 'boost' : 'shoot', level ? 1.4 : 1);
   }
@@ -536,7 +617,7 @@ export class BoltMode extends ModeBase {
     this.shootAnim = 0.25;
     const f = this.face;
     const jam = this.director.flag('jam') ? 0.5 : 1;
-    const base = { x: this.px + f * 9, y: this.py - 12, friendly: true, weapon: w, life: 1.2, grav: 0, zig: 0, hit: null as Foe[] | null, pierce: false };
+    const base = { x: this.px + f * 9, y: this.py - 12, friendly: true, weapon: w, life: 1.2, grav: 0, zig: 0, bounce: 0, hit: null as Foe[] | null, pierce: false };
     const pow = this.stats.power * this.damageMult;
     if (w === 'ice') {
       for (const a of [-0.16, 0, 0.16]) this.shots.push({ ...base, vx: f * 210 * jam, vy: a * 210, r: 3, dmg: 2 * pow });
@@ -547,6 +628,12 @@ export class BoltMode extends ModeBase {
     } else if (w === 'volt') {
       this.shots.push({ ...base, vx: f * 330 * jam, vy: 0, r: 4, dmg: 3 * pow, zig: 1, life: 0.9 });
       this.game.audio.sfx('chaos', 1.5);
+    } else if (w === 'tide') {
+      this.shots.push({ ...base, vx: f * 150 * jam, vy: -70, r: 4, dmg: 2 * pow, grav: 520, bounce: 4, life: 2 });
+      this.game.audio.sfx('jump', 1.8);
+    } else if (w === 'rock') {
+      this.shots.push({ ...base, vx: f * 125 * jam, vy: -190, r: 6, dmg: 3 * pow, grav: 640, life: 1.8 });
+      this.game.audio.sfx('slam', 1.3);
     } else if (w === 'leaf') {
       this.shield = 4.5;
       this.game.audio.sfx('powerup');
@@ -633,10 +720,10 @@ export class BoltMode extends ModeBase {
         if (hit.wall && f.kind === 'walker') f.dir *= -1;
         if (f.y > (ROWS + 2) * TILE) f.hp = 0;
       }
-      // contact with the player
-      if (this.iframes <= 0 && Math.abs(f.x - this.px) < (f.w + PW) / 2 && f.y > this.py - PH && f.y - f.h < this.py) {
+      // contact with the player: the leaf shield bites, anything else bites back
+      if (Math.abs(f.x - this.px) < (f.w + PW) / 2 && f.y > this.py - PH && f.y - f.h < this.py) {
         if (this.shield > 0) this.leafTouch(f);
-        else this.hurt(1, f.x);
+        else if (this.iframes <= 0) this.hurt(1, f.x);
       }
     }
   }
@@ -645,10 +732,11 @@ export class BoltMode extends ModeBase {
     if (this.leafHit > 0) return;
     this.leafHit = 0.35;
     this.damageFoe(f, 1 * this.stats.power * this.damageMult, 'leaf');
+    this.particles.burst(f.x, f.y - f.h / 2, ['#7dff6b', '#e8ffd8'], 4, 60);
   }
 
   private foeShot(x: number, y: number, vx: number, vy: number, grav = 0, r = 3): void {
-    this.shots.push({ x, y, vx, vy, r, dmg: 1, weapon: 'buster', friendly: false, pierce: false, life: 4, grav, zig: 0, hit: null });
+    this.shots.push({ x, y, vx, vy, r, dmg: 1, weapon: 'buster', friendly: false, pierce: false, life: 4, grav, zig: 0, bounce: 0, hit: null });
   }
 
   private updateShots(dt: number): void {
@@ -660,33 +748,69 @@ export class BoltMode extends ModeBase {
         s.zig += dt * 22;
         s.y += Math.sin(s.zig) * 90 * dt;
       }
+      const oy = s.y;
       s.x += s.vx * dt;
       s.y += s.vy * dt;
       let alive = s.life > 0 && s.x > this.camX - 40 && s.x < this.camX + W + 40 && s.y < (ROWS + 1) * TILE && s.y > -140;
-      if (alive && this.solid(Math.floor(s.x / TILE), Math.floor(s.y / TILE)) && !(s.friendly && s.weapon === 'flame')) alive = false;
+      if (alive && this.solid(Math.floor(s.x / TILE), Math.floor(s.y / TILE)) && !(s.friendly && s.weapon === 'flame')) {
+        if (s.bounce > 0 && !this.solid(Math.floor(s.x / TILE), Math.floor(oy / TILE))) {
+          // A tide bubble rebounds off floors and ceilings and only dies on walls.
+          s.y = oy;
+          s.vy = s.vy > 0 ? -Math.max(Math.abs(s.vy) * 0.8, 150) : Math.abs(s.vy) * 0.5;
+          s.bounce--;
+        } else alive = false;
+      }
       if (alive) {
         if (s.friendly) alive = this.friendlyShotHits(s);
         else alive = this.foeShotHits(s);
       }
+      if (!alive && s.friendly && s.weapon === 'rock') this.rockBlast(s);
       if (alive) this.shots[keep++] = s;
     }
     this.shots.length = keep;
   }
 
+  /** A boulder bursts where it lands: everything within a short radius takes the hit. */
+  private rockBlast(s: Shot): void {
+    this.particles.burst(s.x, s.y, ['#d9a066', '#ffffff', '#8a5a2a'], 14, 120);
+    this.game.audio.sfx('explode', 1.4);
+    this.game.fx.shake(1);
+    if (this.boss && this.phase === 'boss') this.blastHit(s, this.boss);
+    for (const f of this.foes) this.blastHit(s, f);
+  }
+
+  private blastHit(s: Shot, f: Foe): void {
+    if (f.hp <= 0) return;
+    const dx = Math.max(0, Math.abs(s.x - f.x) - f.w / 2);
+    const dy = Math.max(0, f.y - f.h - s.y, s.y - f.y);
+    if (Math.hypot(dx, dy) <= 30) this.damageFoe(f, s.dmg, 'rock');
+  }
+
+  private shotTouches(s: Shot, f: Foe): boolean {
+    return Math.abs(s.x - f.x) < (f.w + s.r * 2) / 2 && s.y > f.y - f.h - s.r && s.y < f.y + s.r;
+  }
+
+  /** Returns whether the shot keeps flying. Bodies are solid to shots: nothing passes through a master. */
   private friendlyShotHits(s: Shot): boolean {
-    const targets: Foe[] = this.boss && this.phase === 'boss' ? [this.boss, ...this.foes] : this.foes;
-    for (const f of targets) {
-      if (f.hp <= 0 || f === this.boss && this.bossInvulnerable()) continue;
-      if (s.hit?.includes(f)) continue;
-      if (Math.abs(s.x - f.x) < (f.w + s.r * 2) / 2 && s.y > f.y - f.h - s.r && s.y < f.y + s.r) {
-        this.damageFoe(f, s.dmg, s.weapon);
-        if (s.weapon === 'ice' && f !== this.boss) f.frozen = 1.4;
-        if (s.pierce) {
-          s.hit?.push(f);
-          continue;
-        }
+    const b = this.boss;
+    if (b && b.hp > 0 && !s.hit?.includes(b) && this.shotTouches(s, b)) {
+      if (this.bossInvulnerable()) {
+        // The master is not fightable yet (the warning): shots ping off its body.
+        this.particles.burst(s.x, s.y, ['#ffffff', '#8a9ab8'], 3, 50);
         return false;
       }
+      if (s.weapon === 'rock') return false; // the blast does the damage
+      this.damageFoe(b, s.dmg, s.weapon);
+      if (!s.pierce) return false;
+      s.hit?.push(b);
+    }
+    for (const f of this.foes) {
+      if (f.hp <= 0 || s.hit?.includes(f) || !this.shotTouches(s, f)) continue;
+      if (s.weapon === 'rock') return false;
+      this.damageFoe(f, s.dmg, s.weapon);
+      if (s.weapon === 'ice') f.frozen = 1.4;
+      if (!s.pierce) return false;
+      s.hit?.push(f);
     }
     return true;
   }
@@ -704,10 +828,10 @@ export class BoltMode extends ModeBase {
   }
 
   private bossInvulnerable(): boolean {
-    return this.phase !== 'boss' || !this.boss || this.boss.flash > 0.05;
+    return this.phase !== 'boss' || !this.boss;
   }
 
-  /** Applies damage; a master hit by the weapon it is weak to takes four times as much. */
+  /** Applies damage; a master hit by the weapon it is weak to takes three times as much. */
   damageFoe(f: Foe, amount: number, weapon: WeaponId): void {
     const weak = f === this.boss && MASTER_BY_ID.get(this.master.id)?.weakTo === weapon;
     const dmg = amount * (weak ? 3 : 1);
@@ -745,19 +869,72 @@ export class BoltMode extends ModeBase {
     this.noteDamage(dmg);
     this.popups.add(this.px, this.py - 26, `-${dmg}`, '#ff3f5a');
     if (!silent) {
-      this.vx = Math.sign(this.px - fromX || -this.face) * 110;
-      this.vy = -170;
+      this.vx = Math.sign(this.px - fromX || -this.face) * 105;
+      this.vy = -150;
       this.onGround = false;
+      this.stun = HIT_STUN;
+      this.jumpBuf = 0;
+      this.jumpHeld = false;
     }
     this.charge = 0;
   }
 
   private lose(): void {
-    this.phase = 'lost';
     this.endT = 0;
     this.shots.length = 0;
+    this.beams = [];
     this.game.audio.sfx('explode');
+    if (this.lives > 0) {
+      // A spare life: back to the checkpoint (or the boss door, with the master topped up again).
+      this.lives--;
+      this.phase = 'downed';
+      this.director.clearAll();
+      this.particles.burst(this.px, this.py - 10, ['#ffffff', '#3f9fff', '#9fe8ff'], 18, 130);
+      this.say(this.lives > 0 ? `LIFE LOST: ${this.lives} LEFT` : 'LAST LIFE', '#ff3f5a');
+      return;
+    }
+    this.phase = 'lost';
     this.say('MISSION FAILED', '#ff3f5a');
+  }
+
+  private respawn(): void {
+    this.hp = this.stats.maxHp;
+    this.we = MAX_WE;
+    this.iframes = 2.2;
+    this.stun = 0;
+    this.jumpBuf = 0;
+    this.shield = 0;
+    this.charge = 0;
+    this.vx = this.vy = 0;
+    this.onGround = false;
+    if (this.locked) {
+      this.px = this.level.arenaX * TILE + 40;
+      this.py = BOSS_Y;
+      this.spawnBoss(this.master);
+    } else {
+      this.px = this.spawnX;
+      this.py = this.spawnY;
+      this.camX = clamp(this.px - 190, 0, (this.level.width - 30) * TILE);
+      this.phase = 'run';
+    }
+    this.game.audio.sfx('powerup');
+  }
+
+  /** Drinks an energy tank: all hearts and all weapon energy. */
+  useTank(): boolean {
+    const ok = this.tanks > 0 && this.hp < this.stats.maxHp && (this.phase === 'run' || this.phase === 'boss');
+    if (!ok) {
+      if (this.phase === 'run' || this.phase === 'boss') this.game.audio.sfx('miss');
+      return false;
+    }
+    this.tanks--;
+    this.game.profile.boltTanks = this.tanks;
+    this.hp = this.stats.maxHp;
+    this.we = MAX_WE;
+    this.popups.add(this.px, this.py - 34, 'E-TANK!', '#3f9fff');
+    this.particles.burst(this.px, this.py - 12, ['#3f9fff', '#ffffff'], 10, 80);
+    this.game.audio.sfx('levelup');
+    return true;
   }
 
   private updateItems(): void {
@@ -776,6 +953,26 @@ export class BoltMode extends ModeBase {
         this.we = Math.min(MAX_WE, this.we + 10);
         this.popups.add(it.x, it.y - 10, '+ENERGY', '#3f9fff');
         this.game.audio.sfx('powerup');
+      } else if (it.kind === 'life') {
+        if (this.lives < MAX_LIVES) {
+          this.lives++;
+          this.popups.add(it.x, it.y - 10, '1UP!', '#7dff6b');
+        } else {
+          this.addBits(20, it.x, it.y - 8);
+          this.popups.add(it.x, it.y - 10, 'LIVES FULL', '#7dff6b');
+        }
+        this.game.audio.sfx('levelup');
+      } else if (it.kind === 'tank') {
+        if (this.tanks < MAX_TANKS) {
+          this.tanks++;
+          this.game.profile.boltTanks = this.tanks;
+          this.popups.add(it.x, it.y - 10, 'E-TANK!', '#3f9fff');
+          this.game.toast('ENERGY TANK', 'DOWN + C (OR TAP THE E) REFILLS HEARTS AND WEAPON ENERGY', '#3f9fff');
+        } else {
+          this.addBits(20, it.x, it.y - 8);
+          this.popups.add(it.x, it.y - 10, 'TANKS FULL', '#3f9fff');
+        }
+        this.game.audio.sfx('levelup');
       } else {
         this.collectFloppy(this.master.floppy ?? 0);
       }
@@ -798,9 +995,9 @@ export class BoltMode extends ModeBase {
   }
 
   private spawnBoss(m: MasterDef): void {
-    const hp = Math.max(8, Math.round(m.hp * 2.2 * Math.sqrt(this.diffMult) * (this.opts.rematch ? 1.2 : 1)));
+    const hp = Math.max(8, Math.round(m.hp * 3 * Math.sqrt(this.diffMult) * (this.opts.rematch ? 1.2 : 1)));
     const ax = this.level.arenaX * TILE;
-    this.boss = { kind: 'boss', x: ax + 20 * TILE, y: BOSS_Y, vx: 0, vy: 0, w: 26, h: 34, hp: 1, max: hp, t: 0, dir: -1, frozen: 0, flash: 0, home: BOSS_Y, active: true, grounded: true };
+    this.boss = { kind: 'boss', x: ax + 20 * TILE, y: BOSS_Y, vx: 0, vy: 0, w: 28, h: 38, hp: 1, max: hp, t: 0, dir: -1, frozen: 0, flash: 0, home: BOSS_Y, active: true, grounded: true };
     this.bossIntroT = 0;
     this.bossState = 'idle';
     this.bossT = 1;
@@ -832,7 +1029,11 @@ export class BoltMode extends ModeBase {
     b.grounded = hit.floor;
     if (b.grounded && this.bossState !== 'do') b.vx *= 0.8;
     // contact
-    if (this.iframes <= 0 && Math.abs(b.x - this.px) < (b.w + PW) / 2 && b.y > this.py - PH && b.y - b.h < this.py) this.hurt(1, b.x);
+    if (Math.abs(b.x - this.px) < (b.w + PW) / 2 && b.y > this.py - PH && b.y - b.h < this.py) {
+      // The master's body hurts to touch, unless the leaf shield is up: then the leaves bite it instead.
+      if (this.shield > 0) this.leafTouch(b);
+      else if (this.iframes <= 0) this.hurt(1, b.x);
+    }
     if (this.bossState === 'idle' && this.bossT <= 0) {
       const set = m.attacks;
       this.bossAtk = set[this.bossRng.int(0, set.length - 1)];
@@ -877,6 +1078,19 @@ export class BoltMode extends ModeBase {
       for (let i = 0; i < 6; i++) this.foeShot(this.bossRng.range(this.level.arenaX * TILE + 20, this.level.width * TILE - 20), -10 - i * 18, 0, 90 * sk, 0, 3);
       this.bossT = 1.2;
       this.game.audio.sfx('warn');
+    } else if (a === 'wave') {
+      // A low surge to jump and a slower bubble above it that only catches a jumper.
+      this.foeShot(b.x, BOSS_Y - 7, toward * 130 * sk, 0, 0, 7);
+      this.foeShot(b.x, BOSS_Y - 27, toward * 85 * sk, 0, 0, 4);
+      this.bossT = 0.9;
+      this.game.audio.sfx('shoot', 0.5);
+    } else if (a === 'quake') {
+      // The ground shakes and boulders fall in a row around where you stand.
+      const lo = this.level.arenaX * TILE + 26, hi = this.level.width * TILE - 26;
+      for (let i = -2; i <= 2; i++) this.foeShot(clamp(this.px + i * 34 + this.bossRng.range(-8, 8), lo, hi), -10 - Math.abs(i) * 24, 0, 115 * sk, 0, 4);
+      this.bossT = 1.2;
+      this.game.audio.sfx('slam');
+      this.game.fx.shake(4);
     } else if (a === 'column') {
       this.bossT = 0.4;
       this.game.audio.sfx('slam');
@@ -933,7 +1147,7 @@ export class BoltMode extends ModeBase {
   }
 
   private finishWin(): void {
-    const score = Math.floor(this.kills * 40 + this.hp * 300 + Math.max(0, 3000 - this.time * 10) + this.runBits * 10);
+    const score = Math.floor(this.kills * 40 + this.hp * 300 + this.lives * 250 + Math.max(0, 3000 - this.time * 10) + this.runBits * 10);
     if (this.fortress) {
       this.runFlags.add('bolt_fortress');
       this.addBits(120);
@@ -962,28 +1176,28 @@ export class BoltMode extends ModeBase {
     const pal = PAL.bolt;
     backdrop(ctx, '#05101e', pal.bg1);
     for (let i = 0; i < 18; i++) rect(ctx, (i * 71 + this.time * 10) % W, (i * 43) % H, 2, 2, '#ffffff22');
-    drawText(ctx, 'STAGE SELECT', W / 2, 12, '#ffe23f', { align: 'center', scale: 2 });
+    drawText(ctx, 'STAGE SELECT', W / 2, 10, '#ffe23f', { align: 'center', scale: 2 });
     const owned = this.beaten();
     const cards = this.cardRects();
     cards.forEach((c, i) => {
       const sel = i === this.selIndex;
       if (i === MASTERS.length) {
         frame(ctx, c.x, c.y, c.w, c.h, sel ? '#2a2a0a' : '#0b0716', sel ? '#ffe23f' : '#4a4a20');
-        drawText(ctx, 'THE FORTRESS: ALL FOUR MASTERS BACK TO BACK', c.x + c.w / 2, c.y + 10, sel ? '#ffe23f' : '#a8a860', { align: 'center' });
+        drawText(ctx, 'THE FORTRESS: ALL SIX MASTERS BACK TO BACK', c.x + c.w / 2, c.y + 8, sel ? '#ffe23f' : '#a8a860', { align: 'center' });
         return;
       }
       const m = MASTERS[i];
       const done = owned.includes(m.id);
       frame(ctx, c.x, c.y, c.w, c.h, sel ? '#10243e' : '#0a1626', sel ? m.color : '#2a4468');
-      this.drawRobot(ctx, c.x + 34, c.y + 62, m, this.time, done ? 0.6 : 1, 1.2);
-      drawText(ctx, m.name, c.x + 72, c.y + 8, done ? '#9a9ab8' : m.color);
-      drawText(ctx, m.title, c.x + 72, c.y + 19, '#7a8aa8');
-      drawText(ctx, `WEAPON: ${WEAPONS[m.weapon].name}`, c.x + 72, c.y + 34, WEAPONS[m.weapon].color);
+      this.drawRobot(ctx, c.x + 34, c.y + 52, m, this.time, done ? 0.6 : 1, 1);
+      drawText(ctx, m.name, c.x + 72, c.y + 6, done ? '#9a9ab8' : m.color);
+      drawText(ctx, `WEAPON: ${WEAPONS[m.weapon].name}`, c.x + 72, c.y + 17, WEAPONS[m.weapon].color);
       const weakOwned = owned.includes(MASTERS.find((x) => x.weapon === m.weakTo)?.id as MasterId);
-      drawText(ctx, weakOwned ? `WEAK TO: ${WEAPONS[m.weakTo].name}` : 'WEAKNESS: ???', c.x + 72, c.y + 46, weakOwned ? '#ffe23f' : '#5a6a88');
-      drawText(ctx, done ? '★ DEFEATED' : m.floppy !== null ? `DISK ${this.game.profile.floppies.includes(`bolt-${m.floppy}`) ? '■' : '□'} HIDDEN` : 'NO DISK HERE', c.x + 72, c.y + 60, done ? '#7dff6b' : '#9a9ab8');
+      drawText(ctx, weakOwned ? `WEAK TO: ${WEAPONS[m.weakTo].name}` : 'WEAKNESS: ???', c.x + 72, c.y + 28, weakOwned ? '#ffe23f' : '#5a6a88');
+      drawText(ctx, done ? '★ DEFEATED' : m.floppy !== null ? `DISK ${this.game.profile.floppies.includes(`bolt-${m.floppy}`) ? '■' : '□'} HIDDEN` : m.title, c.x + 72, c.y + 42, done ? '#7dff6b' : '#7a8aa8');
     });
-    drawText(ctx, this.game.input.label(this.fortressOpen ? 'ARROWS CHOOSE • Z GO • X BACK' : `DEFEAT ALL FOUR TO OPEN THE FORTRESS (${owned.length}/4) • ARROWS CHOOSE • Z GO • X BACK`), W / 2, H - 14, '#9a9ab8', { align: 'center' });
+    drawText(ctx, `1UP x${this.lives}   E-TANK x${this.tanks}`, W - 6, 14, '#9a9ab8', { align: 'right' });
+    drawText(ctx, this.game.input.label(this.fortressOpen ? 'ARROWS CHOOSE • Z GO • X BACK' : `DEFEAT ALL SIX TO OPEN THE FORTRESS (${owned.length}/6) • ARROWS CHOOSE • Z GO • X BACK`), W / 2, H - 14, '#9a9ab8', { align: 'center' });
   }
 
   /** The robot masters (and the select portraits): a chunky body with a crest per master. */
@@ -1012,6 +1226,16 @@ export class BoltMode extends ModeBase {
     } else if (m.id === 'sproutron') {
       rect(ctx, -6, -40 + bob, 5, 6, '#3aa84a');
       rect(ctx, 1, -42 + bob, 5, 8, '#7dff6b');
+    } else if (m.id === 'aquabyte') {
+      // a dorsal fin and a bubble helmet
+      rect(ctx, -2, -43 + bob, 4, 9, '#bfe3ff');
+      rect(ctx, -5, -39 + bob, 10, 5, '#5fb0ff');
+      rect(ctx, 5, -33 + bob, 3, 3, '#ffffffaa');
+    } else if (m.id === 'tremorbot') {
+      // a blocky rock crown
+      rect(ctx, -8, -40 + bob, 6, 7, '#8a5a2a');
+      rect(ctx, -2, -43 + bob, 6, 10, '#c8955a');
+      rect(ctx, 4, -39 + bob, 5, 6, '#8a5a2a');
     } else {
       rect(ctx, -1, -42 + bob, 2, 8, '#ffffff');
       rect(ctx, -3, -44 + bob, 6, 3, '#ffe23f');
@@ -1071,6 +1295,19 @@ export class BoltMode extends ModeBase {
       } else if (it.kind === 'hp') {
         glow(ctx, it.x, it.y + bob, 12, '255,63,107', 0.5);
         hearts(ctx, it.x - 5, it.y - 5 + bob, 1, 1);
+      } else if (it.kind === 'life') {
+        glow(ctx, it.x, it.y + bob, 14, '125,255,107', 0.6);
+        rect(ctx, it.x - 6, it.y - 6 + bob, 12, 12, '#1a4a1a');
+        rect(ctx, it.x - 5, it.y - 5 + bob, 10, 10, '#7dff6b');
+        rect(ctx, it.x - 3, it.y - 2 + bob, 2, 3, '#05101e');
+        rect(ctx, it.x + 1, it.y - 2 + bob, 2, 3, '#05101e');
+        drawText(ctx, '1UP', it.x - 8, it.y - 16 + bob, '#7dff6b');
+      } else if (it.kind === 'tank') {
+        glow(ctx, it.x, it.y + bob, 14, '63,159,255', 0.6);
+        rect(ctx, it.x - 6, it.y - 7 + bob, 12, 14, '#0b2a5a');
+        rect(ctx, it.x - 5, it.y - 6 + bob, 10, 12, '#cfe8ff');
+        rect(ctx, it.x - 5, it.y - 1 + bob, 10, 7, '#3f9fff');
+        drawText(ctx, 'E', it.x - 2, it.y - 4 + bob, '#ffffff');
       } else if (it.kind === 'we') {
         glow(ctx, it.x, it.y + bob, 10, '63,159,255', 0.5);
         rect(ctx, it.x - 4, it.y - 4 + bob, 8, 8, '#3f9fff');
@@ -1113,11 +1350,11 @@ export class BoltMode extends ModeBase {
       }
     }
     // player
-    const blink = this.iframes > 0 && Math.floor(this.time * 10) % 2 === 0;
-    if (!blink && this.phase !== 'lost') {
-      const pose = !this.onGround ? 'jump' : this.shootAnim > 0 ? 'attack' : Math.abs(this.vx) > 6 ? 'run' : 'idle';
+    const blink = this.iframes > 0 && this.stun <= 0 && Math.floor(this.time * 10) % 2 === 0;
+    if (!blink && this.phase !== 'lost' && this.phase !== 'downed') {
+      const pose = this.stun > 0 ? 'hurt' : !this.onGround ? 'jump' : this.shootAnim > 0 ? 'attack' : Math.abs(this.vx) > 6 ? 'run' : 'idle';
       if (this.charge >= CHARGE_1) glow(ctx, this.px, this.py - 12, 18 + (this.charge >= CHARGE_2 ? 8 : 0), this.charge >= CHARGE_2 ? '255,255,255' : '63,159,255', 0.5 + Math.sin(this.time * 24) * 0.2);
-      drawCass(ctx, { x: this.px, y: this.py, facing: this.face, pose, t: this.time, scale: 1 }, this.game.profile.character);
+      drawCass(ctx, { x: Math.round(this.px), y: Math.round(this.py), facing: this.face, pose, t: this.time, scale: 1 }, this.game.profile.character);
     }
     ctx.restore();
     // BLACKOUT: only a circle around the player is visible
@@ -1157,14 +1394,15 @@ export class BoltMode extends ModeBase {
         for (let i = 0; i < 3; i++) rect(ctx, x + 3 + i * 4 + ((Math.floor(this.time * 20) + i) % 2), y + 3 + (i % 2) * 4, 3, 9, '#ffe23f');
       }
     } else {
-      rect(ctx, x + 2, y + 12, 12, 4, '#4a2a20');
+      rect(ctx, x + 2, y + 12, 12, 4, this.master.id === 'aquabyte' ? '#1a3a5a' : '#4a2a20');
       const on = this.hazardActive(h);
       const warn = !on && (this.time + h.x * 0.53) % 2.4 > 1.1;
+      const water = this.master.id === 'aquabyte';
       if (on) {
-        glow(ctx, x + 8, y - 8, 22, '255,122,26', 0.6);
-        rect(ctx, x + 3, y - TILE * 2, 10, TILE * 3, '#ff7a1a');
-        rect(ctx, x + 5, y - TILE * 2 + 6, 6, TILE * 3 - 6, '#ffcf3f');
-      } else if (warn) rect(ctx, x + 6, y + 6, 4, 6, '#ff7a1a');
+        glow(ctx, x + 8, y - 8, 22, water ? '63,159,255' : '255,122,26', 0.6);
+        rect(ctx, x + 3, y - TILE * 2, 10, TILE * 3, water ? '#3f8fff' : '#ff7a1a');
+        rect(ctx, x + 5, y - TILE * 2 + 6, 6, TILE * 3 - 6, water ? '#bfe8ff' : '#ffcf3f');
+      } else if (warn) rect(ctx, x + 6, y + 6, 4, 6, water ? '#3f8fff' : '#ff7a1a');
     }
   }
 
@@ -1214,8 +1452,18 @@ export class BoltMode extends ModeBase {
     drawText(ctx, w.name, 6, 18, w.color);
     if (this.weapon !== 'buster') bar(ctx, 6, 28, 70, 4, this.we / MAX_WE, w.color, '#08121e', '#ffffff55');
     else if (this.charge > 0.1) bar(ctx, 6, 28, 70, 4, Math.min(1, this.charge / CHARGE_2), this.charge >= CHARGE_2 ? '#ffffff' : '#3f9fff', '#08121e', '#ffffff55');
-    if (this.ownedWeapons.length > 1) drawText(ctx, this.game.input.label('C: SWAP'), 6, 36, '#7a8aa8');
+    // the weapon strip: tap one to pick it (C cycles)
+    const own = this.ownedWeapons;
+    own.forEach((id, i) => {
+      const cur = id === this.weapon;
+      rect(ctx, 6 + i * 13, 37, 11, 9, cur ? '#ffffff' : '#2a4468');
+      rect(ctx, 7 + i * 13, 38, 9, 7, WEAPONS[id].color);
+      if (!cur) rect(ctx, 7 + i * 13, 38, 9, 7, 'rgba(5,16,30,0.45)');
+    });
+    if (own.length > 1 || this.tanks > 0) drawText(ctx, this.game.input.label(own.length > 1 ? 'C: SWAP' : 'DOWN+C: E-TANK'), 6, 50, '#7a8aa8');
     drawText(ctx, `BITS ${this.runBits}`, W / 2 - 40, 6, '#ffcf3f');
+    drawText(ctx, `1UP x${this.lives}`, W / 2 - 40, 16, '#7dff6b');
+    drawText(ctx, `E x${this.tanks}`, W / 2 + 28, 16, this.tanks > 0 && this.hp < this.stats.maxHp ? '#9fd0ff' : '#3f6fa8');
     drawText(ctx, this.master.name, W / 2 + 40, 6, this.master.color);
     this.drawChaosHud(ctx, W - 106, 16);
     // boss bar

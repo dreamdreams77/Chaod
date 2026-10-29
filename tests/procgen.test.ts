@@ -233,12 +233,20 @@ import { generateBolt, validateBolt, MASTERS as BOLT_MASTERS, MASTER_BY_ID, WEAP
 
 test('bolt stages: every seed and master makes a valid, reproducible stage with its floppy, and the weakness ring closes', () => {
   for (const m of BOLT_MASTERS) {
-    for (let s = 1; s <= 150; s++) {
+    for (let s = 1; s <= 300; s++) {
       const l = generateBolt(s * 7919, m.id);
       const v = validateBolt(l);
       assert.ok(v.ok, `${m.id} seed ${s}: ${v.reason}`);
       if (m.floppy !== null) assert.ok(l.floppy, `${m.id} seed ${s} hides its disk`);
       assert.ok(l.enemies.length >= 3, 'there is something to shoot');
+    }
+  }
+  assert.equal(BOLT_MASTERS.length, 6);
+  for (let s = 1; s <= 120; s++) {
+    for (const m of BOLT_MASTERS) {
+      const l = generateBolt(s * 104729, m.id);
+      assert.equal(l.pickups.filter((p) => p.kind === 'life').length, 1, `${m.id} seed ${s}: one 1UP`);
+      assert.equal(l.pickups.filter((p) => p.kind === 'tank').length, 1, `${m.id} seed ${s}: one energy tank`);
     }
   }
   assert.deepEqual(generateBolt(1234, 'flarebot'), generateBolt(1234, 'flarebot'));

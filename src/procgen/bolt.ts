@@ -14,11 +14,13 @@ export const MAX_STEP = 2;
 export const MIN_GROUND = 9;
 export const MAX_GROUND = 14;
 
-export type WeaponId = 'buster' | 'ice' | 'flame' | 'leaf' | 'volt';
-export type MasterId = 'frostbyte' | 'flarebot' | 'sproutron' | 'voltwire';
-export type AttackId = 'dash' | 'arc' | 'fan' | 'column' | 'leap' | 'rain';
+export type WeaponId = 'buster' | 'ice' | 'flame' | 'leaf' | 'volt' | 'tide' | 'rock';
+export type MasterId = 'frostbyte' | 'flarebot' | 'sproutron' | 'voltwire' | 'aquabyte' | 'tremorbot';
+export type AttackId = 'dash' | 'arc' | 'fan' | 'column' | 'leap' | 'rain' | 'wave' | 'quake';
 export type HazardKind = 'spike' | 'zap' | 'jet';
 export type EnemyKind = 'walker' | 'turret' | 'flyer' | 'hopper';
+/** `life` is a 1UP, `tank` an energy tank; every stage hides one of each. */
+export type PickupKind = 'hp' | 'we' | 'bit' | 'life' | 'tank';
 
 export interface WeaponDef {
   id: WeaponId;
@@ -35,6 +37,8 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
   flame: { id: 'flame', name: 'FLAME WAVE', color: '#ff7a1a', damage: 2, cost: 1, desc: 'A short burst that pierces.' },
   leaf: { id: 'leaf', name: 'LEAF SHIELD', color: '#7dff6b', damage: 2, cost: 2, desc: 'Leaves orbit you and block shots.' },
   volt: { id: 'volt', name: 'VOLT BOLT', color: '#ffe23f', damage: 3, cost: 2, desc: 'A fast zig-zag bolt.' },
+  tide: { id: 'tide', name: 'TIDE BUBBLE', color: '#5fb0ff', damage: 2, cost: 1, desc: 'A bubble that bounces along the floor.' },
+  rock: { id: 'rock', name: 'BOULDER BOMB', color: '#d9a066', damage: 3, cost: 3, desc: 'A lobbed rock that bursts on impact.' },
 };
 
 export interface MasterDef {
@@ -54,14 +58,18 @@ export interface MasterDef {
   hp: number;
   /** Slippery floor? */
   slippery: boolean;
+  /** Gravity multiplier for this stage (below 1 is floaty; jumps keep their height). */
+  grav: number;
 }
 
-/** A ring: ice beats fire, fire beats leaf, leaf beats volt, volt beats ice. */
+/** A ring of six: ice beats fire, fire beats leaf, leaf beats volt, volt beats tide, tide beats rock, rock beats ice. */
 export const MASTERS: MasterDef[] = [
-  { id: 'frostbyte', name: 'FROSTBYTE', title: 'The Freezer Burn', color: '#9fe8ff', dark: '#1a4a66', weapon: 'ice', weakTo: 'volt', attacks: ['dash', 'arc', 'leap'], hazard: 'spike', floppy: 0, hp: 26, slippery: true },
-  { id: 'flarebot', name: 'FLAREBOT', title: 'The Overheated', color: '#ff7a1a', dark: '#5a1a0a', weapon: 'flame', weakTo: 'ice', attacks: ['arc', 'leap', 'rain'], hazard: 'jet', floppy: 1, hp: 26, slippery: false },
-  { id: 'sproutron', name: 'SPROUTRON', title: 'The Overgrown', color: '#7dff6b', dark: '#1a4a1a', weapon: 'leaf', weakTo: 'flame', attacks: ['fan', 'leap', 'dash'], hazard: 'spike', floppy: 2, hp: 28, slippery: false },
-  { id: 'voltwire', name: 'VOLTWIRE', title: 'The Short Circuit', color: '#ffe23f', dark: '#4a4a0a', weapon: 'volt', weakTo: 'leaf', attacks: ['column', 'dash', 'fan'], hazard: 'zap', floppy: null, hp: 28, slippery: false },
+  { id: 'frostbyte', name: 'FROSTBYTE', title: 'The Freezer Burn', color: '#9fe8ff', dark: '#1a4a66', weapon: 'ice', weakTo: 'rock', attacks: ['dash', 'arc', 'leap'], hazard: 'spike', floppy: 0, hp: 26, slippery: true, grav: 1 },
+  { id: 'flarebot', name: 'FLAREBOT', title: 'The Overheated', color: '#ff7a1a', dark: '#5a1a0a', weapon: 'flame', weakTo: 'ice', attacks: ['arc', 'leap', 'rain'], hazard: 'jet', floppy: 1, hp: 26, slippery: false, grav: 1 },
+  { id: 'sproutron', name: 'SPROUTRON', title: 'The Overgrown', color: '#7dff6b', dark: '#1a4a1a', weapon: 'leaf', weakTo: 'flame', attacks: ['fan', 'leap', 'dash'], hazard: 'spike', floppy: 2, hp: 28, slippery: false, grav: 1 },
+  { id: 'voltwire', name: 'VOLTWIRE', title: 'The Short Circuit', color: '#ffe23f', dark: '#4a4a0a', weapon: 'volt', weakTo: 'leaf', attacks: ['column', 'dash', 'fan'], hazard: 'zap', floppy: null, hp: 28, slippery: false, grav: 1 },
+  { id: 'aquabyte', name: 'AQUABYTE', title: 'The Flood', color: '#3f8fff', dark: '#0a2a5a', weapon: 'tide', weakTo: 'volt', attacks: ['wave', 'arc', 'fan'], hazard: 'jet', floppy: null, hp: 30, slippery: false, grav: 0.78 },
+  { id: 'tremorbot', name: 'TREMORBOT', title: 'The Landslide', color: '#d9a066', dark: '#4a2e14', weapon: 'rock', weakTo: 'tide', attacks: ['quake', 'dash', 'leap'], hazard: 'spike', floppy: null, hp: 32, slippery: false, grav: 1 },
 ];
 export const MASTER_BY_ID = new Map(MASTERS.map((m) => [m.id, m]));
 
@@ -84,7 +92,7 @@ export interface BoltLevel {
   platforms: Plat[];
   hazards: Array<Spawn & { kind: HazardKind }>;
   enemies: Array<Spawn & { kind: EnemyKind }>;
-  pickups: Array<Spawn & { kind: 'hp' | 'we' | 'bit' }>;
+  pickups: Array<Spawn & { kind: PickupKind }>;
   floppy: Spawn | null;
   checkpoint: number;
   /** First tile of the boss arena (the door sits just before it). */
@@ -117,10 +125,10 @@ export function generateBolt(seed: number, master: MasterId): BoltLevel {
     for (let i = 0; i < len && from + i < body; i++) ground[from + i] = row;
   };
   // Segments must finish before the run-up to the arena, so nothing is ever cut off mid-pit.
-  const NEED: Record<string, number> = { flat: 12, step: 9, pit: 8, spikes: 11, bridge: 23, climb: 12 };
+  const NEED: Record<string, number> = { flat: 12, step: 9, pit: 8, spikes: 11, bridge: 23, climb: 12, stairs: 14, canyon: 14, gauntlet: 16 };
   const limit = body - 14;
   while (x < limit - 4) {
-    let kind = rng.weighted(['flat', 'flat', 'step', 'pit', 'spikes', 'bridge', 'climb'], () => 1) as string;
+    let kind = rng.weighted(['flat', 'flat', 'step', 'pit', 'spikes', 'bridge', 'climb', 'stairs', 'canyon', 'gauntlet'], () => 1) as string;
     if (x + NEED[kind] > limit) kind = 'flat';
     if (kind === 'flat') {
       const len = Math.max(2, Math.min(rng.int(6, 12), limit - x));
@@ -174,6 +182,47 @@ export function generateBolt(seed: number, master: MasterId): BoltLevel {
       x += total;
       setFlat(x, 5);
       x += 5;
+    } else if (kind === 'stairs') {
+      // Four one-row steps, up or down (whichever stays on the map), with a gunner waiting at the far end.
+      let dir = rng.chance(0.5) ? -1 : 1;
+      const room = (d: number) => (d < 0 ? row - MIN_GROUND : MAX_GROUND - row);
+      if (room(dir) < room(-dir)) dir = -dir;
+      const steps = Math.min(4, room(dir));
+      setFlat(x, 2);
+      x += 2;
+      for (let i = 0; i < steps; i++) {
+        row += dir;
+        setFlat(x, 3);
+        if (i === 1) pickups.push({ x: x + 1, y: row - 2, kind: 'bit' });
+        x += 3;
+      }
+      setFlat(x, 2);
+      enemies.push({ x: x - 2, y: row - 1, kind: rng.pick<EnemyKind>(['turret', 'walker', 'hopper']) });
+      x += 2;
+      sinceEnemy = 0;
+    } else if (kind === 'canyon') {
+      // Two pits with a small island between them: two hops in a row, no room to dawdle.
+      const g1 = rng.int(2, MAX_GAP);
+      for (let i = 0; i < g1; i++) ground[x + i] = ROWS;
+      x += g1;
+      setFlat(x, 2);
+      pickups.push({ x, y: row - 2, kind: 'bit' });
+      pickups.push({ x: x + 1, y: row - 2, kind: 'bit' });
+      x += 2;
+      const g2 = rng.int(2, MAX_GAP);
+      for (let i = 0; i < g2; i++) ground[x + i] = ROWS;
+      x += g2;
+      setFlat(x, 6);
+      x += 6;
+    } else if (kind === 'gauntlet') {
+      // A long flat with a crowd: a walker, a hopper and a turret in a row.
+      setFlat(x, 14);
+      enemies.push({ x: x + 3, y: row - 1, kind: 'walker' });
+      enemies.push({ x: x + 7, y: row - 1, kind: 'hopper' });
+      enemies.push({ x: x + 12, y: row - 1, kind: 'turret' });
+      for (let i = 0; i < 3; i++) pickups.push({ x: x + 5 + i, y: row - 2, kind: 'bit' });
+      x += 14;
+      sinceEnemy = 0;
     } else {
       // A raised nook with a prize, reached by two stacked platforms beside the flat.
       const len = 12;
@@ -222,9 +271,23 @@ export function generateBolt(seed: number, master: MasterId): BoltLevel {
     const c = spot(at);
     pickups.push({ x: c, y: ground[c] - 2, kind });
   }
+  // Hidden prizes: one 1UP and one energy tank per stage, up on platforms when there are any.
+  const floppyNook = m.floppy !== null ? platforms.filter((p) => p.y <= MAX_GROUND - 4 && p.x > 12 && p.x < arenaX - 10).sort((a, b) => a.y - b.y)[0] : undefined;
+  const perches = platforms.filter((p) => p !== floppyNook && p.x > 14 && p.x + p.w < arenaX - 10).sort((a, b) => a.y - b.y);
+  const perch = (n: number, edge: 'left' | 'right', fallbackAt: number, kind: 'life' | 'tank'): void => {
+    const p = perches[n];
+    if (p) {
+      pickups.push({ x: edge === 'left' ? p.x : p.x + p.w - 1, y: p.y - 2, kind });
+      return;
+    }
+    const c = spot(Math.floor(body * fallbackAt));
+    pickups.push({ x: c, y: ground[c] - 3, kind });
+  };
+  perch(0, 'left', 0.72, 'life');
+  perch(1, 'right', 0.38, 'tank');
   if (m.floppy !== null) {
     // The disk floats over a pit-bridge or nook if there is one, else on a high platform near the middle.
-    const nook = platforms.filter((p) => p.y <= MAX_GROUND - 4 && p.x > 12 && p.x < arenaX - 10).sort((a, b) => a.y - b.y)[0];
+    const nook = floppyNook;
     if (nook) floppy = { x: nook.x + 1, y: nook.y - 2 };
     else {
       // Over a stretch of level ground, so the platform always has headroom.
@@ -285,6 +348,14 @@ export function validateBolt(l: BoltLevel): { ok: boolean; reason?: string } {
   if (l.ground[l.checkpoint] >= ROWS) return { ok: false, reason: 'checkpoint over a pit' };
   for (const h of l.hazards) if (h.x >= l.arenaX - 6) return { ok: false, reason: 'hazard in the arena approach' };
   for (const p of l.platforms) for (let c = p.x; c < p.x + p.w; c++) if (l.ground[c] < ROWS && l.ground[c] > p.y && l.ground[c] - (p.y + 1) < 2) return { ok: false, reason: `platform at ${p.x} has no headroom` };
+  // The 1UP and the energy tank must exist and be within a jump of something to stand on.
+  for (const kind of ['life', 'tank'] as const) {
+    const found = l.pickups.filter((p) => p.kind === kind);
+    if (found.length !== 1) return { ok: false, reason: `${found.length} ${kind} pickups` };
+    const { x, y } = found[0];
+    const standOn = l.platforms.some((p) => x >= p.x && x < p.x + p.w && p.y > y && p.y - y <= 3) || (l.ground[x] < ROWS && l.ground[x] > y && l.ground[x] - y <= 3);
+    if (!standOn) return { ok: false, reason: `the ${kind} at ${x},${y} is out of reach` };
+  }
   return { ok: true };
 }
 

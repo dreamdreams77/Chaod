@@ -26,7 +26,7 @@ export const TITLES: TitleDef[] = [
   { id: 'starry', name: 'STAR COLLECTOR', desc: 'Earn twelve mastery stars.', test: (p) => stars(p) >= 12 },
   { id: 'gold', name: 'GOLD STANDARD', desc: 'Earn every mastery star in every world.', test: (p) => stars(p) >= MODE_IDS.length * 3 },
   { id: 'marathon', name: 'ENDLESS RUNNER', desc: 'Survive ten rounds of an ENDLESS RUN.', test: (p) => bestEndless(p) >= 10 },
-  { id: 'robot', name: 'ROBOT MASTER', desc: 'Defeat all four robot masters.', test: (p) => has(p, 'bolt_all') },
+  { id: 'robot', name: 'ROBOT MASTER', desc: 'Defeat all six robot masters.', test: (p) => has(p, 'bolt_all') },
   { id: 'stacker', name: 'LINE LEGEND', desc: 'Clear four rows at once, and empty a well.', test: (p) => has(p, 'quad_clear') && has(p, 'perfect_clear') },
   { id: 'champ', name: 'HIGH SCORER', desc: 'Defeat THE HIGH SCORE.', test: (p) => p.bossesDefeated.includes('highscore') },
   { id: 'flawless', name: 'UNTOUCHABLE', desc: 'Defeat THE HIGH SCORE without being hit.', test: (p) => has(p, 'perfect_score') },
