@@ -124,6 +124,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) — adding a mutation, chaos event or lev
 
 MIT — see [LICENSE](LICENSE). All characters, art, music and writing are original to this project.
 
+## Phones, installing and offline
+
+On a phone, turn it sideways any time for a bigger screen (a one-time tip says so; it is never required, and Settings has **SCREEN ROTATION** and **FULLSCREEN**). **INSTALL AS APP** in Settings adds the game to your home screen or desktop, and a service worker (`sw.js`, written by the build) lets it play offline. **DOWNLOAD OFFLINE COPY** saves it as one HTML file.
+
 ## Backups and feedback
 
 Progress is stored in your browser, so Settings has **EXPORT SAVE** (copies a one-line code) and **IMPORT SAVE** (reads it back) for moving to another device or keeping a backup. **REPORT A BUG / FEEDBACK** opens the issues page. `node tools/icons.mjs` rebuilds the icons and the link-preview image (the `tools/` scripts need Playwright installed, and `tools/video.mjs` also needs ffmpeg).

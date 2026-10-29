@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.6.0 — landscape on phones, and an installable offline app
+- **Turn your phone for a bigger screen, if you want to.** Held upright, a phone shows a small dismissible tip ("turn your phone sideways for a bigger screen, optional") once for a few seconds; it never nags and the game plays the same either way. Settings gets **SCREEN ROTATION** (AUTO follows the phone; LANDSCAPE asks the phone to stay sideways, which needs fullscreen on some Android phones) and **FULLSCREEN**.
+- **Install it as an app**: Settings has **INSTALL AS APP** (the browser's own install dialog on Chrome, Edge and Android; on iPhone and iPad it says how: Share, then Add to Home Screen). Once installed it runs full screen with its own icon.
+- **Plays offline**: a service worker keeps the game on the device. A new release is picked up as soon as there is a connection (the page is fetched network-first), and each release uses a fresh cache.
+- **DOWNLOAD OFFLINE COPY** saves the game as one file (`chaos-exe.html`) to keep anywhere. Progress is stored per copy, so use EXPORT SAVE and IMPORT SAVE to move it.
+
 ## 3.5.1 — bug check on the new games
 - **RING RIOT**: a lock-up that was broken by a knockdown could leave the other wrestler frozen (unhittable and unable to act); it now releases them. Landed strikes no longer count as "damage taken" for stars and quests (hearts do), and the hurt flash and sound no longer fire twice.
 - **GLITCH GLOVES**: punching at the very start of a boxer's wind-up used to counter him, so mashing punch won the game. A counter now needs a punch at the end of the wind-up (earlier is TOO EARLY and leaves you open), a wild punch costs a longer recovery, and a boxer who hits you staggers you for a moment. A KO from a blocked jab no longer cuts the KO pause short.

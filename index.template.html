@@ -49,12 +49,18 @@
   #touch button.off { opacity: 0.45; text-decoration: line-through; }
   #touch button.active { background: #ff3fa477; border-color: #ff3fa4; }
   #err { position: fixed; left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); padding: 10px; background: var(--err-bg); border: 1px solid var(--accent); color: var(--err-fg); font: 12px ui-monospace, monospace; display: none; white-space: pre-wrap; z-index: 10; }
+  /* The optional "turn your phone" note: phones held upright only. */
+  #rotate { display: none; position: fixed; z-index: 5; top: calc(8px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); max-width: calc(100% - 16px); align-items: center; gap: 10px; padding: 7px 10px; background: #1d1233ee; border: 2px solid #3fe0ff; border-radius: 8px; color: #fff; font: bold 12px ui-monospace, monospace; line-height: 1.3; }
+  #rotate.on { display: flex; }
+  #rotate button { background: none; border: 0; color: #9fe8ff; font: bold 16px ui-monospace, monospace; padding: 2px 6px; cursor: pointer; }
+  @media (orientation: landscape) { #rotate.on { display: none; } }
   noscript { padding: 24px; }
 </style>
 </head>
 <body>
 <div id="screen"><canvas id="game" width="480" height="270" tabindex="0" aria-label="CHAOS.exe game canvas"></canvas><div id="crt" aria-hidden="true"></div></div>
 <div id="touch" aria-hidden="true"></div>
+<div id="rotate" role="status"><span>TIP: TURN YOUR PHONE SIDEWAYS FOR A BIGGER SCREEN (OPTIONAL)</span><button type="button" aria-label="Dismiss">✕</button></div>
 <div id="err" role="alert"></div>
 <noscript>CHAOS.exe needs JavaScript to run.</noscript>
 <script type="module" src="./src/main.ts"></script>

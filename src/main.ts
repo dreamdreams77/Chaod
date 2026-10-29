@@ -7,6 +7,7 @@
 import { Game } from './game.ts';
 import { Input, setupTouch } from './core/input.ts';
 import { TouchGestures } from './core/gestures.ts';
+import { registerOffline, setRotation, watchInstall } from './core/device.ts';
 import { setTextFilter } from './render/font.ts';
 import { parseChallenge } from './data/daily.ts';
 import { haptics } from './core/haptics.ts';
@@ -156,6 +157,15 @@ function boot(): void {
   });
   window.addEventListener('pointerdown', unlock);
 
+  // Optional app features: install prompt, offline cache, a landscape lock the player asked for.
+  watchInstall();
+  registerOffline();
+  const relock = () => {
+    if (game.settings.rotate === 'landscape') void setRotation('landscape');
+  };
+  window.addEventListener('pointerdown', relock, { once: true });
+  setupRotateHint(() => input.usingTouch);
+
   // Fit the screen inside the page. On touch devices the pad gets its own gutter
   // (below the screen in portrait, beside it in landscape) so nothing overlaps the game.
   const PAD = 174;
@@ -257,3 +267,34 @@ function boot(): void {
 window.addEventListener('error', (e) => showError(String(e.message)));
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();
+
+/**
+ * A small dismissible note for phones held upright: turning the phone sideways gives a bigger screen,
+ * but the game never requires it. Shown once for a few seconds, then remembered.
+ */
+function setupRotateHint(usingTouch: () => boolean): void {
+  const el = document.getElementById('rotate');
+  if (!el) return;
+  const KEY = 'chaos.exe/rotate-hint';
+  let seen = false;
+  try {
+    seen = localStorage.getItem(KEY) === '1';
+  } catch {
+    /* storage blocked: show it once per visit */
+  }
+  const hide = () => {
+    el.classList.remove('on');
+    try {
+      localStorage.setItem(KEY, '1');
+    } catch {
+      /* ignore */
+    }
+  };
+  el.querySelector('button')?.addEventListener('click', hide);
+  const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  if (seen || !(coarse || usingTouch())) return;
+  if (window.innerHeight < window.innerWidth) return; // already sideways
+  el.classList.add('on');
+  setTimeout(hide, 9000);
+  window.addEventListener('orientationchange', hide, { once: true });
+}

@@ -8,6 +8,7 @@ import { ChaosIntensity, Difficulty, Profile, defaultProfile } from '../core/sav
 import { formatSeed } from '../core/rng.ts';
 import { haptics } from '../core/haptics.ts';
 import { decodeSave, encodeSave } from '../core/backup.ts';
+import { downloadOfflineCopy, fullscreenSupported, installState, isFullscreen, orientationLockSupported, promptInstall, setFullscreen, setRotation } from '../core/device.ts';
 
 /** Where players report problems. */
 export const FEEDBACK_URL = 'https://github.com/dreamdreams77/Chaod/issues/new';
@@ -56,6 +57,7 @@ export class SettingsScene implements Scene {
       { label: 'REDUCED FLASHING', value: () => (s.reducedFlash ? 'ON' : 'OFF'), sub: 'Caps flash intensity and removes flickery chaos events.', onAdjust: () => { s.reducedFlash = !s.reducedFlash; this.save(); } },
       { label: 'CRT SCANLINES', value: () => (s.crt ? 'ON' : 'OFF'), onAdjust: () => { s.crt = !s.crt; this.save(); } },
       { label: 'CONTROL HINTS', value: () => (s.hints ? 'ON' : 'OFF'), onAdjust: () => { s.hints = !s.hints; this.save(); } },
+      ...this.deviceRows(),
       {
         label: 'FIXED SEED', value: () => (s.fixedSeed === null ? 'RANDOM' : formatSeed(s.fixedSeed)),
         sub: 'Set a seed to replay or share an exact procedural run. LEFT/RIGHT change it, CONFIRM toggles.',
@@ -89,6 +91,67 @@ export class SettingsScene implements Scene {
     items.push({ label: 'RESET TO DEFAULTS', onSelect: () => { this.game.input.bindings = cloneBindings(DEFAULT_BINDINGS); this.save(); } });
     items.push({ label: 'BACK', onSelect: () => (this.menu = this.mainMenu()) });
     return new ListMenu('REMAP CONTROLS', items, () => (this.menu = this.mainMenu()), { x: 50, y: 20, w: 380, rows: 13, accent: '#ff3fa4' });
+  }
+
+  /** Phone and app extras. Every one is optional: the game plays the same without them. */
+  private deviceRows(): MenuItem[] {
+    const s = this.game.settings;
+    const rows: MenuItem[] = [];
+    const touch = this.game.input.usingTouch || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
+    if (touch) {
+      rows.push({
+        label: 'SCREEN ROTATION',
+        value: () => (s.rotate === 'landscape' ? 'LANDSCAPE' : 'AUTO'),
+        sub: 'Optional. AUTO follows your phone: turn it sideways any time for a bigger screen. LANDSCAPE asks the phone to stay sideways (needs fullscreen on some phones).',
+        onAdjust: () => void this.setRotate(s.rotate === 'landscape' ? 'auto' : 'landscape'),
+        onSelect: () => void this.setRotate(s.rotate === 'landscape' ? 'auto' : 'landscape'),
+      });
+    }
+    if (fullscreenSupported()) {
+      const toggle = (): void => void setFullscreen(!isFullscreen());
+      rows.push({ label: 'FULLSCREEN', value: () => (isFullscreen() ? 'ON' : 'OFF'), sub: 'Hides the browser bars for a bigger picture. Press again to leave.', onAdjust: toggle, onSelect: toggle });
+    }
+    rows.push({
+      label: 'INSTALL AS APP',
+      value: () => installState().value,
+      sub: 'Puts CHAOS.exe on your home screen or desktop like an app: full screen, its own icon, and it works offline.',
+      onSelect: () => void this.install(),
+    });
+    rows.push({
+      label: 'DOWNLOAD OFFLINE COPY',
+      sub: 'Saves the whole game as one file (chaos-exe.html) you can keep and open anywhere. Progress is stored per copy, so use EXPORT SAVE and IMPORT SAVE to move it across.',
+      onSelect: () => void this.download(),
+    });
+    return rows;
+  }
+
+  private async setRotate(mode: 'auto' | 'landscape'): Promise<void> {
+    const s = this.game.settings;
+    if (mode === 'landscape' && !orientationLockSupported()) {
+      this.game.toast('NOT SUPPORTED HERE', 'JUST TURN YOUR PHONE SIDEWAYS', '#ff6f3f');
+      return;
+    }
+    s.rotate = mode;
+    this.save();
+    const ok = await setRotation(mode);
+    if (mode === 'landscape' && !ok) {
+      s.rotate = 'auto';
+      this.save();
+      this.game.toast('COULD NOT LOCK', 'TURN YOUR PHONE SIDEWAYS INSTEAD', '#ff6f3f');
+    } else this.game.toast('SCREEN ROTATION', mode === 'landscape' ? 'LANDSCAPE' : 'AUTO', '#3fe0ff');
+  }
+
+  private async install(): Promise<void> {
+    const info = installState();
+    if (info.state === 'prompt') {
+      const ok = await promptInstall();
+      this.game.toast(ok ? 'INSTALLED!' : 'NOT INSTALLED', ok ? 'FIND IT ON YOUR HOME SCREEN' : 'MAYBE LATER', ok ? '#7dff6b' : '#9a9ab8');
+    } else this.game.toast(info.state === 'installed' ? 'ALREADY INSTALLED' : 'INSTALL AS APP', info.help.toUpperCase().slice(0, 60), '#3fe0ff');
+  }
+
+  private async download(): Promise<void> {
+    const ok = await downloadOfflineCopy();
+    this.game.toast(ok ? 'DOWNLOADING' : 'COULD NOT DOWNLOAD', ok ? 'CHAOS-EXE.HTML' : 'OPEN THE GAME FROM ITS WEB ADDRESS FIRST', ok ? '#7dff6b' : '#ff6f3f');
   }
 
   private async exportSave(): Promise<void> {

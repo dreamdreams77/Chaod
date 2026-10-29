@@ -108,6 +108,8 @@ export interface Settings {
   assist: boolean;
   /** CLEAR SHAPES: patterns on blocks and distinct bullet shapes, so colour is never the only cue. */
   shapes: boolean;
+  /** Phones: follow the sensor (auto) or ask to stay in landscape for a bigger screen. Never required. */
+  rotate: 'auto' | 'landscape';
 }
 
 export const PROFILE_VERSION = 2;
@@ -181,6 +183,7 @@ export function defaultSettings(): Settings {
     perks: true,
     assist: false,
     shapes: false,
+    rotate: 'auto',
   };
 }
 
@@ -317,6 +320,7 @@ export function migrateSettings(raw: unknown): Settings {
   s.vibration = s.vibration !== false;
   s.assist = s.assist === true;
   s.shapes = s.shapes === true;
+  s.rotate = s.rotate === 'landscape' ? 'landscape' : 'auto';
   s.perks = s.perks !== false;
   if (s.fixedSeed !== null && !(typeof s.fixedSeed === 'number' && Number.isInteger(s.fixedSeed) && s.fixedSeed >= 0 && s.fixedSeed <= 999999)) s.fixedSeed = null;
   s.master = clamp01(s.master);
