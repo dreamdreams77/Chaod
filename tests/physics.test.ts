@@ -1477,3 +1477,144 @@ test('FLIPPER FRENZY: a scripted flipper player keeps the ball alive and scores'
   assert.ok(m.score > 5000, `scored ${m.score}`);
   assert.ok(m.bumperHits > 5);
 });
+
+// ---- HOOP SHOT and GLITCH GLOVES -----------------------------------------------------------
+
+import { HoopScene, BoxScene } from '../src/scenes/arcade.ts';
+
+function miniGame(): Game {
+  const { game } = blocksGame();
+  (game as unknown as Record<string, unknown>).toHub = () => {};
+  return game;
+}
+const stepScene = (s: { update(dt: number): void }, game: Game, secs: number): void => { for (let i = 0; i < secs * 60; i++) { game.input.beginFrame(); s.update(1 / 60); game.input.endFrame(); } };
+
+test('HOOP SHOT: the meter swings, a release in the green is a swish worth a bonus and extra time, a bad one misses', () => {
+  const game = miniGame();
+  const s = new HoopScene(game);
+  const spots = [0.8, 0.62, 0.44];
+  const shoot = (spot: number, offset: number): void => {
+    // wait for idle, pick the spot, start the meter and release when the marker is `offset` from the sweet spot
+    while ((s as unknown as { phase: string }).phase !== 'idle') stepScene(s, game, 0.05);
+    while (s.currentSpot !== spot) { game.input.setVirtual(s.currentSpot < spot ? 'right' : 'left', true); stepScene(s, game, 0.02); game.input.setVirtual(s.currentSpot < spot ? 'right' : 'left', false); stepScene(s, game, 0.02); }
+    game.input.setVirtual('jump', true);
+    stepScene(s, game, 0.02);
+    game.input.setVirtual('jump', false);
+    for (let i = 0; i < 400 && Math.abs(s.power - (spots[spot] + offset)) > 0.012; i++) stepScene(s, game, 1 / 120);
+    game.input.setVirtual('jump', true);
+    stepScene(s, game, 0.02);
+    game.input.setVirtual('jump', false);
+  };
+  const t0 = (s as unknown as { timeLeft: number }).timeLeft;
+  shoot(1, 0);
+  stepScene(s, game, 1.7);
+  assert.equal(s.score, 3, 'two points plus the swish bonus');
+  assert.ok((s as unknown as { timeLeft: number }).timeLeft > t0 - 5, 'a swish adds time back');
+  // way off: a miss, and the streak resets
+  shoot(1, 0.3);
+  stepScene(s, game, 1.7);
+  assert.equal(s.score, 3);
+  assert.equal((s as unknown as { streak: number }).streak, 0);
+  // a perfect streak: three makes in a row set the player on fire
+  for (let i = 0; i < 4; i++) { shoot(0, 0); stepScene(s, game, 1.7); }
+  assert.ok(s.score >= 3 + 4 * 4 + 1, `deep swishes pay: ${s.score}`);
+});
+
+test('HOOP SHOT: a perfect shooter beats a random one, the round ends on the clock and pays bits', () => {
+  const play = (perfect: boolean, seed: number): number => {
+    const game = miniGame();
+    game.profile.bits = 0;
+    const s = new HoopScene(game);
+    const rnd = new Rng(seed);
+    let armed = false;
+    for (let f = 0; f < 60 * 120 && !(s as unknown as { over: boolean }).over; f++) {
+      const phase = (s as unknown as { phase: string }).phase;
+      game.input.setVirtual('jump', false);
+      if (phase === 'idle' && f % 20 === 0) { game.input.setVirtual('jump', true); armed = true; }
+      else if (phase === 'meter' && armed) {
+        const zone = [0.8, 0.62, 0.44][s.currentSpot];
+        if (perfect ? Math.abs(s.power - zone) < 0.015 : rnd.chance(0.012)) { game.input.setVirtual('jump', true); armed = false; }
+      }
+      game.input.beginFrame(); s.update(1 / 60); game.input.endFrame();
+    }
+    return s.score;
+  };
+  const good = play(true, 1);
+  const bad = play(false, 2);
+  assert.ok(good > bad + 10, `${good} vs ${bad}`);
+  assert.ok(good >= 30, `a perfect round clears the HOOP STAR quest: ${good}`);
+});
+
+test('GLITCH GLOVES: dodging the right way avoids a punch, a wrong step costs a heart, punching a wind-up is a counter, an open boxer takes combos', () => {
+  const game = miniGame();
+  const s = new BoxScene(game);
+  const priv = s as unknown as { state: string; stateT: number; punch: string; hearts: number; oppHp: number; opp: { hp: number } };
+  const waitFor = (state: string): void => { for (let i = 0; i < 600 && priv.state !== state; i++) stepScene(s, game, 1 / 60); };
+  // a hook from the left needs a step to the right
+  waitFor('tell');
+  priv.punch = 'hookL';
+  game.input.setVirtual('right', true);
+  const hearts = priv.hearts;
+  stepScene(s, game, 1.2);
+  game.input.setVirtual('right', false);
+  assert.equal(priv.hearts, hearts, 'dodged');
+  assert.equal(priv.state === 'recover' || priv.state === 'idle', true);
+  // standing still takes the hit
+  waitFor('tell');
+  priv.punch = 'hookR';
+  stepScene(s, game, 1.2);
+  assert.equal(priv.hearts, hearts - 1);
+  // a punch into a wind-up counters
+  waitFor('tell');
+  const hp = priv.oppHp;
+  game.input.setVirtual('attack', true);
+  stepScene(s, game, 0.05);
+  game.input.setVirtual('attack', false);
+  assert.ok(priv.oppHp <= hp - 10 && priv.state === 'stun');
+  // while he is stunned, punches stack into a combo
+  stepScene(s, game, 0.35);
+  const hp2 = priv.oppHp;
+  for (let i = 0; i < 3; i++) {
+    game.input.setVirtual('attack', true);
+    stepScene(s, game, 0.04);
+    game.input.setVirtual('attack', false);
+    stepScene(s, game, 0.36);
+  }
+  assert.ok(hp2 - priv.oppHp >= 20, `${hp2 - priv.oppHp} damage`);
+  // a jab is avoided by blocking
+  waitFor('tell');
+  priv.punch = 'jab';
+  game.input.setVirtual('down', true);
+  const h2 = priv.hearts;
+  stepScene(s, game, 1.2);
+  game.input.setVirtual('down', false);
+  assert.equal(priv.hearts, h2);
+});
+
+test('GLITCH GLOVES: a bot that reads the tells knocks boxers out; a bot that stands still loses its hearts', () => {
+  const play = (smart: boolean): { score: number; round: number } => {
+    const game = miniGame();
+    const s = new BoxScene(game);
+    const priv = s as unknown as { state: string; punch: string; round: number; over: boolean; lane: number };
+    for (let f = 0; f < 60 * 110 && !priv.over; f++) {
+      for (const a of ['left', 'right', 'down', 'attack'] as const) game.input.setVirtual(a, false);
+      if (smart) {
+        if (priv.state === 'tell') {
+          if (priv.punch === 'hookL') game.input.setVirtual('right', true);
+          else if (priv.punch === 'hookR') game.input.setVirtual('left', true);
+          else game.input.setVirtual('down', true);
+        } else if (priv.state === 'strike') {
+          if (priv.punch === 'hookL') game.input.setVirtual('right', true);
+          else if (priv.punch === 'hookR') game.input.setVirtual('left', true);
+          else game.input.setVirtual('down', true);
+        } else if ((priv.state === 'recover' || priv.state === 'stun') && f % 24 < 3) game.input.setVirtual('attack', true);
+      }
+      game.input.beginFrame(); s.update(1 / 60); game.input.endFrame();
+    }
+    return { score: s.score, round: priv.round };
+  };
+  const smart = play(true);
+  const idle = play(false);
+  assert.ok(smart.round >= 1 && smart.score >= 90, `smart: round ${smart.round}, score ${smart.score}`);
+  assert.ok(idle.score < 20, `idle scored ${idle.score}`);
+});

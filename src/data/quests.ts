@@ -5,7 +5,7 @@
 import { Profile, levelForXp } from '../core/save.ts';
 import type { RunResult } from './progression.ts';
 
-export type MiniId = 'catch' | 'memory' | 'breakout' | 'whack' | 'stack' | 'dash';
+export type MiniId = 'catch' | 'memory' | 'breakout' | 'whack' | 'stack' | 'dash' | 'hoops' | 'boxing';
 
 export interface MiniInfo {
   id: MiniId;
@@ -23,6 +23,8 @@ export const MINIS: MiniInfo[] = [
   { id: 'breakout', title: 'BYTE BREAKOUT', blurb: 'Bounce the ball off your cartridge and smash the brick wall. Three lives, 90 seconds.', bitsPerPoint: 0.8, pays: 'Pays 4 bits per 5 points.', unit: 'PTS' },
   { id: 'whack', title: 'WHACK-A-GLITCH', blurb: 'Bonk the glitches popping out of the holes. Golden ones are worth 3. Do not hit BYTE! 30 seconds.', bitsPerPoint: 0.4, pays: 'Pays 2 bits per 5 points.', unit: 'PTS' },
   { id: 'stack', title: 'STACK-A-CART', blurb: 'Drop each sliding cartridge onto the tower. Overhang gets sliced off; perfect drops keep it wide.', bitsPerPoint: 0.8, pays: 'Pays 4 bits per 5 points.', unit: 'PTS' },
+  { id: 'hoops', title: 'HOOP SHOT', blurb: 'Pick your spot, time the shot meter and sink as many baskets as you can in 45 seconds. Swishes add time; three makes in a row and you are on fire.', bitsPerPoint: 0.5, pays: 'Pays 1 bit per 2 points.', unit: 'PTS' },
+  { id: 'boxing', title: 'GLITCH GLOVES', blurb: 'Dodge the tells, then punch back when he opens up. Beat as many boxers as you can before the bell or your hearts run out.', bitsPerPoint: 0.4, pays: 'Pays 2 bits per 5 points.', unit: 'PTS' },
   { id: 'dash', title: 'DEMO DASH', blurb: 'The developer\'s dog sprints through the glitch park. Jump hurdles and rocks, grab bones, mind the birds. Three lives.', bitsPerPoint: 0.6, pays: 'Pays 3 bits per 5 points.', unit: 'PTS' },
   { id: 'memory', title: 'GLITCH MEMORY', blurb: 'Watch the lane lights, then repeat the pattern on the arrows. It only gets longer.', bitsPerPoint: 4, pays: 'Pays 4 bits per round cleared.', unit: 'ROUNDS' },
 ];
@@ -59,6 +61,8 @@ export const QUESTS: QuestDef[] = [
   { id: 'whack_ace', title: 'GLITCH EXTERMINATOR', desc: 'Score 55+ in WHACK-A-GLITCH.', goal: 1, bits: 70, xp: 30, play: 'whack' },
   { id: 'tower_builder', title: 'TOWER BUILDER', desc: 'Score 24+ in STACK-A-CART.', goal: 1, bits: 70, xp: 30, play: 'stack' },
   { id: 'memory_master', title: 'MEMORY MASTER', desc: 'Clear 6 rounds in GLITCH MEMORY.', goal: 1, bits: 70, xp: 30, play: 'memory' },
+  { id: 'hoop_star', title: 'HOOP STAR', desc: 'Score 30+ in HOOP SHOT.', goal: 1, bits: 70, xp: 30, play: 'hoops' },
+  { id: 'glove_champ', title: 'GLOVE CHAMP', desc: 'Score 90+ in GLITCH GLOVES.', goal: 1, bits: 70, xp: 30, play: 'boxing' },
 ];
 
 export const QUEST_BY_ID = new Map(QUESTS.map((q) => [q.id, q]));
@@ -91,6 +95,8 @@ export function questGain(q: QuestDef, ev: QuestEvent): number {
     case 'whack_ace': return ev.game === 'whack' && ev.score >= 55 ? 1 : 0;
     case 'tower_builder': return ev.game === 'stack' && ev.score >= 24 ? 1 : 0;
     case 'memory_master': return ev.game === 'memory' && ev.score >= 6 ? 1 : 0;
+    case 'hoop_star': return ev.game === 'hoops' && ev.score >= 30 ? 1 : 0;
+    case 'glove_champ': return ev.game === 'boxing' && ev.score >= 90 ? 1 : 0;
   }
   return 0;
 }

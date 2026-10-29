@@ -21,6 +21,8 @@ export function startMini(game: Game, id: MiniId): void {
     whack: (g) => new WhackScene(g),
     stack: (g) => new StackScene(g),
     dash: (g) => new DashScene(g),
+    hoops: (g) => new HoopScene(g),
+    boxing: (g) => new BoxScene(g),
   };
   game.goto(make[id](game));
 }
@@ -33,7 +35,7 @@ abstract class MiniBase implements Scene {
   protected overT = 0;
   /** Highlighted result button: 0 = PLAY AGAIN, 1 = LOBBY. */
   protected sel = 0;
-  protected score = 0;
+  score = 0;
   protected outcome: MiniOutcome | null = null;
   protected readonly particles = new Particles(200);
   protected readonly popups = new Popups();
@@ -1115,4 +1117,534 @@ export class DashScene extends MiniBase {
 function hexRgb(hex: string): string {
   const n = parseInt(hex.slice(1), 16);
   return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+}
+
+
+// ---- HOOP SHOT -----------------------------------------------------------------------
+
+const HOOP_SECONDS = 45;
+const RIM_X = 392;
+const RIM_Y = 112;
+const COURT_Y = 214;
+/** Three shooting spots: further out pays more and has a smaller sweet spot on the meter. */
+const SPOTS = [
+  { x: 96, label: '3PT', pts: 3, zone: 0.8, swish: 0.034, good: 0.074 },
+  { x: 188, label: '2PT', pts: 2, zone: 0.62, swish: 0.045, good: 0.095 },
+  { x: 278, label: '2PT', pts: 2, zone: 0.44, swish: 0.05, good: 0.105 },
+];
+type ShotResult = 'swish' | 'in' | 'rim' | 'miss';
+
+interface Shot {
+  t: number;
+  sx: number;
+  sy: number;
+  tx: number;
+  result: ShotResult;
+  spot: number;
+  /** Which way a missed ball bounces off. */
+  off: number;
+}
+
+export class HoopScene extends MiniBase {
+  id = 'mini-hoops';
+  protected readonly miniId = 'hoops' as const;
+  private spot = 1;
+  private px = SPOTS[1].x;
+  private phase: 'idle' | 'meter' | 'flight' | 'after' = 'idle';
+  private meter = 0;
+  private dir = 1;
+  private shot: Shot | null = null;
+  private afterT = 0;
+  private streak = 0;
+  private timeLeft = HOOP_SECONDS;
+  private net = 0;
+  private press = false;
+  private made = 0;
+  private attempts = 0;
+  private readonly rng: Rng;
+
+  constructor(game: Game) {
+    super(game);
+    // Reward-paying games ignore the fixed-seed setting, otherwise a pattern could be memorised and farmed.
+    this.rng = new Rng(game.rng.int(1, 999999));
+  }
+
+  protected tapLive(x: number, y: number): boolean {
+    if (y >= 196 && this.phase === 'idle') {
+      // tapping the floor picks a spot
+      let best = 0;
+      for (let i = 1; i < SPOTS.length; i++) if (Math.abs(SPOTS[i].x - x) < Math.abs(SPOTS[best].x - x)) best = i;
+      this.spot = best;
+      return true;
+    }
+    this.press = true;
+    return true;
+  }
+
+  /** The meter value (0..1) at which the shot is released, for tests and bots. */
+  get power(): number {
+    return this.meter;
+  }
+  get currentSpot(): number {
+    return this.spot;
+  }
+
+  update(dt: number): void {
+    this.t += dt;
+    this.px += (SPOTS[this.spot].x - this.px) * Math.min(1, dt * 12);
+    this.net = Math.max(0, this.net - dt * 2);
+    if (this.updateOver(dt)) return;
+    const inp = this.game.input;
+    if (inp.pressed('pause')) {
+      this.finish();
+      return;
+    }
+    this.particles.update(dt);
+    this.popups.update(dt);
+    this.timeLeft = Math.max(0, this.timeLeft - dt);
+    const go = inp.pressed('jump') || inp.pressed('attack') || inp.pressed('confirm') || this.press;
+    this.press = false;
+    if (this.phase === 'idle') {
+      if (inp.pressed('left')) this.spot = Math.max(0, this.spot - 1);
+      if (inp.pressed('right')) this.spot = Math.min(SPOTS.length - 1, this.spot + 1);
+      if (this.timeLeft <= 0) return this.finish();
+      if (go) {
+        this.phase = 'meter';
+        this.meter = 0;
+        this.dir = 1;
+        this.game.audio.sfx('select');
+      }
+    } else if (this.phase === 'meter') {
+      const speed = 1.1 + Math.min(0.5, this.streak * 0.05);
+      this.meter += this.dir * speed * dt;
+      if (this.meter >= 1) {
+        this.meter = 1;
+        this.dir = -1;
+      } else if (this.meter <= 0) {
+        this.meter = 0;
+        this.dir = 1;
+      }
+      if (go) this.release();
+    } else if (this.phase === 'flight' && this.shot) {
+      this.shot.t += dt / 0.85;
+      if (this.shot.t >= 1) this.land();
+    } else if (this.phase === 'after') {
+      this.afterT -= dt;
+      if (this.afterT <= 0) {
+        this.phase = 'idle';
+        this.shot = null;
+        if (this.timeLeft <= 0) this.finish();
+      }
+    }
+  }
+
+  private release(): void {
+    const sp = SPOTS[this.spot];
+    const err = this.meter - sp.zone;
+    const off = err * 220;
+    let result: ShotResult;
+    if (Math.abs(err) <= sp.swish) result = 'swish';
+    else if (Math.abs(err) <= sp.good) result = this.rng.chance(0.55) ? 'in' : 'rim';
+    else result = 'miss';
+    this.shot = { t: 0, sx: this.px + 10, sy: COURT_Y - 44, tx: RIM_X + off, result, spot: this.spot, off };
+    this.phase = 'flight';
+    this.attempts++;
+    this.game.audio.sfx('step');
+  }
+
+  private land(): void {
+    const s = this.shot!;
+    const sp = SPOTS[s.spot];
+    this.phase = 'after';
+    this.afterT = s.result === 'miss' ? 0.55 : 0.7;
+    if (s.result === 'swish' || s.result === 'in') {
+      this.made++;
+      this.streak++;
+      this.net = 1;
+      let pts = sp.pts;
+      let text = s.result === 'swish' ? 'SWISH!' : 'IN!';
+      if (s.result === 'swish') {
+        pts += 1;
+        this.timeLeft = Math.min(HOOP_SECONDS + 15, this.timeLeft + 1.5);
+      }
+      if (this.streak >= 3) {
+        pts += 1;
+        text = 'ON FIRE! ' + text;
+      }
+      this.score += pts;
+      this.popups.add(RIM_X, RIM_Y - 30, `${text} +${pts}`, s.result === 'swish' ? '#7dff6b' : '#ffcf3f');
+      this.particles.burst(RIM_X, RIM_Y + 4, ['#fff', '#ffcf3f', '#ff9f3f'], 12, 90);
+      this.game.audio.sfx(s.result === 'swish' ? 'perfect' : 'coin');
+    } else {
+      this.streak = 0;
+      this.popups.add(RIM_X, RIM_Y - 26, s.result === 'rim' ? 'RIM OUT' : s.off > 0 ? 'LONG' : 'SHORT', '#ff6f3f');
+      this.game.audio.sfx('miss');
+    }
+  }
+
+  private ballPos(s: Shot): { x: number; y: number } {
+    const t = Math.min(1, s.t);
+    return { x: s.sx + (s.tx - s.sx) * t, y: s.sy + (RIM_Y - s.sy) * t - 4 * 76 * t * (1 - t) };
+  }
+
+  draw(ctx: CanvasRenderingContext2D): void {
+    // gym: dark wall, floor and a glowing scoreboard
+    backdrop(ctx, '#0b0618', '#2a1448');
+    rect(ctx, 0, COURT_Y, W, H - COURT_Y, '#6b3a1c');
+    for (let x = 0; x < W; x += 24) rect(ctx, x, COURT_Y, 1, H - COURT_Y, '#4a2812');
+    rect(ctx, 0, COURT_Y, W, 3, '#c98b4a');
+    // backboard, rim and net
+    rect(ctx, RIM_X + 26, RIM_Y - 42, 6, 66, '#d8d8e8');
+    rect(ctx, RIM_X + 26, RIM_Y - 42, 6, 4, '#ff3f5a');
+    rect(ctx, RIM_X - 16, RIM_Y, 34, 3, '#ff6f3f');
+    const swing = Math.sin(this.t * 20) * this.net * 2;
+    for (let i = 0; i < 5; i++) rect(ctx, RIM_X - 14 + i * 7 + swing * (i % 2 ? 1 : -1), RIM_Y + 3, 1, 14 - Math.abs(2 - i) * 2, '#ddd');
+    rect(ctx, RIM_X - 12, RIM_Y + 8, 26, 1, '#ddd');
+    // spots on the floor
+    SPOTS.forEach((sp, i) => {
+      const on = i === this.spot;
+      rect(ctx, sp.x - 16, COURT_Y + 6, 32, 3, on ? '#ffcf3f' : '#ffffff44');
+      drawText(ctx, sp.label, sp.x, COURT_Y + 14, on ? '#ffcf3f' : '#ffffff88', { align: 'center' });
+    });
+    // the shooter
+    drawCass(ctx, { x: this.px, y: COURT_Y + 2, facing: 1, pose: this.phase === 'meter' ? 'idle' : 'run', t: this.t, scale: 1.3 }, this.game.profile.character);
+    // ball
+    if (this.phase === 'flight' && this.shot) {
+      const b = this.ballPos(this.shot);
+      this.drawBall(ctx, b.x, b.y);
+    } else if (this.phase === 'after' && this.shot) {
+      const s = this.shot;
+      const k = 1 - this.afterT / (s.result === 'miss' ? 0.55 : 0.7);
+      if (s.result === 'swish' || s.result === 'in') this.drawBall(ctx, RIM_X + (s.tx - RIM_X) * (1 - k), RIM_Y + 4 + k * 70);
+      else this.drawBall(ctx, s.tx + (s.off > 0 ? 1 : -1) * k * 60, RIM_Y + 4 + k * k * 120 - k * 30);
+    } else this.drawBall(ctx, this.px + 12, COURT_Y - 40 + (this.phase === 'meter' ? -6 : 0));
+    // shot meter
+    if (this.phase === 'meter' || this.phase === 'idle') {
+      const mx = 40, my = 70, mh = 120;
+      frame(ctx, mx - 6, my - 6, 22, mh + 12, '#0b0716', '#3a3050');
+      const sp = SPOTS[this.spot];
+      const zy = my + mh * (1 - sp.zone);
+      rect(ctx, mx, zy - mh * sp.good, 10, mh * sp.good * 2, '#2f7a3a');
+      rect(ctx, mx, zy - mh * sp.swish, 10, mh * sp.swish * 2, '#7dff6b');
+      if (this.phase === 'meter') {
+        const y = my + mh * (1 - this.meter);
+        rect(ctx, mx - 4, y - 1, 18, 3, '#ffffff');
+      }
+    }
+    this.particles.draw(ctx);
+    this.popups.draw(ctx);
+    drawText(ctx, `SCORE ${this.score}`, 8, 8, '#ffcf3f');
+    drawText(ctx, `TIME ${Math.ceil(this.timeLeft)}`, W / 2, 8, this.timeLeft < 8 ? '#ff3f5a' : '#fff', { align: 'center' });
+    drawText(ctx, `${this.made}/${this.attempts}`, W - 8, 8, '#3fe0ff', { align: 'right' });
+    if (this.streak >= 3) drawText(ctx, 'ON FIRE!', W / 2, 20, '#ff9f3f', { align: 'center' });
+    else if (this.streak > 0) drawText(ctx, `STREAK ${this.streak}`, W / 2, 20, '#9a9ab8', { align: 'center' });
+    if (this.t < 6 && !this.over) drawText(ctx, this.game.input.label('LEFT / RIGHT: SPOT \u2022 Z: START THE METER, Z AGAIN IN THE GREEN'), W / 2, H - 10, '#fff', { align: 'center' });
+    this.drawOver(ctx, 'PTS');
+  }
+
+  private drawBall(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+    x = Math.round(x);
+    y = Math.round(y);
+    rect(ctx, x - 5, y - 4, 10, 8, '#ff7a1a');
+    rect(ctx, x - 4, y - 5, 8, 10, '#ff7a1a');
+    rect(ctx, x - 1, y - 5, 1, 10, '#6a2a08');
+    rect(ctx, x - 5, y - 1, 10, 1, '#6a2a08');
+    rect(ctx, x - 3, y - 4, 2, 2, '#ffb36b');
+  }
+}
+
+// ---- GLITCH GLOVES -------------------------------------------------------------------
+
+const BOX_SECONDS = 100;
+type OppState = 'idle' | 'tell' | 'strike' | 'recover' | 'stun' | 'down';
+type Punch = 'hookL' | 'hookR' | 'jab';
+
+interface Boxer {
+  name: string;
+  hp: number;
+  color: string;
+  trunks: string;
+  /** Seconds of warning before a punch, and the idle pause range. */
+  tell: number;
+  idle: [number, number];
+}
+const BOXERS: Boxer[] = [
+  { name: 'PAPER PETE', hp: 52, color: '#7aa8ff', trunks: '#3f5fff', tell: 0.62, idle: [0.9, 1.7] },
+  { name: 'TIN TINA', hp: 68, color: '#ff9ad9', trunks: '#ff3fa4', tell: 0.5, idle: [0.7, 1.4] },
+  { name: 'BIG BAD BYTE', hp: 88, color: '#ff8a4a', trunks: '#ff3f3f', tell: 0.4, idle: [0.5, 1.1] },
+];
+
+export class BoxScene extends MiniBase {
+  id = 'mini-boxing';
+  protected readonly miniId = 'boxing' as const;
+  private lane = 0;
+  private laneX = 0;
+  private blocking = false;
+  private hearts = 4;
+  private timeLeft = BOX_SECONDS;
+  private punchCd = 0;
+  private punchT = 0;
+  private hurtT = 0;
+  private round = 0;
+  private opp: Boxer = BOXERS[0];
+  private oppHp = BOXERS[0].hp;
+  private state: OppState = 'idle';
+  private stateT = 1.2;
+  private punch: Punch = 'jab';
+  private combo = 0;
+  private koT = 0;
+  private tapLane: number | null = null;
+  private tapPunch = false;
+  private tapBlock = 0;
+  private readonly rng: Rng;
+
+  constructor(game: Game) {
+    super(game);
+    this.rng = new Rng(game.rng.int(1, 999999));
+    this.startRound(0);
+  }
+
+  private startRound(i: number): void {
+    this.round = i;
+    const base = BOXERS[i % BOXERS.length];
+    const lap = Math.floor(i / BOXERS.length);
+    this.opp = { ...base, hp: Math.round(base.hp * (1 + lap * 0.25)), tell: Math.max(0.28, base.tell - lap * 0.06) };
+    this.oppHp = this.opp.hp;
+    this.state = 'idle';
+    this.stateT = 1.2;
+    this.combo = 0;
+    this.koT = 0;
+  }
+
+  protected tapLive(x: number, y: number): boolean {
+    // thirds of the screen: left / right dodge, the middle punches (top) or blocks (bottom)
+    if (x < W * 0.28) this.tapLane = -1;
+    else if (x > W * 0.72) this.tapLane = 1;
+    else if (y < H * 0.7) this.tapPunch = true;
+    else this.tapBlock = 0.5;
+    return true;
+  }
+  drag(x: number): void {
+    if (this.over) return;
+    this.tapLane = x < W * 0.35 ? -1 : x > W * 0.65 ? 1 : 0;
+  }
+  dragEnd(): void {
+    this.tapLane = null;
+  }
+
+  /** What the opponent is doing, for tests and bots. */
+  get oppState(): OppState {
+    return this.state;
+  }
+  get oppPunch(): Punch {
+    return this.punch;
+  }
+  get playerLane(): number {
+    return this.lane;
+  }
+
+  update(dt: number): void {
+    this.t += dt;
+    if (this.updateOver(dt)) return;
+    const inp = this.game.input;
+    if (inp.pressed('pause')) {
+      this.finish();
+      return;
+    }
+    this.particles.update(dt);
+    this.popups.update(dt);
+    this.timeLeft = Math.max(0, this.timeLeft - dt);
+    this.punchCd = Math.max(0, this.punchCd - dt);
+    this.punchT = Math.max(0, this.punchT - dt);
+    this.hurtT = Math.max(0, this.hurtT - dt);
+    this.tapBlock = Math.max(0, this.tapBlock - dt);
+    // dodge by holding left or right; a finger holds its lane
+    const ax = inp.axisX();
+    this.lane = ax !== 0 ? ax : this.tapLane ?? 0;
+    this.blocking = inp.held('down') || this.tapBlock > 0;
+    this.laneX += (this.lane * 62 - this.laneX) * Math.min(1, dt * 18);
+    const wantPunch = inp.pressed('attack') || inp.pressed('jump') || inp.pressed('up') || inp.pressed('confirm') || this.tapPunch;
+    this.tapPunch = false;
+    if (wantPunch && this.punchCd <= 0 && !this.blocking) this.throwPunch();
+    this.updateOpp(dt);
+    if (this.hearts <= 0 || this.timeLeft <= 0) this.finish();
+  }
+
+  private throwPunch(): void {
+    this.punchCd = 0.3;
+    this.punchT = 0.18;
+    const s = this.state;
+    if (s === 'recover' || s === 'stun') {
+      this.combo = Math.min(3, this.combo + 1);
+      const dmg = 5 + this.combo * 2;
+      this.hitOpp(dmg, s === 'stun' ? 'COUNTER!' : `HIT x${this.combo}`);
+      // each clean hit keeps him dazed a little longer
+      this.stateT = Math.max(this.stateT, 0.45);
+    } else if (s === 'tell') {
+      // caught him winding up: a counter punch
+      this.state = 'stun';
+      this.stateT = 1.3;
+      this.hitOpp(10, 'COUNTER!');
+      this.score += 4;
+      this.game.audio.sfx('perfect');
+    } else if (s === 'idle') {
+      this.hitOpp(1, 'BLOCKED');
+      this.stateT = Math.min(this.stateT, 0.3); // he answers a wild punch quickly
+      this.combo = 0;
+    } else if (s === 'strike') {
+      this.combo = 0; // whiffed into his punch
+    }
+  }
+
+  private hitOpp(dmg: number, text: string): void {
+    this.oppHp = Math.max(0, this.oppHp - dmg);
+    this.score += dmg;
+    this.popups.add(W / 2, 70, text, dmg > 1 ? '#ffcf3f' : '#9a9ab8');
+    this.particles.burst(W / 2, 95, ['#fff', '#ffcf3f'], 6, 80);
+    this.game.audio.sfx(dmg > 1 ? 'hurt' : 'step');
+    if (this.oppHp <= 0 && this.state !== 'down') {
+      this.state = 'down';
+      this.stateT = 2.4;
+      this.score += 20 + this.round * 5;
+      this.timeLeft = Math.min(BOX_SECONDS + 20, this.timeLeft + 8);
+      this.hearts = Math.min(4, this.hearts + 1);
+      this.popups.add(W / 2, 50, 'K.O.!', '#ff3fa4');
+      this.game.audio.sfx('levelup');
+      this.game.fx.flash('#ffffff', 0.3);
+    }
+  }
+
+  private updateOpp(dt: number): void {
+    this.stateT -= dt;
+    if (this.stateT > 0) return;
+    switch (this.state) {
+      case 'idle':
+        this.punch = this.rng.pick(['hookL', 'hookR', 'jab'] as Punch[]);
+        this.state = 'tell';
+        this.stateT = this.opp.tell;
+        this.game.audio.sfx('warn');
+        break;
+      case 'tell':
+        this.state = 'strike';
+        this.stateT = 0.16;
+        break;
+      case 'strike':
+        this.resolveStrike();
+        break;
+      case 'recover':
+      case 'stun':
+        this.state = 'idle';
+        this.stateT = this.rng.range(this.opp.idle[0], this.opp.idle[1]);
+        this.combo = 0;
+        break;
+      case 'down':
+        this.startRound(this.round + 1);
+        break;
+    }
+  }
+
+  private resolveStrike(): void {
+    const p = this.punch;
+    // hooks come from the side and are dodged by stepping to the other side; a jab goes straight, so any step or a block avoids it
+    const hit =
+      p === 'hookL' ? this.lane <= 0 : p === 'hookR' ? this.lane >= 0 : this.lane === 0 && !this.blocking;
+    if (hit) {
+      this.hearts--;
+      this.hurtT = 0.4;
+      this.combo = 0;
+      this.game.audio.sfx('hurt');
+      this.game.fx.shake(4);
+      this.popups.add(W / 2, H - 80, 'OUCH', '#ff3f5a');
+      this.state = 'recover';
+      this.stateT = 0.4;
+    } else {
+      this.score += 1;
+      this.popups.add(W / 2, H - 80, p === 'jab' && this.blocking ? 'BLOCKED' : 'DODGED!', '#7dff6b');
+      this.game.audio.sfx('select');
+      this.state = 'recover';
+      this.stateT = 1.1;
+    }
+  }
+
+  draw(ctx: CanvasRenderingContext2D): void {
+    backdrop(ctx, '#0a0418', '#2a0f2e');
+    // ring: ropes and a canvas floor
+    rect(ctx, 0, 150, W, H - 150, '#7a1f4a');
+    for (let i = 0; i < 3; i++) rect(ctx, 0, 90 + i * 18, W, 2, ['#ff3f5a', '#ffffff', '#3fa9ff'][i]);
+    this.drawOpp(ctx);
+    // the player's gloves from behind
+    const gx = W / 2 + this.laneX;
+    const raise = this.blocking ? 26 : this.punchT > 0 ? 34 : 0;
+    const flash = this.hurtT > 0 && Math.floor(this.t * 12) % 2 === 0;
+    rect(ctx, gx - 12, H - 70, 24, 30, flash ? '#fff' : '#f2c49b'); // head from behind
+    rect(ctx, gx - 12, H - 74, 24, 8, '#ff3fa4');
+    rect(ctx, gx - 30, H - 44 - raise, 24, 24, '#ff3f5a');
+    rect(ctx, gx + 6, H - 44 - raise - (this.punchT > 0 ? 18 : 0), 24, 24, '#ff3f5a');
+    rect(ctx, gx - 28, H - 42 - raise, 20, 6, 'rgba(255,255,255,0.35)');
+    rect(ctx, gx - 14, H - 40, 28, 40, '#3fa9ff');
+    this.particles.draw(ctx);
+    this.popups.draw(ctx);
+    // HUD
+    drawText(ctx, this.opp.name, 8, 8, this.opp.color);
+    bar(ctx, 8, 18, 150, 6, this.oppHp / this.opp.hp, this.opp.color, '#1a0a1a', '#ffffff66');
+    drawText(ctx, `SCORE ${this.score}`, W - 8, 8, '#ffcf3f', { align: 'right' });
+    drawText(ctx, `TIME ${Math.ceil(this.timeLeft)}`, W - 8, 18, this.timeLeft < 10 ? '#ff3f5a' : '#fff', { align: 'right' });
+    for (let i = 0; i < 4; i++) rect(ctx, 8 + i * 12, H - 20, 9, 9, i < this.hearts ? '#ff3f5a' : '#3a2a3a');
+    drawText(ctx, `ROUND ${this.round + 1}`, W / 2, 8, '#9a9ab8', { align: 'center' });
+    if (this.t < 7 && !this.over) drawText(ctx, this.game.input.label('LEFT / RIGHT DODGE \u2022 DOWN BLOCK \u2022 Z PUNCH WHEN HE OPENS UP'), W / 2, H - 10, '#fff', { align: 'center' });
+    this.drawOver(ctx, 'PTS');
+  }
+
+  private drawOpp(ctx: CanvasRenderingContext2D): void {
+    const o = this.opp;
+    const cx = W / 2;
+    const down = this.state === 'down';
+    const sway = this.state === 'idle' ? Math.round(Math.sin(this.t * 3) * 3) : 0;
+    const y0 = down ? 118 : 56;
+    const x = cx + sway;
+    const dazed = this.state === 'recover' || this.state === 'stun';
+    rect(ctx, x - 22, y0 + 30, 44, 56, o.color); // torso
+    rect(ctx, x - 22, y0 + 76, 44, 12, o.trunks);
+    rect(ctx, x - 16, y0 + 86, 12, 22, o.color);
+    rect(ctx, x + 4, y0 + 86, 12, 22, o.color);
+    rect(ctx, x - 13, y0, 26, 28, '#f0c8a0'); // head
+    rect(ctx, x - 14, y0 - 4, 28, 8, o.trunks);
+    // face: eyes narrow in the tell, spiral when stunned
+    if (this.state === 'stun' || down) {
+      drawText(ctx, down ? 'X X' : '@ @', x, y0 + 9, '#000', { align: 'center', shadow: null });
+    } else {
+      const eye = this.state === 'tell' ? '#ff2040' : '#000';
+      rect(ctx, x - 8, y0 + 9, 5, this.state === 'tell' ? 3 : 5, eye);
+      rect(ctx, x + 3, y0 + 9, 5, this.state === 'tell' ? 3 : 5, eye);
+    }
+    rect(ctx, x - 6, y0 + 20, 12, 2, dazed ? '#ff6f6f' : '#7a3a3a');
+    if (down) return;
+    // gloves: the one that is about to punch pulls back and glows; on the strike it swings in
+    const glove = (side: number, kind: 'guard' | 'tell' | 'strike'): void => {
+      const flash = kind === 'tell' && Math.floor(this.t * 12) % 2 === 0;
+      let gx = x + side * 36, gy = y0 + 46, size = 20;
+      if (kind === 'tell') {
+        gx = x + side * 52;
+        gy = y0 + 34;
+        size = 22;
+      } else if (kind === 'strike') {
+        gx = x + side * 14;
+        gy = y0 + 92;
+        size = 38;
+      }
+      rect(ctx, gx - size / 2, gy - size / 2, size, size, flash ? '#ffcf3f' : '#e03030');
+      rect(ctx, gx - size / 2 + 2, gy - size / 2 + 2, size / 3, size / 4, 'rgba(255,255,255,0.4)');
+    };
+    const p = this.punch;
+    const attacking = this.state === 'tell' || this.state === 'strike';
+    const kind = this.state === 'strike' ? 'strike' : 'tell';
+    // a hook "L" comes from the left side of the screen, so it needs a step to the right
+    glove(-1, attacking && (p === 'hookL' || p === 'jab') ? kind : 'guard');
+    glove(1, attacking && (p === 'hookR' || p === 'jab') ? kind : 'guard');
+    if (this.state === 'tell') {
+      const arrow = p === 'hookL' ? 'STEP RIGHT \u2192' : p === 'hookR' ? '\u2190 STEP LEFT' : 'BLOCK OR SIDESTEP';
+      drawText(ctx, arrow, cx, 40, '#ff6f6f', { align: 'center' });
+    }
+    if (dazed) drawText(ctx, 'HE IS OPEN: PUNCH!', cx, 40, '#7dff6b', { align: 'center' });
+  }
 }
