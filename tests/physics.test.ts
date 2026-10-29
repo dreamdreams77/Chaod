@@ -1310,3 +1310,170 @@ test('RING RIOT: a scripted fighter beats the champs on easy, and the same seed 
   assert.ok(wins >= 6, `${wins}/8`);
   assert.deepEqual(play(5), play(5), 'same seed, same fight');
 });
+
+// ---- FLIPPER FRENZY ------------------------------------------------------------------------
+
+import { PinballMode, TW as PIN_W, TH as PIN_H } from '../src/modes/pinball.ts';
+
+function pinReady(difficulty: 'easy' | 'normal' | 'hard' = 'normal', opts: Record<string, unknown> = {}): PinballMode {
+  (globalThis as unknown as Record<string, unknown>).document = { createElement: () => ({ width: 0, height: 0, getContext: () => ({}) }) };
+  const { game } = blocksGame(difficulty);
+  (game as unknown as Record<string, unknown>).say = () => {};
+  const m = new PinballMode(game, { seed: 31, ...opts });
+  for (let i = 0; i < 120; i++) m.update(1 / 60);
+  return m;
+}
+const stepP = (m: PinballMode, secs: number): void => { for (let i = 0; i < secs * 60; i++) { m.game.input.beginFrame(); m.update(1 / 60); m.game.input.endFrame(); } };
+const launch = (m: PinballMode): void => {
+  m.game.input.setVirtual('down', true);
+  stepP(m, 0.9);
+  m.game.input.setVirtual('down', false);
+  stepP(m, 0.1);
+};
+
+test('FLIPPER FRENZY: the plunger launches the ball up the lane and round the arch, and it never leaves the table', () => {
+  const m = pinReady();
+  assert.equal(m.phase, 'serve');
+  assert.equal(m.balls.length, 1);
+  launch(m);
+  assert.equal(m.phase, 'play');
+  let top = 999;
+  for (let i = 0; i < 60 * 40; i++) {
+    m.game.input.beginFrame();
+    m.update(1 / 60);
+    m.game.input.endFrame();
+    for (const b of m.balls) {
+      top = Math.min(top, b.y);
+      assert.ok(Number.isFinite(b.x) && Number.isFinite(b.y), 'no NaN');
+      assert.ok(b.x > -12 && b.x < PIN_W + 12 && b.y > -12 && b.y < PIN_H + 20, `ball at ${b.x.toFixed(0)},${b.y.toFixed(0)}`);
+    }
+    if (m.phase !== 'play') break;
+  }
+  assert.ok(top < 40, `the ball reached the top (${top.toFixed(0)})`);
+});
+
+test('FLIPPER FRENZY: an active flipper throws the ball back up, an idle one lets it roll on, a bumper kicks and scores', () => {
+  const m = pinReady();
+  launch(m);
+  // drop a ball onto the left flipper while it swings
+  const hit = (pressed: boolean): number => {
+    m.balls = [{ x: 62, y: 190, vx: 0, vy: 60, lane: false, extra: false, age: 5 }];
+    let minVy = 0;
+    for (let i = 0; i < 70; i++) {
+      // swing the flipper just as the ball arrives
+      m.game.input.setVirtual('left', pressed && m.balls[0] !== undefined && m.balls[0].y > 214);
+      m.game.input.beginFrame();
+      m.update(1 / 60);
+      m.game.input.endFrame();
+      if (m.balls[0]) minVy = Math.min(minVy, m.balls[0].vy);
+      if (!m.balls.length) break;
+    }
+    m.game.input.setVirtual('left', false);
+    return minVy;
+  };
+  m.saverT = 99;
+  assert.ok(hit(false) > -250, 'an idle flipper only bounces it a little');
+  m.saverT = 99;
+  m.phase = 'play';
+  assert.ok(hit(true) < -150, 'a flipper that swings sends it back up');
+
+  m.phase = 'play';
+  m.balls = [{ x: m.bumpers[0].x + 16, y: m.bumpers[0].y, vx: -90, vy: 0, lane: false, extra: false, age: 5 }];
+  const s0 = m.score;
+  stepP(m, 0.15);
+  assert.ok(m.score >= s0 + 100, 'the bumper scored');
+  assert.ok(m.balls[0].vx > 0, 'and kicked the ball away');
+  assert.ok(m.bumperHits >= 1);
+});
+
+test('FLIPPER FRENZY: a full bank of targets pays and counts toward the mission; three banks drop a floppy disk', () => {
+  const m = pinReady();
+  launch(m);
+  const hitT = (bank: number, i: number): void => (m as unknown as { hitTarget(b: number, i: number): void }).hitTarget(bank, i);
+  const s0 = m.score;
+  for (let b = 0; b < 3; b++) for (let i = 0; i < 3; i++) hitT(b % 2, i);
+  assert.equal(m.banks, 3);
+  assert.ok(m.score > s0 + 3 * 1000);
+  assert.deepEqual(m.foundFloppies, ['pinball-0']);
+  assert.deepEqual(m.targets[0], [false, false, false], 'the bank resets');
+});
+
+test('FLIPPER FRENZY: lanes need a ball in play; the launch does not light them; completing them raises the multiplier', () => {
+  const m = pinReady();
+  launch(m);
+  stepP(m, 2);
+  assert.deepEqual(m.lanes, [false, false, false], 'the launch sweep is ignored');
+  m.balls = [{ x: 55, y: 24, vx: 0, vy: 10, lane: false, extra: false, age: 6 }];
+  stepP(m, 0.05);
+  m.balls = [{ x: 83, y: 24, vx: 0, vy: 10, lane: false, extra: false, age: 6 }];
+  stepP(m, 0.05);
+  m.balls = [{ x: 111, y: 24, vx: 0, vy: 10, lane: false, extra: false, age: 6 }];
+  stepP(m, 0.05);
+  assert.equal(m.laneSets, 1);
+  assert.equal(m.mult, 2);
+});
+
+test('FLIPPER FRENZY: a drained ball costs a heart, the ball saver gives it back, tilt kills the flippers, the last ball ends the run', () => {
+  const m = pinReady();
+  launch(m);
+  m.saverT = 5;
+  m.balls = [{ x: 83, y: PIN_H + 20, vx: 0, vy: 50, lane: false, extra: false, age: 9 }];
+  const hp = m.hp;
+  stepP(m, 0.1);
+  assert.equal(m.hp, hp, 'saved');
+  assert.equal(m.phase, 'serve');
+  launch(m);
+  m.saverT = 0;
+  m.balls = [{ x: 83, y: PIN_H + 20, vx: 0, vy: 50, lane: false, extra: false, age: 9 }];
+  stepP(m, 0.1);
+  assert.equal(m.hp, hp - 1);
+  assert.equal(m.phase, 'serve');
+  // extra balls from multiball do not cost anything when they drain
+  launch(m);
+  m.saverT = 0;
+  m.balls = [{ x: 60, y: 60, vx: 0, vy: 0, lane: false, extra: false, age: 9 }, { x: 83, y: PIN_H + 20, vx: 0, vy: 50, lane: false, extra: true, age: 9 }];
+  const hp2 = m.hp;
+  stepP(m, 0.1);
+  assert.equal(m.hp, hp2);
+  assert.equal(m.balls.length, 1);
+  // tilt
+  m.game.input.setVirtual('up', true);
+  for (let i = 0; i < 5; i++) { m.game.input.beginFrame(); m.update(1 / 60); m.game.input.endFrame(); m.game.input.setVirtual('up', false); m.game.input.beginFrame(); m.update(1 / 60); m.game.input.endFrame(); m.game.input.setVirtual('up', true); }
+  m.game.input.setVirtual('up', false);
+  assert.equal(m.tilt, true);
+  // last ball
+  m.hp = 1;
+  m.saverT = 0;
+  m.balls = [{ x: 83, y: PIN_H + 20, vx: 0, vy: 50, lane: false, extra: false, age: 9 }];
+  stepP(m, 0.1);
+  assert.equal(m.phase, 'lost');
+  stepP(m, 3);
+  assert.equal(m.game.profile.cleared.pinball.clears, 0);
+});
+
+test('FLIPPER FRENZY: reaching the score goal wins and clears the world; the goal grows with difficulty', () => {
+  const goals = (['easy', 'normal', 'hard'] as const).map((d) => pinReady(d).goal);
+  assert.ok(goals[0] < goals[1] && goals[1] < goals[2]);
+  const m = pinReady();
+  launch(m);
+  m.score = m.goal;
+  stepP(m, 0.1);
+  assert.equal(m.phase, 'won');
+  stepP(m, 4);
+  assert.equal(m.game.profile.cleared.pinball.clears, 1);
+});
+
+test('FLIPPER FRENZY: a scripted flipper player keeps the ball alive and scores', () => {
+  const m = pinReady('easy');
+  const inp = m.game.input;
+  const rnd = new Rng(3);
+  let hold = 0;
+  for (let f = 0; f < 60 * 90 && m.phase !== 'won' && m.phase !== 'lost'; f++) {
+    for (const a of ['left', 'right', 'down'] as const) inp.setVirtual(a, false);
+    if (m.phase === 'serve') { hold += 1 / 60; inp.setVirtual('down', hold < 0.75); if (hold > 0.8) hold = 0; }
+    else if (m.phase === 'play') { hold = 0; for (const b of m.balls) if (b.y > 190 && b.vy > -20 && b.y < 250 && rnd.chance(0.6)) inp.setVirtual(b.x < 83 ? 'left' : 'right', true); }
+    inp.beginFrame(); m.update(1 / 60); inp.endFrame();
+  }
+  assert.ok(m.score > 5000, `scored ${m.score}`);
+  assert.ok(m.bumperHits > 5);
+});

@@ -42,7 +42,7 @@ export const CHAOS_EVENTS: ChaosEventDef[] = [
 
   // ---- Environmental ------------------------------------------------------
   { id: 'gravity_flip', name: 'GRAVITY FLIP', category: 'environmental', modes: ['rampage'], duration: 6, telegraph: 2, cooldown: 35, weight: 3, flags: ['gravity_flip'], group: 'gravity', bossSafe: false, harsh: true, blockedSegments: ['shmup'], blurb: 'Down is a suggestion.' },
-  { id: 'low_gravity', name: 'MOON PHYSICS', category: 'environmental', modes: ['rampage', 'beatdown', 'bolt'], duration: 10, telegraph: 1.5, cooldown: 25, weight: 3, flags: ['low_gravity'], group: 'gravity', bossSafe: true, blockedSegments: ['shmup'], blurb: 'Floaty jumps. Big air.' },
+  { id: 'low_gravity', name: 'MOON PHYSICS', category: 'environmental', modes: ['rampage', 'beatdown', 'bolt', 'pinball'], duration: 10, telegraph: 1.5, cooldown: 25, weight: 3, flags: ['low_gravity'], group: 'gravity', bossSafe: true, blockedSegments: ['shmup'], blurb: 'Floaty jumps. Big air.' },
   { id: 'note_floor', name: 'NOTE HIGHWAY FLOOR', category: 'environmental', modes: ['rampage'], duration: 10, telegraph: 1.5, cooldown: 30, weight: 3, flags: ['note_floor'], bossSafe: false, blockedSegments: ['shmup'], blurb: 'Jump ON the beat for a SUPER JUMP.' },
   { id: 'fog_bank', name: 'FOG BANK', category: 'environmental', modes: ['neon'], duration: 9, telegraph: 2, cooldown: 30, weight: 3, flags: ['fog'], bossSafe: true, harsh: true, blurb: 'Draw distance: emotionally unavailable.' },
   { id: 'power_surge', name: 'POWER SURGE', category: 'environmental', modes: ['mall'], duration: 7, telegraph: 1.5, cooldown: 30, weight: 3, flags: ['lights_on', 'monster_haste'], bossSafe: true, blurb: 'Lights on! ...it can see you too.' },
@@ -69,6 +69,9 @@ export const CHAOS_EVENTS: ChaosEventDef[] = [
 
   { id: 'slippery', name: 'SLICK CANVAS', category: 'environmental', modes: ['wrestle'], duration: 9, telegraph: 2, cooldown: 35, weight: 3, flags: ['slippery'], bossSafe: true, blurb: 'Someone mopped the ring with butter.' },
   { id: 'adrenaline', name: 'ADRENALINE', category: 'combat', modes: ['wrestle'], duration: 8, telegraph: 2, cooldown: 35, weight: 3, flags: ['adrenaline'], bossSafe: true, harsh: true, blurb: 'Everyone in the ring is 30% faster.' },
+
+  { id: 'multiball', name: 'MULTIBALL', category: 'genre', modes: ['pinball'], duration: 1, telegraph: 2, cooldown: 45, weight: 3, flags: ['multiball'], bossSafe: true, blurb: 'Two more balls drop in. Keep them all alive.' },
+  { id: 'bumper_boost', name: 'SUPER BUMPERS', category: 'environmental', modes: ['pinball'], duration: 9, telegraph: 2, cooldown: 35, weight: 3, flags: ['bumper_boost'], bossSafe: true, blurb: 'The bumpers kick harder and score double.' },
 
   // ---- Genre transformations ----------------------------------------------
   { id: 'enemies_racers', name: 'KART INVASION', category: 'genre', modes: ['rampage'], duration: 8, telegraph: 2, cooldown: 40, weight: 2, flags: ['enemies_racers'], bossSafe: false, blockedSegments: ['shmup'], blurb: 'All enemies are now racing karts. Stomp them for nitro.' },
