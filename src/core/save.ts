@@ -4,9 +4,9 @@ import { PetOutfit, defaultOutfit, cleanOutfit } from '../data/pet.ts';
 import { LobbyDecor, defaultDecor, cleanDecor } from '../data/decor.ts';
 import { WeeklyState, emptyWeekly, WEEKLY_BY_ID } from '../data/weekly.ts';
 
-export type ModeId = 'rampage' | 'neon' | 'mall' | 'beatdown' | 'rhythm' | 'command' | 'penalty' | 'blocks' | 'bolt' | 'highscore';
+export type ModeId = 'rampage' | 'neon' | 'mall' | 'beatdown' | 'rhythm' | 'command' | 'penalty' | 'blocks' | 'bolt' | 'munch' | 'wrestle' | 'pinball' | 'highscore';
 /** The worlds that have a lobby cabinet (and three floppy disks each). */
-export const MODE_IDS: ModeId[] = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm', 'command', 'penalty', 'blocks', 'bolt'];
+export const MODE_IDS: ModeId[] = ['rampage', 'neon', 'mall', 'beatdown', 'rhythm', 'command', 'penalty', 'blocks', 'bolt', 'munch', 'wrestle', 'pinball'];
 /** Every mode with a record: the worlds plus the final boss, THE HIGH SCORE. */
 export const ALL_MODES: ModeId[] = [...MODE_IDS, 'highscore'];
 /** Every world hides three floppy disks. */

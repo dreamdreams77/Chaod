@@ -1020,3 +1020,293 @@ test('NIGHTMARE MALL: keycards you pass are remembered on the map, and the flash
   assert.ok(m.battery > 0.4, `a minute of light leaves ${m.battery.toFixed(2)} of the battery`);
   assert.ok(b0 - m.battery < 0.6);
 });
+
+// ---- MUNCH MAZE ----------------------------------------------------------------------------
+
+import { MunchMode } from '../src/modes/munch.ts';
+import { generateMaze, validateMaze, neighbours as mazeNeighbours, MZ_W, MZ_H } from '../src/procgen/maze.ts';
+
+function munchReady(opts: Record<string, unknown> = {}): MunchMode {
+  (globalThis as unknown as Record<string, unknown>).document = { createElement: () => ({ width: 0, height: 0, getContext: () => ({}) }) };
+  const { game } = blocksGame();
+  (game as unknown as Record<string, unknown>).say = () => {};
+  const m = new MunchMode(game, { seed: 500, ...opts });
+  for (let i = 0; i < 120; i++) m.update(1 / 60);
+  return m;
+}
+
+test('MUNCH MAZE: every generated maze is valid, symmetric, free of dead ends and the same for a seed', () => {
+  for (let s = 0; s < 300; s++) {
+    const m = generateMaze(s * 7919 + 1);
+    assert.deepEqual(validateMaze(m), { ok: true }, `seed ${s}`);
+    assert.ok(m.pellets >= 110 && m.pellets <= 190, `${m.pellets} bits`);
+  }
+  assert.deepEqual(generateMaze(77).tiles, generateMaze(77).tiles);
+  assert.notDeepEqual(generateMaze(77).tiles, generateMaze(78).tiles);
+  // the tunnel row really wraps, and ghosts (but not the player) can use the pen door
+  const m = generateMaze(5);
+  assert.ok(mazeNeighbours(m, 0, m.tunnelRow, false).some((n) => n.x === MZ_W - 1));
+  assert.ok(!mazeNeighbours(m, 10, 5, false).some((n) => n.y === 6));
+  assert.ok(mazeNeighbours(m, 10, 5, true).some((n) => n.y === 6));
+  assert.equal(m.tiles.length, MZ_H);
+});
+
+test('MUNCH MAZE: eating bits scores, power bits scare the ghosts, scared ghosts can be eaten, a touch costs a heart', () => {
+  const m = munchReady();
+  assert.equal(m.phase, 'play');
+  const start = m.left;
+  // walk onto a bit
+  const { x, y } = m.pl;
+  m.bits[y][x] = true;
+  (m as unknown as { eatAt(x: number, y: number): void }).eatAt(x, y);
+  assert.equal(m.left, start - 1);
+  assert.ok(m.score >= 10);
+  // a power bit
+  const p = m.map.tiles.flatMap((row, ty) => row.map((c, tx) => ({ c, tx, ty }))).find((t) => t.c === 'o')!;
+  (m as unknown as { eatAt(x: number, y: number): void }).eatAt(p.tx, p.ty);
+  assert.ok(m.frightT > 3);
+  assert.ok(m.ghosts.filter((g) => g.state === 'fright').length >= 1, 'the ghosts outside the pen are scared');
+  // eat the scared ghost standing on the player: 200 points
+  const g0 = m.ghosts.find((g) => g.state === 'fright')!;
+  Object.assign(g0, { x: m.pl.x, y: m.pl.y, p: 0, dir: -1 });
+  const before = m.score;
+  m.update(1 / 60);
+  assert.equal(g0.state, 'eaten');
+  assert.equal(m.score - before >= 200, true);
+  // a normal ghost on the player costs a heart and resets the round
+  m.frightT = 0;
+  for (const g of m.ghosts) if (g.state === 'fright') g.state = 'normal';
+  const g1 = m.ghosts[0];
+  g1.state = 'normal';
+  Object.assign(g1, { x: m.pl.x, y: m.pl.y, p: 0, dir: -1 });
+  const hp = m.hp;
+  m.update(1 / 60);
+  assert.equal(m.hp, hp - 1);
+  assert.equal(m.phase, 'dying');
+  for (let i = 0; i < 200; i++) m.update(1 / 60);
+  assert.equal(m.phase, 'play');
+  assert.deepEqual([m.pl.x, m.pl.y], [m.map.start.x, m.map.start.y], 'back at the start');
+});
+
+test('MUNCH MAZE: floppies appear as the maze empties, clearing it wins and pays, losing every heart ends the run', () => {
+  const m = munchReady();
+  const eat = (n: number): void => {
+    let k = 0;
+    for (let y = 0; y < MZ_H && k < n; y++) for (let x = 0; x < MZ_W && k < n; x++) if (m.bits[y][x]) { (m as unknown as { eatAt(x: number, y: number): void }).eatAt(x, y); k++; }
+  };
+  eat(Math.ceil(m.total * 0.26));
+  for (let i = 0; i < 3; i++) m.update(1 / 60);
+  const bonus = (m as unknown as { bonus: { index: number } | null }).bonus;
+  assert.ok(bonus && bonus.index === 0, 'the first floppy shows at a quarter of the maze');
+  // collect it
+  m.pl.x = m.map.bonus.x;
+  m.pl.y = m.map.bonus.y;
+  (m as unknown as { eatAt(x: number, y: number): void }).eatAt(m.map.bonus.x, m.map.bonus.y);
+  assert.deepEqual(m.foundFloppies, ['munch-0']);
+  // eat the rest: the run is won and the world is cleared
+  eat(m.left);
+  for (let i = 0; i < 3; i++) m.update(1 / 60);
+  assert.equal(m.phase, 'won');
+  for (let i = 0; i < 200; i++) m.update(1 / 60);
+  assert.equal(m.game.profile.cleared.munch.clears, 1);
+
+  const l = munchReady();
+  l.hp = 1;
+  Object.assign(l.ghosts[0], { x: l.pl.x, y: l.pl.y, p: 0, dir: -1, state: 'normal' });
+  l.update(1 / 60);
+  for (let i = 0; i < 200; i++) l.update(1 / 60);
+  assert.equal(l.phase, 'lost');
+  for (let i = 0; i < 200; i++) l.update(1 / 60);
+  assert.equal(l.game.profile.cleared.munch.clears, 0);
+});
+
+test('MUNCH MAZE: a player who steers eats bits, and a held direction is taken at the next corner', () => {
+  const m = munchReady();
+  const g = m.game;
+  const before = m.left;
+  g.input.setVirtual('left', true);
+  for (let i = 0; i < 90; i++) { g.input.beginFrame(); m.update(1 / 60); g.input.endFrame(); }
+  g.input.setVirtual('left', false);
+  assert.ok(m.left < before, 'moving ate bits');
+  assert.ok(m.score > 0);
+});
+
+// ---- RING RIOT -----------------------------------------------------------------------------
+
+import { WrestleMode, FOES as WRESTLE_FOES } from '../src/modes/wrestle.ts';
+
+function wrestleReady(opts: Record<string, unknown> = {}, difficulty: 'easy' | 'normal' | 'hard' = 'normal'): WrestleMode {
+  (globalThis as unknown as Record<string, unknown>).document = { createElement: () => ({ width: 0, height: 0, getContext: () => ({}) }) };
+  const { game } = blocksGame(difficulty);
+  (game as unknown as Record<string, unknown>).say = () => {};
+  const m = new WrestleMode(game, { seed: 99, ...opts });
+  for (let i = 0; i < 200; i++) m.update(1 / 60);
+  return m;
+}
+const stepW = (m: WrestleMode, secs: number): void => { for (let i = 0; i < secs * 60; i++) { m.game.input.beginFrame(); m.update(1 / 60); m.game.input.endFrame(); } };
+
+test('RING RIOT: strikes hurt, blocks soften them, a third hit knocks down, a down wrestler cannot be struck', () => {
+  const m = wrestleReady();
+  assert.equal(m.phase, 'fight');
+  m.e.x = m.p.x + 28;
+  m.e.state = 'idle';
+  m.e.thinkT = 99;
+  const life0 = m.e.life;
+  const strike = (stage: number): void => {
+    m.e.x = m.p.x + 28;
+    m.e.vx = 0;
+    (m as unknown as { startStrike(f: unknown, s: number): void }).startStrike(m.p, stage);
+    stepW(m, 0.15);
+  };
+  strike(1);
+  assert.ok(m.e.life < life0, 'a jab lands');
+  stepW(m, 0.5);
+  m.e.state = 'idle';
+  const afterJab = m.e.life;
+  m.e.state = 'block';
+  m.e.face = -1;
+  m.e.blockT = 5;
+  strike(2);
+  assert.ok(afterJab - m.e.life < 1.5, 'a blocked strike barely scratches');
+  m.e.state = 'idle';
+  strike(3);
+  assert.ok(['thrown', 'down'].includes(m.e.state), 'the third hit is a knockdown');
+  const downLife = m.e.life;
+  m.e.state = 'down';
+  m.e.downT = 3;
+  strike(1);
+  assert.equal(m.e.life, downLife, 'nobody can hit a man on the mat');
+});
+
+test('RING RIOT: a well-timed lock-up is a suplex, a late one only a shove; mashing breaks a hold', () => {
+  const m = wrestleReady();
+  const startLock = (): void => {
+    m.e.x = m.p.x + 26;
+    m.e.state = 'idle';
+    m.e.thinkT = 99;
+    m.p.state = 'idle';
+    (m as unknown as { beginLock(a: unknown, v: unknown): void }).beginLock(m.p, m.e);
+  };
+  startLock();
+  m.lock!.t = 0.52;
+  const life0 = m.e.life;
+  (m as unknown as { throwFrom(l: unknown): void }).throwFrom(m.lock);
+  const suplex = life0 - m.e.life;
+  assert.ok(suplex >= 20, `a perfect throw does ${suplex}`);
+  assert.ok((m.e.state as string) === 'thrown' && m.e.downT >= 3);
+  assert.equal(m.lock, null);
+  // too late: a shove
+  m.e.life = life0;
+  startLock();
+  m.lock!.t = 0.98;
+  (m as unknown as { throwFrom(l: unknown): void }).throwFrom(m.lock);
+  assert.ok(life0 - m.e.life < 8);
+  // the victim mashes free
+  startLock();
+  m.lock!.escape = 1.2;
+  stepW(m, 0.05);
+  assert.equal(m.lock, null);
+  assert.ok(['hurt', 'idle'].includes(m.e.state as string));
+});
+
+test('RING RIOT: only a worn-down wrestler can be pinned; a pin that holds wins the match, pays a disk and starts the next', () => {
+  const m = wrestleReady();
+  const pinOn = (life: number): void => {
+    m.e.life = life;
+    m.e.x = m.p.x + 24;
+    m.e.state = 'down';
+    m.e.downT = 6;
+    m.e.thinkT = 99;
+    m.p.state = 'idle';
+    (m as unknown as { tryGrabOrPin(a: unknown, v: unknown): void }).tryGrabOrPin(m.p, m.e);
+  };
+  // a fresh opponent powers out
+  pinOn(m.e.max);
+  assert.equal(m.pin?.pinnable, false);
+  stepW(m, 2.2);
+  assert.equal(m.pin, null, 'too strong: kicked out at two');
+  assert.equal(m.phase, 'fight');
+  // a battered one cannot always kick out: with kick-out odds forced to zero the count reaches three
+  m.e.state = 'idle';
+  const kick = m.foe.kick;
+  m.foe.kick = 0;
+  pinOn(m.e.max * 0.2);
+  assert.equal((m.pin as unknown as { pinnable: boolean }).pinnable, true);
+  stepW(m, 3);
+  m.foe.kick = kick;
+  assert.equal(m.phase, 'pinfall');
+  assert.deepEqual(m.foundFloppies, ['wrestle-0']);
+  stepW(m, 3);
+  assert.equal(m.phase, 'between');
+  stepW(m, 3);
+  assert.equal(m.foeIndex, 1, 'the next match');
+  assert.equal(m.e.max >= WRESTLE_FOES[1].hp * 0.8, true);
+});
+
+test('RING RIOT: being pinned costs a heart; the last heart ends the run; winning the third match clears the world', () => {
+  const m = wrestleReady();
+  const hp = m.hp;
+  m.p.life = 0;
+  stepW(m, 0.1);
+  assert.ok(['thrown', 'down'].includes(m.p.state), 'out of life he goes down');
+  m.foe.kick = m.foe.kick;
+  // the AI pins and the player never answers: after the three count a heart is gone
+  stepW(m, 7);
+  assert.ok(m.hp < hp, `hearts ${hp} -> ${m.hp}`);
+  assert.equal(m.phase === 'fight' || m.phase === 'pinfall', true);
+
+  const l = wrestleReady();
+  l.hp = 1;
+  l.p.life = 0;
+  stepW(l, 9);
+  assert.equal(l.phase, 'lost');
+  stepW(l, 3);
+  assert.equal(l.game.profile.cleared.wrestle.clears, 0);
+
+  const w = wrestleReady();
+  w.foeIndex = 2;
+  (w as unknown as { startMatch(i: number): void }).startMatch(2);
+  stepW(w, 3);
+  w.e.life = 1;
+  w.e.x = w.p.x + 24;
+  w.e.state = 'down';
+  w.e.downT = 9;
+  w.foe.kick = 0;
+  (w as unknown as { tryGrabOrPin(a: unknown, v: unknown): void }).tryGrabOrPin(w.p, w.e);
+  stepW(w, 6);
+  assert.equal(w.phase, 'won');
+  stepW(w, 4);
+  assert.equal(w.game.profile.cleared.wrestle.clears, 1);
+  w.foe.kick = 0.8;
+});
+
+test('RING RIOT: a scripted fighter beats the champs on easy, and the same seed plays the same fight', () => {
+  const play = (seed: number): { win: boolean; life: number } => {
+    const m = wrestleReady({ seed }, 'easy');
+    const inp = m.game.input;
+    const rnd = new Rng(seed);
+    let next = 0;
+    for (let f = 0; f < 60 * 300 && m.phase !== 'won' && m.phase !== 'lost'; f++) {
+      for (const a of ['left', 'right', 'down', 'attack', 'jump', 'special'] as const) inp.setVirtual(a, false);
+      const t = f / 60;
+      if (m.phase === 'fight') {
+        const p = m.p, e = m.e, dx = e.x - p.x, dist = Math.abs(dx);
+        const press = (a: 'attack' | 'jump' | 'special'): void => { if (t >= next) { inp.setVirtual(a, true); next = t + 0.1; } };
+        if (m.lock && m.lock.atk === p) { if (m.lock.t >= 0.52) inp.setVirtual('attack', true); }
+        else if (m.lock && m.lock.vic === p) press('attack');
+        else if (m.pin && m.pin.vic === p) press(rnd.chance(0.5) ? 'attack' : 'jump');
+        else if (m.pin && m.pin.atk === p) press('jump');
+        else if (e.state === 'down' && e.life <= e.max * 0.45) { if (dist > 30) inp.setVirtual(dx > 0 ? 'right' : 'left', true); else press('jump'); }
+        else if (p.hype >= 100 && dist < 100 && ['idle', 'walk'].includes(p.state)) press('special');
+        else if (dist > 30) inp.setVirtual(dx > 0 ? 'right' : 'left', true);
+        else if (['idle', 'walk', 'strike'].includes(p.state)) press(rnd.chance(0.25) ? 'jump' : 'attack');
+      }
+      inp.beginFrame(); m.update(1 / 60); inp.endFrame();
+    }
+    return { win: m.phase === 'won', life: m.p.life };
+  };
+  let wins = 0;
+  for (let s = 1; s <= 8; s++) if (play(s * 31).win) wins++;
+  assert.ok(wins >= 6, `${wins}/8`);
+  assert.deepEqual(play(5), play(5), 'same seed, same fight');
+});

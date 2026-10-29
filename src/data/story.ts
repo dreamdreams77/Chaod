@@ -136,9 +136,12 @@ export const MODE_INFO: Record<ModeId, { title: string; genre: string; blurb: st
   mall: { title: 'NIGHTMARE MALL', genre: 'SURVIVAL HORROR + PET', blurb: 'Find 3 keycards and escape. Hide in lockers. BYTE can bark.', color: '#b3122e', short: 'MALL' },
   beatdown: { title: 'BOSS BEATDOWN', genre: 'FIGHTER → BULLET HELL', blurb: 'Fight BRICKLORD MAX. Fill block rows. Survive his genre tantrum.', color: '#ff6f3f' },
   rhythm: { title: 'GLITCH RHYTHM', genre: 'RHYTHM + SHOOTER', blurb: 'Hit notes on the beat to shoot DJ STATIC. Dodge the glitches.', color: '#ff3fd2' },
-  penalty: { title: 'PENALTY STORM', genre: 'SPORTS + BULLET HELL', blurb: 'Dribble, dodge the keeper\'s bullet patterns and score six goals.', color: '#ff9f3f' },
+  penalty: { title: 'PENALTY STORM', genre: 'SPORTS + BULLET HELL', blurb: 'Dribble, dodge the keeper\'s bullet patterns and score six goals.', color: '#ff9f3f', short: 'STORM' },
   blocks: { title: 'BLOCK PARTY', genre: 'PUZZLE + PARTY', blurb: 'Seven falling shapes, a fair bag and a ghost to aim by. Clear the line goal. Topping out costs a heart.', color: '#b07aff', short: 'BLOCKS' },
   bolt: { title: 'BOLT BRIGADE', genre: 'RUN-AND-GUN + BOSSES', blurb: 'Pick a robot master, run its stage, beat it and take its weapon. Charge your buster, exploit the weakness.', color: '#3f9fff', short: 'BOLT' },
+  munch: { title: 'MUNCH MAZE', genre: 'MAZE CHASE + GHOSTS', blurb: 'Gobble every bit in the maze. Four glitch ghosts hunt you, each in its own way. Power bits turn the tables.', color: '#fff36b', short: 'MUNCH' },
+  wrestle: { title: 'RING RIOT', genre: 'WRESTLING + TIMING', blurb: 'Strike, grapple and slam the champ, then pin him for the three count. Mash to hold him down.', color: '#ff6b8a', short: 'RING' },
+  pinball: { title: 'FLIPPER FRENZY', genre: 'PINBALL + MISSIONS', blurb: 'Three balls, bumpers, ramps and targets. Hit the score goal and light every mission.', color: '#6bffd8', short: 'FRENZY' },
   highscore: { title: 'THE HIGH SCORE', genre: 'EVERY GENRE', blurb: 'The final boss: three phases, bullet hell, a fighter and a remix. Graze bullets to charge bombs.', color: '#ffcf3f' },
   command: { title: 'CORE COMMAND', genre: 'STRATEGY → BULLET HELL', blurb: 'Build towers along the glitch road. Eight waves. Defend the Cartridge Core.', color: '#7dff6b' },
 };
@@ -149,7 +152,8 @@ export function lockHint(mode: ModeId): string {
   if (mode === 'command') return 'Clear any three worlds first.';
   if (mode === 'penalty') return 'Clear any four worlds first.';
   if (mode === 'blocks') return 'Clear any two worlds first.';
-  if (mode === 'bolt') return 'Clear any three worlds first.';
+  if (mode === 'bolt' || mode === 'pinball') return 'Clear any three worlds first.';
+  if (mode === 'wrestle') return 'Clear any four worlds first.';
   return 'Clear any two worlds first.';
 }
 
@@ -167,6 +171,9 @@ export function isModeUnlocked(mode: ModeId, cleared: Record<ModeId, { clears: n
     case 'penalty': return total >= 4;
     case 'blocks': return total >= 2;
     case 'bolt': return total >= 3;
+    case 'munch': return total >= 2;
+    case 'pinball': return total >= 3;
+    case 'wrestle': return total >= 4;
     case 'highscore': return true; // the Core only offers it once the Cartridge Core is restored
   }
 }

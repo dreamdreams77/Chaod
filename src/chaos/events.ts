@@ -64,6 +64,12 @@ export const CHAOS_EVENTS: ChaosEventDef[] = [
   { id: 'big_keeper', name: 'MEGA KEEPER', category: 'combat', modes: ['penalty'], duration: 8, telegraph: 2, cooldown: 35, weight: 2, flags: ['big_keeper'], bossSafe: true, harsh: true, blurb: 'The keeper ate a mushroom. Wide load.' },
   { id: 'lane_mirror', name: 'MIRROR MIX', category: 'combat', modes: ['rhythm'], duration: 8, telegraph: 2, cooldown: 30, weight: 3, flags: ['lane_mirror'], bossSafe: true, harsh: true, blurb: 'Lanes flip left-to-right.' },
 
+  { id: 'ghost_rush', name: 'GHOST RUSH', category: 'combat', modes: ['munch'], duration: 8, telegraph: 2, cooldown: 35, weight: 3, flags: ['ghost_rush'], bossSafe: true, harsh: true, blurb: 'The ghosts found an energy drink.' },
+  { id: 'wrong_way', name: 'WRONG WAY', category: 'combat', modes: ['munch'], duration: 7, telegraph: 2, cooldown: 35, weight: 2, flags: ['wrong_way'], bossSafe: true, harsh: true, blurb: 'Left is right and up is down.' },
+
+  { id: 'slippery', name: 'SLICK CANVAS', category: 'environmental', modes: ['wrestle'], duration: 9, telegraph: 2, cooldown: 35, weight: 3, flags: ['slippery'], bossSafe: true, blurb: 'Someone mopped the ring with butter.' },
+  { id: 'adrenaline', name: 'ADRENALINE', category: 'combat', modes: ['wrestle'], duration: 8, telegraph: 2, cooldown: 35, weight: 3, flags: ['adrenaline'], bossSafe: true, harsh: true, blurb: 'Everyone in the ring is 30% faster.' },
+
   // ---- Genre transformations ----------------------------------------------
   { id: 'enemies_racers', name: 'KART INVASION', category: 'genre', modes: ['rampage'], duration: 8, telegraph: 2, cooldown: 40, weight: 2, flags: ['enemies_racers'], bossSafe: false, blockedSegments: ['shmup'], blurb: 'All enemies are now racing karts. Stomp them for nitro.' },
   { id: 'mecha_mode', name: 'MECHA MODE', category: 'genre', modes: ['neon'], duration: 8, telegraph: 1.5, cooldown: 35, weight: 3, flags: ['mecha'], bossSafe: true, blurb: 'Your car is a fighting robot now. PUNCH the traffic.' },

@@ -39,8 +39,8 @@ interface Thing {
 }
 
 const CAB_Y = 58;
-/** Left edge of each of the nine cabinets (32px wide, 52px apart, centred on the 480px screen). */
-const CAB_X = Array.from({ length: 9 }, (_, i) => 16 + i * 52);
+/** Left edge of each cabinet (32px wide, 39px apart, spread across the 480px screen). */
+const CAB_X = Array.from({ length: MODE_IDS.length }, (_, i) => 4 + i * 39);
 
 /** The first-visit lobby tour: walk to each thing and use it. */
 const TOUR: Array<{ target: string; text: string }> = [
@@ -1187,8 +1187,8 @@ export class HubScene implements Scene {
     CAB_X.forEach((cx, i) => {
       const on = isModeUnlocked(MODE_IDS[i], p.cleared);
       ctx.globalAlpha = on ? 0.22 + Math.sin(t * 2 + i) * 0.04 : 0.08;
-      rect(ctx, cx - 6, CAB_Y + 34, 44, 4, on ? MODE_INFO[MODE_IDS[i]].color : '#8a7aa0');
-      rect(ctx, cx - 2, CAB_Y + 38, 36, 3, on ? MODE_INFO[MODE_IDS[i]].color : '#8a7aa0');
+      rect(ctx, cx - 3, CAB_Y + 34, 38, 4, on ? MODE_INFO[MODE_IDS[i]].color : '#8a7aa0');
+      rect(ctx, cx, CAB_Y + 38, 32, 3, on ? MODE_INFO[MODE_IDS[i]].color : '#8a7aa0');
       ctx.globalAlpha = 1;
     });
     this.drawDecor(ctx, 'wall');
@@ -1364,6 +1364,31 @@ export class HubScene implements Scene {
         case 'bolt': rect(ctx, x + 4, y + 26, 24, 2, '#2a6aa8'); rect(ctx, x + 6 + ((t * 12) % 14), y + 17, 4, 9, '#3f9fff'); rect(ctx, x + 18 + ((t * 24) % 8), y + 20, 3, 2, '#ffe23f'); rect(ctx, x + 20, y + 14, 6, 12, '#ff7a1a'); break;
         case 'penalty': rect(ctx, x + 4, y + 10, 24, 18, '#0f4a24'); rect(ctx, x + 10, y + 11, 12, 2, '#fff'); rect(ctx, x + 12 + Math.round(Math.sin(t * 3) * 4), y + 13, 4, 3, '#ff9f3f'); rect(ctx, x + 15, y + 26 - ((t * 14) % 14), 3, 3, '#fff'); rect(ctx, x + 6 + ((t * 20) % 22), y + 18, 2, 2, '#ff3fd2'); break;
         case 'command': for (let i = 0; i < 5; i++) rect(ctx, x + 5 + i * 4, y + 22 - (i % 2) * 6, 3, 3, i % 2 ? '#7dff6b' : '#ff3f6b'); rect(ctx, x + 5, y + 25, 22, 2, '#2a2438'); rect(ctx, x + 6 + ((t * 14) % 16), y + 23, 3, 3, '#ffcf3f'); break;
+        case 'munch': {
+          for (let i = 0; i < 5; i++) rect(ctx, x + 7 + i * 4, y + 24, 2, 2, '#ffe9a0');
+          const mx = 7 + ((t * 10) % 20);
+          rect(ctx, x + mx, y + 17, 6, 6, '#fff36b');
+          rect(ctx, x + mx + 4, y + 19, 2, 2, '#000');
+          rect(ctx, x + 22 - ((t * 6) % 6), y + 14, 5, 6, '#ff4d4d');
+          break;
+        }
+        case 'wrestle': {
+          const bump = Math.floor(t * 3) % 2;
+          rect(ctx, x + 5, y + 25, 22, 2, '#ddd'); // ring ropes
+          rect(ctx, x + 8, y + 17 + bump, 5, 8 - bump, '#ff6b8a');
+          rect(ctx, x + 18, y + 17, 5, 8, '#3fe0ff');
+          rect(ctx, x + 13 + bump * 2, y + 19, 5, 2, '#ffe9a0');
+          break;
+        }
+        case 'pinball': {
+          rect(ctx, x + 5, y + 11, 1, 16, '#6bffd8'); rect(ctx, x + 26, y + 11, 1, 16, '#6bffd8');
+          rect(ctx, x + 10 + Math.floor(Math.sin(t * 4) * 2), y + 15, 4, 4, '#ff3fa4');
+          rect(ctx, x + 18, y + 14, 4, 4, '#ffcf3f');
+          rect(ctx, x + 8, y + 25, 6, 2, '#ddd'); rect(ctx, x + 18, y + 25, 6, 2, '#ddd');
+          const by = 12 + Math.abs(Math.sin(t * 5)) * 11;
+          rect(ctx, x + 14 + Math.floor(Math.sin(t * 2.3) * 5), y + Math.round(by), 3, 3, '#fff');
+          break;
+        }
         case 'rhythm': for (let i = 0; i < 4; i++) rect(ctx, x + 6 + i * 5, y + 10 + ((t * 30 + i * 7) % 16), 4, 2, ['#ff3fd2', '#3fe0ff', '#7dff6b', '#ffcf3f'][i]); break;
       }
     } else drawText(ctx, 'X', x + 16, y + 15, '#555', { align: 'center' });

@@ -898,7 +898,7 @@ test('records gather per-world numbers and format times', async () => {
   p.floppies = ['neon-0', 'neon-2', 'mall-1'];
   p.endless.neon = { rounds: 4, score: 100 };
   const recs = worldRecords(p);
-  assert.equal(recs.length, 10, 'every world, the final boss included');
+  assert.equal(recs.length, MODE_IDS.length + 1, 'every world, the final boss included');
   const n = recs.find((r) => r.mode === 'neon')!;
   assert.deepEqual([n.clears, n.bestScore, n.floppies, n.endlessRounds], [2, 900, 2, 4]);
   assert.equal(formatTime(75.5), '1:15.5');

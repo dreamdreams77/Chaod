@@ -25,6 +25,9 @@ import { CommandMode } from './modes/command.ts';
 import { PenaltyMode } from './modes/penalty.ts';
 import { BlocksMode } from './modes/blocks.ts';
 import { BoltMode } from './modes/bolt.ts';
+import { MunchMode } from './modes/munch.ts';
+import { WrestleMode } from './modes/wrestle.ts';
+import { PinballMode } from './modes/pinball.ts';
 import { HighScoreMode } from './modes/highscore.ts';
 import { PerkScene } from './scenes/perks.ts';
 import { offerPerks, perkTotals } from './data/perks.ts';
@@ -83,6 +86,9 @@ function boot(): void {
       case 'penalty': return new PenaltyMode(game, opts);
       case 'blocks': return new BlocksMode(game, opts);
       case 'bolt': return new BoltMode(game, opts);
+      case 'munch': return new MunchMode(game, opts);
+      case 'wrestle': return new WrestleMode(game, opts);
+      case 'pinball': return new PinballMode(game, opts);
       case 'highscore': return new HighScoreMode(game, opts);
     }
   };
