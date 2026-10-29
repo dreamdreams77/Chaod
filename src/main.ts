@@ -164,6 +164,10 @@ function boot(): void {
     if (game.settings.rotate === 'landscape') void setRotation('landscape');
   };
   window.addEventListener('pointerdown', relock, { once: true });
+  // a lock only holds in fullscreen on many phones: when fullscreen comes back, restore the player's choice
+  document.addEventListener('fullscreenchange', () => {
+    if (document.fullscreenElement) relock();
+  });
   setupRotateHint(() => input.usingTouch);
 
   // Fit the screen inside the page. On touch devices the pad gets its own gutter
@@ -291,10 +295,15 @@ function setupRotateHint(usingTouch: () => boolean): void {
     }
   };
   el.querySelector('button')?.addEventListener('click', hide);
+  const hideIfSeen = () => {
+    // only count the tip as seen if the page was actually in front of the player
+    if (document.visibilityState === 'visible') hide();
+    else el.classList.remove('on');
+  };
   const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
   if (seen || !(coarse || usingTouch())) return;
   if (window.innerHeight < window.innerWidth) return; // already sideways
   el.classList.add('on');
-  setTimeout(hide, 9000);
+  setTimeout(hideIfSeen, 9000);
   window.addEventListener('orientationchange', hide, { once: true });
 }

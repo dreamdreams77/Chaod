@@ -145,8 +145,8 @@ export class SettingsScene implements Scene {
     const info = installState();
     if (info.state === 'prompt') {
       const ok = await promptInstall();
-      this.game.toast(ok ? 'INSTALLED!' : 'NOT INSTALLED', ok ? 'FIND IT ON YOUR HOME SCREEN' : 'MAYBE LATER', ok ? '#7dff6b' : '#9a9ab8');
-    } else this.game.toast(info.state === 'installed' ? 'ALREADY INSTALLED' : 'INSTALL AS APP', info.help.toUpperCase().slice(0, 60), '#3fe0ff');
+      this.game.toast(ok ? 'INSTALLED!' : 'NOT INSTALLED', ok ? 'FIND IT ON YOUR HOME SCREEN' : 'YOU CAN USE THE BROWSER MENU LATER', ok ? '#7dff6b' : '#9a9ab8');
+    } else this.game.toast(info.state === 'installed' ? 'ALREADY INSTALLED' : 'INSTALL AS APP', info.short, '#3fe0ff');
   }
 
   private async download(): Promise<void> {

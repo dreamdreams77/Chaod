@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.6.1 — bug check on the app extras
+- The offline cache only stores good responses (an error page or a captive-portal page can no longer replace the saved game), writes are awaited so the worker is not cut off mid-save, and the cache name now includes a hash of the game, manifest and icons, so any change starts a fresh cache even without a version bump.
+- DOWNLOAD OFFLINE COPY always fetches the live page (it used to be able to hand back the copy saved at install time).
+- INSTALL AS APP no longer reads INSTALLED just because you turned FULLSCREEN on, and its tip fits the toast instead of being cut off. A refused landscape lock no longer leaves the game stuck in fullscreen, and the saved landscape choice is restored when fullscreen comes back.
+- The "turn your phone" tip is only counted as seen if the page was in front of you.
+
 ## 3.6.0 — landscape on phones, and an installable offline app
 - **Turn your phone for a bigger screen, if you want to.** Held upright, a phone shows a small dismissible tip ("turn your phone sideways for a bigger screen, optional") once for a few seconds; it never nags and the game plays the same either way. Settings gets **SCREEN ROTATION** (AUTO follows the phone; LANDSCAPE asks the phone to stay sideways, which needs fullscreen on some Android phones) and **FULLSCREEN**.
 - **Install it as an app**: Settings has **INSTALL AS APP** (the browser's own install dialog on Chrome, Edge and Android; on iPhone and iPad it says how: Share, then Add to Home Screen). Once installed it runs full screen with its own icon.

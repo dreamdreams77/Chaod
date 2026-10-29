@@ -25,7 +25,8 @@ export function watchInstall(): void {
 
 export function isStandalone(): boolean {
   try {
-    return installed || window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: fullscreen)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
+    // (browser fullscreen is not "installed": only the standalone display mode and iOS's flag count)
+    return installed || window.matchMedia('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
   } catch {
     return false;
   }
@@ -39,11 +40,11 @@ export function isIOS(): boolean {
 export type InstallState = 'installed' | 'prompt' | 'ios' | 'manual';
 
 /** What the INSTALL AS APP row should say and do, from three facts about the browser. */
-export function installInfo(f: { standalone: boolean; hasPrompt: boolean; ios: boolean }): { state: InstallState; value: string; help: string } {
-  if (f.standalone) return { state: 'installed', value: 'INSTALLED', help: 'CHAOS.exe is running as an installed app.' };
-  if (f.hasPrompt) return { state: 'prompt', value: 'INSTALL', help: 'Adds CHAOS.exe to your home screen or desktop. It runs full screen and works offline.' };
-  if (f.ios) return { state: 'ios', value: 'HOW?', help: 'On iPhone and iPad: tap the Share button, then "Add to Home Screen".' };
-  return { state: 'manual', value: 'HOW?', help: 'Open your browser menu and choose "Install app" or "Add to Home Screen".' };
+export function installInfo(f: { standalone: boolean; hasPrompt: boolean; ios: boolean }): { state: InstallState; value: string; help: string; short: string } {
+  if (f.standalone) return { state: 'installed', value: 'INSTALLED', help: 'CHAOS.exe is running as an installed app.', short: 'IT IS RUNNING AS AN APP' };
+  if (f.hasPrompt) return { state: 'prompt', value: 'INSTALL', help: 'Adds CHAOS.exe to your home screen or desktop. It runs full screen and works offline.', short: 'PRESS TO INSTALL' };
+  if (f.ios) return { state: 'ios', value: 'HOW?', help: 'On iPhone and iPad: tap the Share button, then "Add to Home Screen".', short: 'SHARE, THEN ADD TO HOME SCREEN' };
+  return { state: 'manual', value: 'HOW?', help: 'Open your browser menu and choose "Install app" or "Add to Home Screen".', short: 'BROWSER MENU: INSTALL APP' };
 }
 
 export function installState(): ReturnType<typeof installInfo> {
@@ -100,9 +101,15 @@ export async function setRotation(mode: 'auto' | 'landscape'): Promise<boolean> 
       return true;
     }
     if (typeof o.lock !== 'function') return false;
-    if (fullscreenSupported() && !isFullscreen() && !isStandalone()) await setFullscreen(true);
-    await o.lock('landscape');
-    return true;
+    const enteredFullscreen = fullscreenSupported() && !isFullscreen() && !isStandalone() && (await setFullscreen(true));
+    try {
+      await o.lock('landscape');
+      return true;
+    } catch {
+      // the lock was refused: do not leave the page stuck in a fullscreen the player did not ask for
+      if (enteredFullscreen) await setFullscreen(false);
+      return false;
+    }
   } catch {
     return false;
   }
